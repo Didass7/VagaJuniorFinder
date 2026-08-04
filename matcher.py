@@ -29,15 +29,14 @@ TITLE_DISQUALIFIERS = [
     "senior", "sr", "lead", "principal", "head of", "director", "architect", "staff", "vp of", "manager"
 ]
 
-# Regex pattern catching experience requirements >= 3 years:
-# Matches: "5 to 7 years", "5-7 years", "3 to 5 years", "3-5 years", "3+ years", "4+ years", "5+ years",
-# "5 years of experience", "at least 3 years", "mínimo de 3 anos", etc.
+# Robust Regex catching experience requirements >= 3 years:
+# Handles hyphens, en-dashes (\u2013), em-dashes (\u2014), 'to', 'a', 'yrs', 'years', 'anos'
+# Examples caught: "4–8 years", "5-7 years", "3 to 5 years", "3+ years", "4+ yrs", "at least 3 years", etc.
+# Ignores: "0-2 years", "1-2 years", "0 to 1 year"
 YEARS_EXP_PATTERN = re.compile(
-    r"\b([3-9]|1[0-5])\s*(?:\+|\-|to|a)\s*([3-9]|1[0-5])?\s*(?:years?|anos?)|"
-    r"\b([3-9]|1[0-5])\s*\+\s*(?:years?|anos?)|"
-    r"\b([3-9]|1[0-5])\s*(?:years?|anos?)\s+(?:of\s+)?experience|"
-    r"at\s+least\s+([3-9]|1[0-5])\s*(?:years?|anos?)|"
-    r"mínimo\s+de?\s+([3-9]|1[0-5])\s*(?:years?|anos?)",
+    r"\b([3-9]|1[0-5])\s*(?:\+|\-|[\u2010-\u2015\~]|to|a)?\s*([3-9]|1[0-5])?\s*(?:years?|yrs?|anos?)|"
+    r"\b([3-9]|1[0-5])\s*(?:years?|yrs?|anos?)\s+(?:of\s+)?experience|"
+    r"(?:at\s+least|mínimo\s+de?)\s+([3-9]|1[0-5])\s*(?:years?|yrs?|anos?)",
     re.IGNORECASE
 )
 
