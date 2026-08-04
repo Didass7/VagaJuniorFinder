@@ -12,11 +12,11 @@ class ReportBuilder:
     def build_markdown(self, scored_jobs: List[ScoredJob]) -> str:
         today_str = datetime.date.today().strftime("%d/%m/%Y")
         
-        top_matches = [j for j in scored_jobs if j.score >= 75.0]
-        promising_matches = [j for j in scored_jobs if 50.0 <= j.score < 75.0]
-        other_matches = [j for j in scored_jobs if 35.0 <= j.score < 50.0]
+        top_matches = [j for j in scored_jobs if j.score >= 75.0][:10]
+        promising_matches = [j for j in scored_jobs if 50.0 <= j.score < 75.0][:10]
+        other_matches = [j for j in scored_jobs if 35.0 <= j.score < 50.0][:5]
 
-        displayed_jobs = top_matches + promising_matches + other_matches
+        total_recommended = len(top_matches) + len(promising_matches) + len(other_matches)
 
         md = []
         md.append(f"# Relatório Diário de Vagas — AI & Data Science")
@@ -24,10 +24,10 @@ class ReportBuilder:
         
         # Minimalist Stats Summary
         md.append(f"### Resumo")
-        md.append(f"- **Total Recomendadas:** `{len(displayed_jobs)}` &nbsp;|&nbsp; **Destaques (≥75%):** `{len(top_matches)}` &nbsp;|&nbsp; **Promissoras (50-74%):** `{len(promising_matches)}` &nbsp;|&nbsp; **Outras (35-49%):** `{len(other_matches)}`")
+        md.append(f"- **Total Recomendadas:** `{total_recommended}` &nbsp;|&nbsp; **Destaques (≥75%):** `{len(top_matches)}` &nbsp;|&nbsp; **Promissoras (50-74%):** `{len(promising_matches)}` &nbsp;|&nbsp; **Outras (35-49%):** `{len(other_matches)}`")
         md.append("\n---\n")
 
-        # Top Matches Section
+        # Top Matches Section (Max 10)
         md.append(f"## Vagas Destaque (Match ≥ 75%)\n")
         if not top_matches:
             md.append("*Nenhuma vaga atingiu a pontuação de destaque no dia de hoje.*\n")
@@ -37,7 +37,7 @@ class ReportBuilder:
 
         md.append("---\n")
 
-        # Promising Matches Section
+        # Promising Matches Section (Max 10)
         md.append(f"## Oportunidades Promissoras (Match 50-74%)\n")
         if not promising_matches:
             md.append("*Nenhuma vaga encontrada nesta categoria no dia de hoje.*\n")
@@ -47,15 +47,8 @@ class ReportBuilder:
 
         md.append("---\n")
 
-        # Other Relevant Opportunities Section (Match 35-49%)
-        if other_matches:
-            md.append(f"## Outras Oportunidades (Match 35-49%)\n")
-            for sj in other_matches:
-                md.append(self._format_job_card_md(sj))
-            md.append("---\n")
-
-        # Opportunities per Site / Source Section (calculated from displayed jobs)
-        md.append(self._build_sources_section_md(displayed_jobs))
+        # Dynamic Tech Stack Demand Trends Section
+        md.append(self._build_tech_trends_section_md(scored_jobs))
 
         md.append("\n---\n")
         md.append(f"*VagaJuniorFinder | Gerado a {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}.*")
@@ -65,18 +58,17 @@ class ReportBuilder:
     def build_telegram_html(self, scored_jobs: List[ScoredJob]) -> str:
         today_str = datetime.date.today().strftime("%d/%m/%Y")
         
-        top_matches = [j for j in scored_jobs if j.score >= 75.0]
-        promising_matches = [j for j in scored_jobs if 50.0 <= j.score < 75.0]
-        other_matches = [j for j in scored_jobs if 35.0 <= j.score < 50.0]
+        top_matches = [j for j in scored_jobs if j.score >= 75.0][:8]
+        promising_matches = [j for j in scored_jobs if 50.0 <= j.score < 75.0][:8]
 
-        displayed_jobs = top_matches + promising_matches + other_matches
+        total_recommended = len(top_matches) + len(promising_matches)
 
         html = []
         html.append(f"<b>Relatório Diário de Vagas — AI &amp; Data Science</b>")
         html.append(f"<b>Candidato:</b> {self.profile.name} | <b>Data:</b> {today_str}\n")
         
         html.append(f"<b>Resumo</b>")
-        html.append(f"• Total Recomendadas: <code>{len(displayed_jobs)}</code> | Destaques (≥75%): <code>{len(top_matches)}</code> | Promissoras (50-74%): <code>{len(promising_matches)}</code>\n")
+        html.append(f"• Total Recomendadas: <code>{total_recommended}</code> | Destaques (≥75%): <code>{len(top_matches)}</code> | Promissoras (50-74%): <code>{len(promising_matches)}</code>\n")
 
         # Top Matches Section
         html.append(f"<b>Vagas Destaque (Match ≥ 75%)</b>")
@@ -94,20 +86,17 @@ class ReportBuilder:
             for sj in promising_matches:
                 html.append(self._format_job_card_html(sj))
 
-        # Other Relevant Opportunities (Match 35-49%)
-        if other_matches:
-            html.append(f"<b>Outras Oportunidades (Match 35-49%)</b>")
-            for sj in other_matches:
-                html.append(self._format_job_card_html(sj))
-
-        # Opportunities per site/source section (based on displayed_jobs)
-        source_counts = Counter(sj.job.source for sj in displayed_jobs)
-        if source_counts:
-            html.append(f"<b>Oportunidades por Site</b>")
-            for source, count in source_counts.most_common():
-                vagas_str = "vaga" if count == 1 else "vagas"
-                html.append(f"• <b>{source}:</b> <code>{count}</code> {vagas_str}")
-            html.append("")
+        # Tech Trends
+        skill_counts = Counter()
+        for sj in scored_jobs:
+            for skill in sj.matched_skills:
+                skill_counts[skill] += 1
+                
+        if skill_counts:
+            html.append(f"<b>Tecnologias Mais Demandadas Hoje</b>")
+            top_skills = skill_counts.most_common(6)
+            skills_str = ", ".join([f"<code>{sk.title()}</code> ({cnt})" for sk, cnt in top_skills])
+            html.append(f"• {skills_str}\n")
 
         html.append(f"<i>VagaJuniorFinder | {datetime.datetime.now().strftime('%H:%M')}</i>")
         return "\n".join(html)
@@ -146,17 +135,21 @@ class ReportBuilder:
         lines.append(f"👉 <a href=\"{job.link}\">Candidatar — {job.company}</a>\n")
         return "\n".join(lines)
 
-    def _build_sources_section_md(self, scored_jobs: List[ScoredJob]) -> str:
-        lines = ["## Oportunidades por Site / Fonte\n"]
-        source_counts = Counter(sj.job.source for sj in scored_jobs)
-        
-        if not source_counts:
-            lines.append("*Nenhuma fonte identificada no dia de hoje.*")
+    def _build_tech_trends_section_md(self, scored_jobs: List[ScoredJob]) -> str:
+        lines = ["## Tecnologias Mais Demandadas Hoje\n"]
+        skill_counts = Counter()
+        for sj in scored_jobs:
+            for skill in sj.matched_skills:
+                skill_counts[skill] += 1
+                
+        if not skill_counts:
+            lines.append("*Sem dados de stack para hoje.*")
             return "\n".join(lines)
             
-        for source, count in source_counts.most_common():
-            vagas_str = "vaga" if count == 1 else "vagas"
-            lines.append(f"- **{source}**: `{count}` {vagas_str}")
+        top_skills = skill_counts.most_common(8)
+        for skill, count in top_skills:
+            pct = round((count / len(scored_jobs)) * 100, 1)
+            lines.append(f"- **{skill.title()}**: `{count} vagas` ({pct}%)")
             
         lines.append("")
         return "\n".join(lines)

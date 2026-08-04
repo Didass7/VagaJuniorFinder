@@ -12,7 +12,11 @@ try:
     from duckduckgo_search import DDGS
     DDG_AVAILABLE = True
 except ImportError:
-    DDG_AVAILABLE = False
+    try:
+        from ddgs import DDGS
+        DDG_AVAILABLE = True
+    except ImportError:
+        DDG_AVAILABLE = False
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("Scraper")
@@ -21,6 +25,38 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
 }
+
+# Regex to identify category / search listing aggregator pages (NOT direct job offers)
+AGGREGATOR_URL_PATTERNS = [
+    r"linkedin\.com/jobs/(?!view/)",  # linkedin.com/jobs/junior-machine-learning-engineer-vagas (Not /view/)
+    r"glassdoor\.com/Job/",
+    r"indeed\.com/q-",
+    r"indeed\.com/jobs\?",
+    r"net-empregos\.com/pesquisa",
+    r"tecnojobs\.pt/empregos-",
+]
+
+AGGREGATOR_TITLE_PATTERNS = [
+    r"\d+\s+(?:vagas|jobs|ofertas|empregos)",
+    r"^empregos\s+de",
+    r"search\s+results",
+    r"vagas\s+de\s+emprego",
+    r"jobs\s+in\s+portugal",
+]
+
+def is_search_aggregator(link: str, title: str) -> bool:
+    link_lower = link.lower()
+    title_lower = title.lower()
+    
+    for pat in AGGREGATOR_URL_PATTERNS:
+        if re.search(pat, link_lower):
+            return True
+            
+    for pat in AGGREGATOR_TITLE_PATTERNS:
+        if re.search(pat, title_lower):
+            return True
+            
+    return False
 
 @dataclass
 class Job:
@@ -40,13 +76,11 @@ class Job:
             raw_str = f"{self.title.lower().strip()}_{self.company.lower().strip()}_{self.link.strip()}"
             self.job_id = hashlib.sha256(raw_str.encode('utf-8')).hexdigest()[:16]
         
-        # Check IEFP / ATIVAR.pt mention in title or description
         text_content = f"{self.title} {self.description}".lower()
         if any(term in text_content for term in ["iefp", "ativar.pt", "ativar pt", "estágio profissional", "estagio profissional"]):
             self.iefp_mentioned = True
             
-        # Detect work mode if unknown
-        if self.work_mode.lower() in ["unknown", "n/a", ""]:
+        if self.work_mode.lower() in ["unknown", "n/a", "não especificado", ""]:
             if "remot" in text_content or "teletrabalho" in text_content:
                 self.work_mode = "Remoto"
             elif "híbrid" in text_content or "hybrid" in text_content:
@@ -54,10 +88,10 @@ class Job:
             elif "presencial" in text_content or "on-site" in text_content or "onsite" in text_content:
                 self.work_mode = "Presencial"
             else:
-                self.work_mode = "Não especificado"
+                self.work_mode = "Presencial / Híbrido"
 
 class ITJobsScraper:
-    """Scrapes ITJobs.pt via API (if key provided) or direct web scraping of ITJobs.pt/emprego."""
+    """Scrapes ITJobs.pt via API or direct web scraping for AI/Data jobs."""
     def fetch(self, api_key: str = "") -> List[Job]:
         jobs = []
         if api_key:
@@ -68,7 +102,7 @@ class ITJobsScraper:
                     data = resp.json()
                     for item in data.get("results", []):
                         title = item.get("title", "")
-                        company = item.get("company", {}).get("name", "N/A")
+                        company = item.get("company", {}).get("name", "Empresa ITJobs")
                         body = item.get("body", "")
                         link = f"https://www.itjobs.pt/oferta/{item.get('id')}"
                         locations = ", ".join([loc.get("name", "") for loc in item.get("locations", [])])
@@ -88,7 +122,7 @@ class ITJobsScraper:
             "https://www.itjobs.pt/emprego?q=data+scientist",
             "https://www.itjobs.pt/emprego?q=machine+learning",
             "https://www.itjobs.pt/emprego?q=inteligencia+artificial",
-            "https://www.itjobs.pt/emprego?q=machine+learning"
+            "https://www.itjobs.pt/emprego?q=python"
         ]
         
         seen_links = set()
@@ -97,36 +131,35 @@ class ITJobsScraper:
                 resp = requests.get(url, headers=HEADERS, timeout=10)
                 if resp.status_code == 200:
                     soup = BeautifulSoup(resp.text, "html.parser")
-                    job_elements = soup.find_all("div", class_=re.compile(r"list-item|job-item|offer-item|list-row"))
-                    if not job_elements:
-                        # Fallback to finding title links directly
-                        title_anchors = soup.find_all("a", class_="title")
-                        for a in title_anchors:
-                            href = a.get("href", "")
-                            if href and href not in seen_links:
-                                seen_links.add(href)
-                                full_link = f"https://www.itjobs.pt{href}" if href.startswith("/") else href
-                                title = a.get_text(strip=True)
+                    title_anchors = soup.find_all("a", class_="title")
+                    for a in title_anchors:
+                        href = a.get("href", "")
+                        if href and href not in seen_links:
+                            seen_links.add(href)
+                            full_link = f"https://www.itjobs.pt{href}" if href.startswith("/") else href
+                            title = a.get_text(strip=True)
+                            
+                            if is_search_aggregator(full_link, title):
+                                continue
                                 
-                                # Find parent container for company & location info
-                                parent = a.find_parent("div", class_="info") or a.find_parent("div")
-                                company = "N/A"
-                                desc = title
-                                location = "Portugal"
-                                
-                                if parent:
-                                    company_elem = parent.find("a", class_="company") or parent.find("span", class_="company")
-                                    if company_elem:
-                                        company = company_elem.get_text(strip=True)
-                                    location_elem = parent.find("span", class_="location") or parent.find("div", class_="location")
-                                    if location_elem:
-                                        location = location_elem.get_text(strip=True)
-                                        
-                                jobs.append(Job(
-                                    title=title, company=company, location=location,
-                                    work_mode="Unknown", link=full_link, description=desc,
-                                    source="ITJobs.pt Web", pub_date=datetime.date.today().isoformat()
-                                ))
+                            parent = a.find_parent("div", class_="info") or a.find_parent("div")
+                            company = "Empresa via ITJobs"
+                            desc = title
+                            location = "Portugal"
+                            
+                            if parent:
+                                company_elem = parent.find("a", class_="company") or parent.find("span", class_="company")
+                                if company_elem:
+                                    company = company_elem.get_text(strip=True)
+                                location_elem = parent.find("span", class_="location") or parent.find("div", class_="location")
+                                if location_elem:
+                                    location = location_elem.get_text(strip=True)
+                                    
+                            jobs.append(Job(
+                                title=title, company=company, location=location,
+                                work_mode="Unknown", link=full_link, description=desc,
+                                source="ITJobs.pt", pub_date=datetime.date.today().isoformat()
+                            ))
 
             logger.info(f"[ITJobs.pt Web] Fetched {len(jobs)} jobs.")
         except Exception as e:
@@ -146,9 +179,13 @@ class LandingJobsScraper:
                     title = item.get("title", "")
                     company = item.get("company_name", "N/A")
                     link = item.get("url", "")
+                    
+                    if is_search_aggregator(link, title):
+                        continue
+
                     location = item.get("location", "Portugal / EU")
                     remote = item.get("remote", False)
-                    work_mode = "Remoto" if remote else "Híbrido / Presencial"
+                    work_mode = "Remoto" if remote else "Presencial / Híbrido"
                     desc = item.get("role_description", "") or item.get("summary", "")
                     pub_date = item.get("published_at", datetime.date.today().isoformat())
                     
@@ -175,6 +212,10 @@ class RemotiveScraper:
                     title = item.get("title", "")
                     company = item.get("company_name", "N/A")
                     link = item.get("url", "")
+                    
+                    if is_search_aggregator(link, title):
+                        continue
+
                     location = item.get("candidate_required_location", "Worldwide Remote")
                     desc = BeautifulSoup(item.get("description", ""), "html.parser").get_text(strip=True)
                     pub_date = item.get("publication_date", datetime.date.today().isoformat())[:10]
@@ -202,6 +243,10 @@ class ArbeitnowScraper:
                     title = item.get("title", "")
                     company = item.get("company_name", "N/A")
                     link = item.get("url", "")
+                    
+                    if is_search_aggregator(link, title):
+                        continue
+
                     location = item.get("location", "Europe / Remote")
                     remote = item.get("remote", False)
                     work_mode = "Remoto" if remote else "Presencial / Híbrido"
@@ -228,10 +273,14 @@ class WeWorkRemotelyScraper:
             for entry in feed.entries:
                 title = entry.get("title", "")
                 link = entry.get("link", "")
+                
+                if is_search_aggregator(link, title):
+                    continue
+
                 desc = BeautifulSoup(entry.get("summary", ""), "html.parser").get_text(strip=True)
                 pub_date = entry.get("published", datetime.date.today().isoformat())
                 
-                company = "N/A"
+                company = "Empresa Remote"
                 if ":" in title:
                     parts = title.split(":", 1)
                     company = parts[0].strip()
@@ -248,25 +297,28 @@ class WeWorkRemotelyScraper:
         return jobs
 
 class DuckDuckGoJobScraper:
-    """Targeted search queries via DuckDuckGo for LinkedIn, Indeed, Glassdoor & Tech Careers."""
+    """Targeted search queries via DuckDuckGo for direct job view links."""
     def fetch(self, target_queries: List[str]) -> List[Job]:
         jobs = []
         if not DDG_AVAILABLE:
-            logger.warning("[DuckDuckGo] duckduckgo_search package not installed or available.")
+            logger.warning("[DuckDuckGo] Search library not available.")
             return jobs
             
         try:
             with DDGS() as ddgs:
                 for query in target_queries:
                     try:
-                        results = list(ddgs.text(query, max_results=10))
+                        results = list(ddgs.text(query, max_results=8))
                         for r in results:
                             title = r.get("title", "")
                             link = r.get("href", "")
                             snippet = r.get("body", "")
                             
-                            # Estimate company from snippet or title
-                            company = "Empresa via Web Search"
+                            # Filter out category/search aggregator pages
+                            if is_search_aggregator(link, title):
+                                continue
+
+                            company = "Empresa via Web"
                             if " | " in title:
                                 parts = title.split(" | ")
                                 title = parts[0]
@@ -279,11 +331,11 @@ class DuckDuckGoJobScraper:
                             jobs.append(Job(
                                 title=title, company=company, location="Portugal / Remoto",
                                 work_mode="Unknown", link=link, description=snippet,
-                                source="DuckDuckGo Search", pub_date=datetime.date.today().isoformat()
+                                source="Web Search", pub_date=datetime.date.today().isoformat()
                             ))
                     except Exception as q_err:
                         logger.warning(f"[DuckDuckGo Query Error] {query}: {q_err}")
-            logger.info(f"[DuckDuckGo Search] Fetched {len(jobs)} job search results.")
+            logger.info(f"[DuckDuckGo Search] Fetched {len(jobs)} direct job offers.")
         except Exception as e:
             logger.error(f"[DuckDuckGo Search] Error: {e}")
         return jobs
@@ -303,41 +355,23 @@ class JobIngestionPipeline:
         logger.info("🚀 Starting multi-source job ingestion pipeline...")
         all_jobs: List[Job] = []
 
-        # 1. ITJobs.pt
         all_jobs.extend(self.itjobs_scraper.fetch(self.itjobs_api_key))
-        
-        # 2. Landing.jobs
         all_jobs.extend(self.landing_scraper.fetch())
-        
-        # 3. Remotive.com
         all_jobs.extend(self.remotive_scraper.fetch())
-        
-        # 4. Arbeitnow
         all_jobs.extend(self.arbeitnow_scraper.fetch())
-        
-        # 5. WeWorkRemotely
         all_jobs.extend(self.wwr_scraper.fetch())
 
-        # 6. Targeted DuckDuckGo Web Searches (LinkedIn, Indeed, Net-Empregos, Glassdoor, IEFP)
+        # Targeted queries for DIRECT individual job view pages
         target_queries = [
-            '"Junior AI Engineer" site:linkedin.com/jobs',
-            '"Junior Data Scientist" site:linkedin.com/jobs',
-            '"Junior Machine Learning Engineer" site:linkedin.com/jobs',
-            '"Junior Data Analyst" site:linkedin.com/jobs',
+            '"Junior AI Engineer" "apply" OR "view" site:linkedin.com/jobs/view',
+            '"Junior Data Scientist" "apply" OR "view" site:linkedin.com/jobs/view',
+            '"Junior Machine Learning Engineer" site:linkedin.com/jobs/view',
             '"AI Engineer" IEFP Portugal',
             '"Data Scientist" IEFP Portugal',
             '"Estágio" "AI Engineer" OR "Data Scientist" Portugal',
-            '"Estágio Profissional" "Data" OR "IA" OR "Python" Portugal',
             '"RAG Developer" OR "NLP Engineer" Portugal OR Remote',
             '"Junior Data Scientist" remote Europe',
-            '"Junior AI Engineer" remote Europe',
-            '"Entry Level" "Data Scientist" remote',
-            'site:net-empregos.com "Junior" "Data"',
-            'site:net-empregos.com "Estágio" "Data"',
-            'site:net-empregos.com "AI" OR "Inteligência Artificial"',
-            '"Junior Data Scientist" Portugal',
-            '"Junior AI Engineer" Portugal',
-            '"Junior Machine Learning" Portugal'
+            '"Junior AI Engineer" remote Europe'
         ]
         all_jobs.extend(self.ddg_scraper.fetch(target_queries))
 
@@ -348,5 +382,5 @@ class JobIngestionPipeline:
                 unique_jobs[j.job_id] = j
 
         final_jobs = list(unique_jobs.values())
-        logger.info(f"✅ Ingestion complete. Total raw: {len(all_jobs)} | Unique after deduplication: {len(final_jobs)}")
+        logger.info(f"✅ Ingestion complete. Total raw: {len(all_jobs)} | Unique direct offers: {len(final_jobs)}")
         return final_jobs
