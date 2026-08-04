@@ -17,21 +17,18 @@ class ReportBuilder:
         other_matches = [j for j in scored_jobs if j.score < 60.0]
 
         md = []
-        md.append(f"# 🎯 Relatório Diário de Vagas — AI & Data Science (Junior)")
-        md.append(f"**Candidato:** {self.profile.name} | **Data:** {today_str}\n")
+        md.append(f"# Relatório Diário de Vagas — AI & Data Science")
+        md.append(f"**Candidato:** {self.profile.name} &nbsp;|&nbsp; **Data:** {today_str}\n")
         
-        # Stats summary badges
-        md.append(f"### 📊 Estatísticas do Dia")
-        md.append(f"- 🔎 **Total de Vagas Analisadas:** `{len(scored_jobs)}`")
-        md.append(f"- 🔥 **Destaques (Match ≥ 80%):** `{len(top_matches)}`")
-        md.append(f"- ⚡ **Promissoras (Match 60-79%):** `{len(promising_matches)}`")
-        md.append(f"- 📌 **Outras Vagas Relevantes:** `{len(other_matches)}`\n")
-        md.append("---\n")
+        # Minimalist Stats Summary
+        md.append(f"### Resumo")
+        md.append(f"- **Total Analisadas:** `{len(scored_jobs)}` &nbsp;|&nbsp; **Destaques (≥80%):** `{len(top_matches)}` &nbsp;|&nbsp; **Promissoras (60-79%):** `{len(promising_matches)}` &nbsp;|&nbsp; **Outras:** `{len(other_matches)}`")
+        md.append("\n---\n")
 
         # Top Matches Section
-        md.append(f"## 🔥 Vagas Destaque (Match ≥ 80%)\n")
+        md.append(f"## Vagas Destaque (Match ≥ 80%)\n")
         if not top_matches:
-            md.append("*Nenhuma vaga atingiu o threshold de ≥ 80% no dia de hoje. Consulta as vagas promissoras abaixo.*\n")
+            md.append("*Nenhuma vaga atingiu a pontuação mínima de 80% no dia de hoje.*\n")
         else:
             for sj in top_matches:
                 md.append(self._format_job_card(sj))
@@ -39,7 +36,7 @@ class ReportBuilder:
         md.append("---\n")
 
         # Promising Matches Section
-        md.append(f"## ⚡ Outras Oportunidades Promissoras (Match 60-79%)\n")
+        md.append(f"## Oportunidades Promissoras (Match 60-79%)\n")
         if not promising_matches:
             md.append("*Nenhuma vaga encontrada nesta categoria no dia de hoje.*\n")
         else:
@@ -51,7 +48,7 @@ class ReportBuilder:
         # Other Relevant Opportunities Section (Top 5 of 45-59%)
         other_top5 = [j for j in other_matches if j.score >= 45.0][:5]
         if other_top5:
-            md.append(f"## 📌 Outras Oportunidades Relevantes (Top 5 | Match 45-59%)\n")
+            md.append(f"## Outras Oportunidades (Match 45-59%)\n")
             for sj in other_top5:
                 md.append(self._format_job_card(sj))
             md.append("---\n")
@@ -59,8 +56,8 @@ class ReportBuilder:
         # Dynamic Tech Stack Demand Trends Section
         md.append(self._build_tech_trends_section(scored_jobs))
 
-        md.append("---\n")
-        md.append(f"*Relatório gerado automaticamente por VagaJuniorFinder a {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}.*")
+        md.append("\n---\n")
+        md.append(f"*VagaJuniorFinder | Gerado a {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}.*")
 
         return "\n".join(md)
 
@@ -68,29 +65,31 @@ class ReportBuilder:
         job = sj.job
         lines = []
         
-        # Title and Badges
-        iefp_badge = " | `Elegível IEFP`" if job.iefp_mentioned else ""
-        mode_badge = f"`{job.work_mode}`"
-        lines.append(f"### 💼 [{job.title}]({job.link})")
+        # Title with Direct Link
+        lines.append(f"### [{job.title}]({job.link})")
+        
+        # Metadata line
+        iefp_tag = " | `Elegível IEFP`" if job.iefp_mentioned else ""
+        mode_tag = f"`{job.work_mode}`"
         lines.append(f"**Empresa:** {job.company} &nbsp;|&nbsp; **Localização:** {job.location} &nbsp;|&nbsp; **Fonte:** `{job.source}`")
-        lines.append(f"**Match Score:** `{sj.score}%` &nbsp;|&nbsp; {mode_badge} &nbsp;|&nbsp; **Nível:** `{sj.seniority_status}`{iefp_badge}\n")
+        lines.append(f"**Match:** `{sj.score}%` &nbsp;|&nbsp; {mode_tag} &nbsp;|&nbsp; **Nível:** `{sj.seniority_status}`{iefp_tag}\n")
 
         # Matched Skills
         if sj.matched_skills:
             skills_formatted = " ".join([f"`{s}`" for s in sj.matched_skills])
-            lines.append(f"**Stack Exigida:** {skills_formatted}\n")
+            lines.append(f"**Stack:** {skills_formatted}\n")
 
         # Clean Description Snippet
         clean_desc = job.description[:260].replace("\n", " ").strip() + "..."
         lines.append(f"> {clean_desc}\n")
 
-        # Quick Apply Link
-        lines.append(f"👉 [**🚀 Candidatar Rápidamente**]({job.link})\n")
+        # Direct Candidatura Link
+        lines.append(f"[Candidatar — {job.company}]({job.link})\n")
         lines.append("---\n")
         return "\n".join(lines)
 
     def _build_tech_trends_section(self, scored_jobs: List[ScoredJob]) -> str:
-        lines = ["## 📈 Tendências de Tecnologias Requisitadas Hoje\n"]
+        lines = ["## Tecnologias Mais Demandadas Hoje\n"]
         
         skill_counts = Counter()
         for sj in scored_jobs:
@@ -98,12 +97,10 @@ class ReportBuilder:
                 skill_counts[skill] += 1
                 
         if not skill_counts:
-            lines.append("*Sem dados estatísticos de stack para hoje.*")
+            lines.append("*Sem dados de stack para hoje.*")
             return "\n".join(lines)
             
-        lines.append("Distribuição das tecnologias mais procuradas nas vagas analisadas:\n")
-        top_skills = skill_counts.most_common(10)
-        
+        top_skills = skill_counts.most_common(8)
         for skill, count in top_skills:
             pct = round((count / len(scored_jobs)) * 100, 1)
             lines.append(f"- **{skill.title()}**: `{count} vagas` ({pct}%)")
