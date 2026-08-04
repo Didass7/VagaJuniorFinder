@@ -57,13 +57,12 @@ YEARS_EXP_PATTERN = re.compile(
 )
 
 # Mandatory Non-English/Portuguese Language Disqualifier (German, French, Spanish, Dutch, Italian mandatory requirements)
-# Catches phrases like: "You speak German and English fluently", "German & English fluent", "German C1 required", "Fließendes Deutsch"
+# Handles German/Portuguese/English phrases: "Du sprichst Deutsch und Englisch fließend", "Sie sprechen Deutsch", "Deutschkenntnisse", "Alemão e Inglês fluente"
 MANDATORY_OTHER_LANGUAGES_PATTERN = re.compile(
-    r"\b(?:german|deutsch|french|français|francais|spanish|español|espanhol|dutch|nederlands|italian|italiano)\b"
-    r"(?:\s*(?:and|&|/|or)?\s*(?:english|inglês|ingles)?)*"
-    r"\s*(?:fluently|fluent|fluency|c1|c2|b2|native|required|mandatory|essential|language\s+skills|level|nível|nivel|auf\s+c1|auf\s+b2|exigido|obrigatório)\b|"
+    r"\b(?:german|deutsch|alemão|alemao|french|français|francais|francês|frances|spanish|español|espanhol|dutch|nederlands|italian|italiano)\b(?:\s*(?:and|&|/|or|und|e)?\s*(?:english|inglês|ingles)?)*\s*(?:fluently|fluent|fluency|c1|c2|b2|native|required|mandatory|essential|language\s+skills|level|nível|nivel|auf\s+c1|auf\s+b2|exigido|obrigatório|fließend|fließendes|fließende|fluente)\b|"
+    r"\b(?:sprichst|sprechen|spricht|fließend|fließende|fließendes|gute|sehr\s+gute)\s+(?:deutsch|german)\b|"
+    r"\b(?:deutsch|german|alemão|alemao)\s*(?:und|and|&|/|e)?\s*(?:englisch|english|inglês|ingles)?\s*(?:fließend|fließende|fließendes|kenntnisse|sprichst|sprechen|fluente)\b|"
     r"\b(?:speak|speaking|fluent\s+in|fluency\s+in|proficient\s+in|mastery\s+of)\s+(?:both\s+)?(?:german|deutsch|french|français|spanish|español|dutch|italian)\b|"
-    r"\b(?:fließendes|fließend|gutes|gute)\s+deutsch\b|"
     r"\b(?:deutschkenntnisse|sprachkenntnisse)\b",
     re.IGNORECASE
 )

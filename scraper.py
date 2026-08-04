@@ -16,6 +16,27 @@ HEADERS = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
 }
 
+# Non-job documentation / blog / sponsored domains to exclude
+NON_JOB_DOMAINS = [
+    "aws.amazon.com", "amazon.com/what-is", "wikipedia.org", "medium.com",
+    "github.com", "youtube.com", "google.com", "dev.to", "towardsdatascience.com"
+]
+
+def is_valid_job_offer(link: str, title: str) -> bool:
+    link_lower = link.lower()
+    title_lower = title.lower()
+    
+    # Reject documentation/blog domains
+    for domain in NON_JOB_DOMAINS:
+        if domain in link_lower:
+            return False
+            
+    # Reject titles that sound like articles or guides
+    if any(title_lower.startswith(p) for p in ["what is", "how to", "introduction to", "guide to", "understanding"]):
+        return False
+        
+    return True
+
 @dataclass
 class Job:
     title: str
@@ -60,9 +81,11 @@ class ITJobsScraper:
                     data = resp.json()
                     for item in data.get("results", []):
                         title = item.get("title", "")
+                        link = f"https://www.itjobs.pt/oferta/{item.get('id')}"
+                        if not is_valid_job_offer(link, title):
+                            continue
                         company = item.get("company", {}).get("name", "Empresa ITJobs")
                         body = item.get("body", "")
-                        link = f"https://www.itjobs.pt/oferta/{item.get('id')}"
                         locations = ", ".join([loc.get("name", "") for loc in item.get("locations", [])])
                         pub_date = item.get("created_at", datetime.date.today().isoformat())
                         jobs.append(Job(
@@ -75,13 +98,11 @@ class ITJobsScraper:
             except Exception as e:
                 logger.warning(f"[ITJobs.pt API] Error: {e}, falling back to Direct Portal Scraping.")
 
-        # Direct Portal Scraping for ITJobs.pt (AI, Data Science, ML & Python focus)
         search_urls = [
             "https://www.itjobs.pt/emprego?q=data+scientist",
             "https://www.itjobs.pt/emprego?q=machine+learning",
             "https://www.itjobs.pt/emprego?q=inteligencia+artificial",
-            "https://www.itjobs.pt/emprego?q=python",
-            "https://www.itjobs.pt/emprego?q=data"
+            "https://www.itjobs.pt/emprego?q=python"
         ]
         
         seen_links = set()
@@ -98,6 +119,9 @@ class ITJobsScraper:
                             full_link = f"https://www.itjobs.pt{href}" if href.startswith("/") else href
                             title = a.get_text(strip=True)
                             
+                            if not is_valid_job_offer(full_link, title):
+                                continue
+                                
                             parent = a.find_parent("div", class_="info") or a.find_parent("div")
                             company = "Empresa via ITJobs"
                             desc = title
@@ -133,8 +157,12 @@ class LandingJobsScraper:
                 items = resp.json()
                 for item in items:
                     title = item.get("title", "")
-                    company = item.get("company_name", "Landing.jobs Company")
                     link = item.get("url", "")
+                    
+                    if not is_valid_job_offer(link, title):
+                        continue
+
+                    company = item.get("company_name", "Landing.jobs Company")
                     location = item.get("location", "Portugal / EU")
                     remote = item.get("remote", False)
                     work_mode = "Remoto" if remote else "Presencial / Híbrido"
@@ -162,8 +190,12 @@ class RemotiveScraper:
                 data = resp.json()
                 for item in data.get("jobs", []):
                     title = item.get("title", "")
-                    company = item.get("company_name", "Remotive Company")
                     link = item.get("url", "")
+                    
+                    if not is_valid_job_offer(link, title):
+                        continue
+
+                    company = item.get("company_name", "Remotive Company")
                     location = item.get("candidate_required_location", "Worldwide Remote")
                     desc = BeautifulSoup(item.get("description", ""), "html.parser").get_text(strip=True)
                     pub_date = item.get("publication_date", datetime.date.today().isoformat())[:10]
@@ -189,8 +221,12 @@ class ArbeitnowScraper:
                 data = resp.json()
                 for item in data.get("data", []):
                     title = item.get("title", "")
-                    company = item.get("company_name", "Arbeitnow Company")
                     link = item.get("url", "")
+                    
+                    if not is_valid_job_offer(link, title):
+                        continue
+
+                    company = item.get("company_name", "Arbeitnow Company")
                     location = item.get("location", "Europe / Remote")
                     remote = item.get("remote", False)
                     work_mode = "Remoto" if remote else "Presencial / Híbrido"
@@ -217,6 +253,10 @@ class WeWorkRemotelyScraper:
             for entry in feed.entries:
                 title = entry.get("title", "")
                 link = entry.get("link", "")
+                
+                if not is_valid_job_offer(link, title):
+                    continue
+
                 desc = BeautifulSoup(entry.get("summary", ""), "html.parser").get_text(strip=True)
                 pub_date = entry.get("published", datetime.date.today().isoformat())
                 
@@ -245,13 +285,17 @@ class RemoteOKScraper:
             resp = requests.get(url, headers=HEADERS, timeout=10)
             if resp.status_code == 200:
                 items = resp.json()
-                # First element in RemoteOK API response is legal metadata dict
                 if isinstance(items, list) and len(items) > 1:
                     for item in items[1:]:
                         if isinstance(item, dict):
                             title = item.get("position", "")
-                            company = item.get("company", "RemoteOK Company")
                             link = item.get("url", "") or item.get("apply_url", "")
+                            
+                            # Exclude sponsored articles / documentation links (e.g. AWS "What is RAG?")
+                            if not is_valid_job_offer(link, title):
+                                continue
+
+                            company = item.get("company", "RemoteOK Company")
                             location = item.get("location", "Worldwide Remote")
                             desc = BeautifulSoup(item.get("description", ""), "html.parser").get_text(strip=True)
                             pub_date = item.get("date", datetime.date.today().isoformat())[:10]
@@ -281,22 +325,11 @@ class JobIngestionPipeline:
         logger.info("🚀 Starting job portal ingestion pipeline (100% Direct Portals)...")
         all_jobs: List[Job] = []
 
-        # 1. ITJobs.pt (Portugal IT & AI Portal)
         all_jobs.extend(self.itjobs_scraper.fetch(self.itjobs_api_key))
-        
-        # 2. Landing.jobs (Portugal & Europe Tech Portal)
         all_jobs.extend(self.landing_scraper.fetch())
-        
-        # 3. Remotive.com (Global Remote Tech & AI Portal)
         all_jobs.extend(self.remotive_scraper.fetch())
-        
-        # 4. Arbeitnow (Europe & Remote Tech Portal)
         all_jobs.extend(self.arbeitnow_scraper.fetch())
-        
-        # 5. WeWorkRemotely (Remote Tech Portal)
         all_jobs.extend(self.wwr_scraper.fetch())
-
-        # 6. RemoteOK (Global Remote AI & Data Portal)
         all_jobs.extend(self.remoteok_scraper.fetch())
 
         # Deduplication using job_id hash
