@@ -2,23 +2,11 @@
 **Candidato:** Diogo Oliveira &nbsp;|&nbsp; **Data:** 04/08/2026
 
 ### Resumo
-- **Total Recomendadas:** `18` &nbsp;|&nbsp; **Destaques (≥75%):** `3` &nbsp;|&nbsp; **Promissoras (50-74%):** `10` &nbsp;|&nbsp; **Outras (35-49%):** `5`
+- **Total Recomendadas:** `17` &nbsp;|&nbsp; **Destaques (≥75%):** `2` &nbsp;|&nbsp; **Promissoras (50-74%):** `10` &nbsp;|&nbsp; **Outras (35-49%):** `5`
 
 ---
 
 ## Vagas Destaque (Match ≥ 75%)
-
-### [(Junior) Data & Automation Manager - Energy Operations (m/w/d)](https://www.arbeitnow.com/jobs/companies/vrey/junior-data-automation-manager-energy-operations-berlin-307216)
-**Empresa:** Vrey &nbsp;|&nbsp; **Localização:** Berlin HQ &nbsp;|&nbsp; **Fonte:** `Arbeitnow`
-**Match:** `80.0%` &nbsp;|&nbsp; `Presencial / Híbrido` &nbsp;|&nbsp; **Nível:** `Junior / Entry Level`
-
-**Stack:** `python` `llm`
-
-> Über unsBeiVREYbauen wir dasEnergyOS für Mehrfamilienhäuser.In Deutschland stehen über3,3 Millionen Mehrparteienhäuser– und sie sind das schwarze Loch der Energiewende. <1% Solardurchdringung. <2% Smart Metering. Kaum Flexibilität oder intelligentes Energieman...
-
-[Candidatar — Vrey](https://www.arbeitnow.com/jobs/companies/vrey/junior-data-automation-manager-energy-operations-berlin-307216)
-
----
 
 ### [PhD Graduate AI & Algorithms Engineer (2026 start)](https://www.arbeitnow.co.uk/jobs/companies/cambridgeconsultantslimited/phd-graduate-ai-algorithms-engineer-2026-start-352586)
 **Empresa:** Cambridgeconsultantslimited &nbsp;|&nbsp; **Localização:**  &nbsp;|&nbsp; **Fonte:** `Arbeitnow`
@@ -166,11 +154,11 @@
 
 ## Tecnologias Mais Demandadas Hoje
 
-- **Python**: `13 vagas` (33.3%)
-- **Machine Learning**: `7 vagas` (17.9%)
-- **Sql**: `4 vagas` (10.3%)
-- **Llm**: `3 vagas` (7.7%)
-- **Git**: `2 vagas` (5.1%)
+- **Python**: `12 vagas` (31.6%)
+- **Machine Learning**: `7 vagas` (18.4%)
+- **Sql**: `4 vagas` (10.5%)
+- **Git**: `2 vagas` (5.3%)
+- **Llm**: `2 vagas` (5.3%)
 - **Langchain**: `1 vagas` (2.6%)
 - **Rag**: `1 vagas` (2.6%)
 - **Fastapi**: `1 vagas` (2.6%)
@@ -178,4 +166,4 @@
 
 ---
 
-*VagaJuniorFinder | Gerado a 04/08/2026 23:53.*
+*VagaJuniorFinder | Gerado a 04/08/2026 23:55.*

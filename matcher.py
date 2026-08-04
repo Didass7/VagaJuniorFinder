@@ -56,14 +56,21 @@ YEARS_EXP_PATTERN = re.compile(
     re.IGNORECASE
 )
 
-# Mandatory Non-English/Portuguese Language Disqualifier (German, French, Spanish, Dutch, Italian mandatory requirements)
-# Handles German/Portuguese/English phrases: "Du sprichst Deutsch und Englisch fließend", "Sie sprechen Deutsch", "Deutschkenntnisse", "Alemão e Inglês fluente"
+# Mandatory Non-English/Portuguese Language Requirements Pattern
 MANDATORY_OTHER_LANGUAGES_PATTERN = re.compile(
     r"\b(?:german|deutsch|alemão|alemao|french|français|francais|francês|frances|spanish|español|espanhol|dutch|nederlands|italian|italiano)\b(?:\s*(?:and|&|/|or|und|e)?\s*(?:english|inglês|ingles)?)*\s*(?:fluently|fluent|fluency|c1|c2|b2|native|required|mandatory|essential|language\s+skills|level|nível|nivel|auf\s+c1|auf\s+b2|exigido|obrigatório|fließend|fließendes|fließende|fluente)\b|"
     r"\b(?:sprichst|sprechen|spricht|fließend|fließende|fließendes|gute|sehr\s+gute)\s+(?:deutsch|german)\b|"
     r"\b(?:deutsch|german|alemão|alemao)\s*(?:und|and|&|/|e)?\s*(?:englisch|english|inglês|ingles)?\s*(?:fließend|fließende|fließendes|kenntnisse|sprichst|sprechen|fluente)\b|"
     r"\b(?:speak|speaking|fluent\s+in|fluency\s+in|proficient\s+in|mastery\s+of)\s+(?:both\s+)?(?:german|deutsch|french|français|spanish|español|dutch|italian)\b|"
     r"\b(?:deutschkenntnisse|sprachkenntnisse)\b",
+    re.IGNORECASE
+)
+
+# Detect if the job description itself is written in German, French, or Spanish
+FOREIGN_JOB_POST_PATTERN = re.compile(
+    r"\b(?:über\s+uns|wir\s+suchen|deine\s+aufgaben|dein\s+profil|das\s+bringst\du\s+mit|unsere\s+anforderungen|in\s+deutschland|du\s+bist|unser\s+team|wir\s+bieten|bewirb\s+dich|standort|vollzeit|teilzeit|mehrparteienhäuser|mehrfamilienhäuser)\b|"
+    r"\b(?:à\s+propos\s+de\s+nous|nous\s+recherchons|vos\s+missions|votre\s+profil|ce\s+que\s+nous\s+offrons)\b|"
+    r"\b(?:sobre\s+nosotros|buscamos|tus\s+funciones|tu\s+perfil|requisitos\s+del\s+puesto)\b",
     re.IGNORECASE
 )
 
@@ -112,14 +119,14 @@ class JobMatcher:
                 seniority_status="Vaga Antiga (> 24h)"
             )
 
-        # 1. Mandatory Non-English/Portuguese Language Disqualification (German, French, Spanish, etc.)
-        if MANDATORY_OTHER_LANGUAGES_PATTERN.search(text):
+        # 1. Foreign Language Job Post Disqualification (German/French/Spanish text posts or language requirements)
+        if MANDATORY_OTHER_LANGUAGES_PATTERN.search(text) or FOREIGN_JOB_POST_PATTERN.search(text):
             return ScoredJob(
                 job=job,
                 score=0.0,
                 matched_skills=[],
                 missing_skills=[],
-                seniority_status="Exige Outro Idioma (Alemão/Francês/Espanhol)"
+                seniority_status="Anúncio em Alemão/Francês/Espanhol"
             )
 
         # 2. Strict Irrelevant Role Disqualification (PHP, SAP, RPA, Embedded, C++, QA, Web Dev)
