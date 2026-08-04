@@ -6,97 +6,10 @@ from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
 import markdown
+from bs4 import BeautifulSoup
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("Notifier")
-
-HTML_TEMPLATE = """<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<style>
-    body {{
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-        background-color: #0f172a;
-        color: #e2e8f0;
-        margin: 0;
-        padding: 20px;
-        line-height: 1.6;
-    }}
-    .container {{
-        max-width: 800px;
-        margin: 0 auto;
-        background: #1e293b;
-        padding: 30px;
-        border-radius: 12px;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-        border: 1px solid #334155;
-    }}
-    h1 {{
-        color: #38bdf8;
-        font-size: 24px;
-        border-bottom: 2px solid #334155;
-        padding-bottom: 10px;
-    }}
-    h2 {{
-        color: #f43f5e;
-        font-size: 20px;
-        margin-top: 25px;
-    }}
-    h3 {{
-        color: #fbbf24;
-        font-size: 18px;
-        margin-bottom: 5px;
-    }}
-    a {{
-        color: #38bdf8;
-        text-decoration: none;
-    }}
-    a:hover {{
-        text-decoration: underline;
-    }}
-    code {{
-        background-color: #0f172a;
-        color: #a5f3fc;
-        padding: 2px 6px;
-        border-radius: 4px;
-        font-size: 13px;
-    }}
-    blockquote {{
-        background: #0f172a;
-        border-left: 4px solid #38bdf8;
-        margin: 10px 0;
-        padding: 10px 15px;
-        color: #94a3b8;
-        font-style: italic;
-    }}
-    hr {{
-        border: 0;
-        height: 1px;
-        background: #334155;
-        margin: 20px 0;
-    }}
-    ul {{
-        padding-left: 20px;
-    }}
-    li {{
-        margin-bottom: 6px;
-    }}
-    .footer {{
-        font-size: 12px;
-        color: #64748b;
-        text-align: center;
-        margin-top: 30px;
-    }}
-</style>
-</head>
-<body>
-<div class="container">
-    {content}
-</div>
-</body>
-</html>
-"""
 
 class EmailNotifier:
     def __init__(self, smtp_server: str, smtp_port: int, smtp_email: str, smtp_password: str, receiver_email: str):
@@ -107,8 +20,56 @@ class EmailNotifier:
         self.receiver_email = receiver_email
 
     def markdown_to_html(self, md_text: str) -> str:
-        html_body = markdown.markdown(md_text, extensions=['fenced_code', 'tables', 'nl2br'])
-        return HTML_TEMPLATE.format(content=html_body)
+        # Convert markdown to basic HTML
+        raw_html = markdown.markdown(md_text, extensions=['fenced_code', 'tables', 'nl2br'])
+        
+        # Parse HTML and apply 100% INLINE STYLES to prevent Gmail from stripping styles
+        soup = BeautifulSoup(raw_html, "html.parser")
+        
+        # Inline styling rules map
+        for tag in soup.find_all("h1"):
+            tag['style'] = "color: #0f172a; font-size: 22px; font-weight: 700; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin-top: 0; margin-bottom: 16px; font-family: sans-serif;"
+            
+        for tag in soup.find_all("h2"):
+            tag['style'] = "color: #1e293b; font-size: 18px; font-weight: 700; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; margin-top: 28px; margin-bottom: 14px; font-family: sans-serif;"
+            
+        for tag in soup.find_all("h3"):
+            tag['style'] = "color: #1d4ed8; font-size: 16px; font-weight: 600; margin-top: 20px; margin-bottom: 6px; font-family: sans-serif;"
+            
+        for tag in soup.find_all("p"):
+            tag['style'] = "color: #334155; font-size: 14px; line-height: 1.6; margin-bottom: 10px; font-family: sans-serif;"
+            
+        for tag in soup.find_all("li"):
+            tag['style'] = "color: #334155; font-size: 14px; margin-bottom: 6px; font-family: sans-serif;"
+            
+        for tag in soup.find_all("strong"):
+            tag['style'] = "color: #0f172a; font-weight: 700;"
+            
+        for tag in soup.find_all("a"):
+            tag['style'] = "color: #2563eb; font-weight: 600; text-decoration: none;"
+            
+        for tag in soup.find_all("code"):
+            tag['style'] = "background-color: #f1f5f9; color: #0f172a; padding: 2px 6px; border-radius: 4px; font-size: 13px; font-family: monospace; border: 1px solid #cbd5e1;"
+            
+        for tag in soup.find_all("blockquote"):
+            tag['style'] = "background-color: #f8fafc; border-left: 4px solid #3b82f6; margin: 12px 0; padding: 10px 14px; color: #475569; font-style: italic; border-radius: 0 6px 6px 0;"
+            
+        for tag in soup.find_all("hr"):
+            tag['style'] = "border: 0; height: 1px; background-color: #cbd5e1; margin: 24px 0;"
+
+        # Wrap inside clean white container
+        full_html = f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+</head>
+<body style="background-color: #f8fafc; color: #1e293b; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; margin: 0; padding: 20px 10px;">
+    <div style="max-width: 720px; margin: 0 auto; background-color: #ffffff; padding: 32px 24px; border-radius: 8px; border: 1px solid #cbd5e1; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+        {str(soup)}
+    </div>
+</body>
+</html>"""
+        return full_html
 
     def send_email_report(self, md_content: str, md_filepath: str = "") -> bool:
         if not self.smtp_email or not self.smtp_password:

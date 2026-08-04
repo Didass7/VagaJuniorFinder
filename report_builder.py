@@ -69,16 +69,16 @@ class ReportBuilder:
         lines = []
         
         # Title and Badges
-        iefp_badge = " | `✅ IEFP / ATIVAR.pt`" if job.iefp_mentioned else ""
-        mode_badge = f"`📍 {job.work_mode}`"
+        iefp_badge = " | `Elegível IEFP`" if job.iefp_mentioned else ""
+        mode_badge = f"`{job.work_mode}`"
         lines.append(f"### 💼 [{job.title}]({job.link})")
-        lines.append(f"**Empresa:** {job.company} | **Localização:** {job.location} | **Fonte:** `{job.source}`")
-        lines.append(f"**Match Score:** `🔥 {sj.score}%` | {mode_badge} | **Nível:** `{sj.seniority_status}`{iefp_badge}\n")
+        lines.append(f"**Empresa:** {job.company} &nbsp;|&nbsp; **Localização:** {job.location} &nbsp;|&nbsp; **Fonte:** `{job.source}`")
+        lines.append(f"**Match Score:** `{sj.score}%` &nbsp;|&nbsp; {mode_badge} &nbsp;|&nbsp; **Nível:** `{sj.seniority_status}`{iefp_badge}\n")
 
         # Matched Skills
         if sj.matched_skills:
-            skills_formatted = ", ".join([f"`{s}`" for s in sj.matched_skills])
-            lines.append(f"**Stack Exigida:** {skills_formatted}")
+            skills_formatted = " ".join([f"`{s}`" for s in sj.matched_skills])
+            lines.append(f"**Stack Exigida:** {skills_formatted}\n")
 
         # Clean Description Snippet
         clean_desc = job.description[:260].replace("\n", " ").strip() + "..."
@@ -101,13 +101,12 @@ class ReportBuilder:
             lines.append("*Sem dados estatísticos de stack para hoje.*")
             return "\n".join(lines)
             
-        lines.append("Distribuição das tecnologias mais procuradas nas vagas analisadas:")
+        lines.append("Distribuição das tecnologias mais procuradas nas vagas analisadas:\n")
         top_skills = skill_counts.most_common(10)
         
         for skill, count in top_skills:
             pct = round((count / len(scored_jobs)) * 100, 1)
-            bar = "█" * int(pct // 10) + "░" * (10 - int(pct // 10))
-            lines.append(f"- **{skill.title()}**: `{count} vagas` ({pct}%) `{bar}`")
+            lines.append(f"- **{skill.title()}**: `{count} vagas` ({pct}%)")
             
         lines.append("")
         return "\n".join(lines)
