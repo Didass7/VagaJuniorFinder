@@ -2,21 +2,11 @@ import hashlib
 import logging
 import re
 import datetime
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from typing import List, Dict, Set, Optional
 import requests
 from bs4 import BeautifulSoup
 import feedparser
-
-try:
-    from duckduckgo_search import DDGS
-    DDG_AVAILABLE = True
-except ImportError:
-    try:
-        from ddgs import DDGS
-        DDG_AVAILABLE = True
-    except ImportError:
-        DDG_AVAILABLE = False
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("Scraper")
@@ -26,44 +16,12 @@ HEADERS = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
 }
 
-# Regex to identify category / search listing aggregator pages (NOT direct job offers)
-AGGREGATOR_URL_PATTERNS = [
-    r"linkedin\.com/jobs/(?!view/)",  # linkedin.com/jobs/junior-machine-learning-engineer-vagas (Not /view/)
-    r"glassdoor\.com/Job/",
-    r"indeed\.com/q-",
-    r"indeed\.com/jobs\?",
-    r"net-empregos\.com/pesquisa",
-    r"tecnojobs\.pt/empregos-",
-]
-
-AGGREGATOR_TITLE_PATTERNS = [
-    r"\d+\s+(?:vagas|jobs|ofertas|empregos)",
-    r"^empregos\s+de",
-    r"search\s+results",
-    r"vagas\s+de\s+emprego",
-    r"jobs\s+in\s+portugal",
-]
-
-def is_search_aggregator(link: str, title: str) -> bool:
-    link_lower = link.lower()
-    title_lower = title.lower()
-    
-    for pat in AGGREGATOR_URL_PATTERNS:
-        if re.search(pat, link_lower):
-            return True
-            
-    for pat in AGGREGATOR_TITLE_PATTERNS:
-        if re.search(pat, title_lower):
-            return True
-            
-    return False
-
 @dataclass
 class Job:
     title: str
     company: str
     location: str
-    work_mode: str  # Remote, Hybrid, On-site, Unknown
+    work_mode: str  # Remote, Hybrid, On-site, Presencial / Híbrido
     link: str
     description: str
     source: str
@@ -91,7 +49,7 @@ class Job:
                 self.work_mode = "Presencial / Híbrido"
 
 class ITJobsScraper:
-    """Scrapes ITJobs.pt via API or direct web scraping for AI/Data jobs."""
+    """Scrapes ITJobs.pt portal for Portugal IT, AI & Data Science jobs."""
     def fetch(self, api_key: str = "") -> List[Job]:
         jobs = []
         if api_key:
@@ -109,20 +67,21 @@ class ITJobsScraper:
                         pub_date = item.get("created_at", datetime.date.today().isoformat())
                         jobs.append(Job(
                             title=title, company=company, location=locations or "Portugal",
-                            work_mode="Unknown", link=link, description=body,
+                            work_mode="Presencial / Híbrido", link=link, description=body,
                             source="ITJobs.pt", pub_date=pub_date
                         ))
                     logger.info(f"[ITJobs.pt API] Fetched {len(jobs)} jobs.")
                     return jobs
             except Exception as e:
-                logger.warning(f"[ITJobs.pt API] Error: {e}, falling back to Web Scraping.")
+                logger.warning(f"[ITJobs.pt API] Error: {e}, falling back to Direct Portal Scraping.")
 
-        # Direct Web Scraping Fallback for ITJobs.pt (AI & Data Science focus)
+        # Direct Portal Scraping for ITJobs.pt (AI, Data Science, ML & Python focus)
         search_urls = [
             "https://www.itjobs.pt/emprego?q=data+scientist",
             "https://www.itjobs.pt/emprego?q=machine+learning",
             "https://www.itjobs.pt/emprego?q=inteligencia+artificial",
-            "https://www.itjobs.pt/emprego?q=python"
+            "https://www.itjobs.pt/emprego?q=python",
+            "https://www.itjobs.pt/emprego?q=data"
         ]
         
         seen_links = set()
@@ -134,14 +93,11 @@ class ITJobsScraper:
                     title_anchors = soup.find_all("a", class_="title")
                     for a in title_anchors:
                         href = a.get("href", "")
-                        if href and href not in seen_links:
+                        if href and href not in seen_links and "/oferta/" in href:
                             seen_links.add(href)
                             full_link = f"https://www.itjobs.pt{href}" if href.startswith("/") else href
                             title = a.get_text(strip=True)
                             
-                            if is_search_aggregator(full_link, title):
-                                continue
-                                
                             parent = a.find_parent("div", class_="info") or a.find_parent("div")
                             company = "Empresa via ITJobs"
                             desc = title
@@ -157,17 +113,17 @@ class ITJobsScraper:
                                     
                             jobs.append(Job(
                                 title=title, company=company, location=location,
-                                work_mode="Unknown", link=full_link, description=desc,
+                                work_mode="Presencial / Híbrido", link=full_link, description=desc,
                                 source="ITJobs.pt", pub_date=datetime.date.today().isoformat()
                             ))
 
-            logger.info(f"[ITJobs.pt Web] Fetched {len(jobs)} jobs.")
+            logger.info(f"[ITJobs.pt Portal] Fetched {len(jobs)} jobs.")
         except Exception as e:
-            logger.error(f"[ITJobs.pt Web] Error: {e}")
+            logger.error(f"[ITJobs.pt Portal] Error: {e}")
         return jobs
 
 class LandingJobsScraper:
-    """Scrapes Landing.jobs via public API."""
+    """Scrapes Landing.jobs portal via public API."""
     def fetch(self) -> List[Job]:
         jobs = []
         url = "https://landing.jobs/api/v1/jobs"
@@ -177,12 +133,8 @@ class LandingJobsScraper:
                 items = resp.json()
                 for item in items:
                     title = item.get("title", "")
-                    company = item.get("company_name", "N/A")
+                    company = item.get("company_name", "Landing.jobs Company")
                     link = item.get("url", "")
-                    
-                    if is_search_aggregator(link, title):
-                        continue
-
                     location = item.get("location", "Portugal / EU")
                     remote = item.get("remote", False)
                     work_mode = "Remoto" if remote else "Presencial / Híbrido"
@@ -194,13 +146,13 @@ class LandingJobsScraper:
                         work_mode=work_mode, link=link, description=desc,
                         source="Landing.jobs", pub_date=str(pub_date)[:10]
                     ))
-                logger.info(f"[Landing.jobs API] Fetched {len(jobs)} jobs.")
+                logger.info(f"[Landing.jobs Portal] Fetched {len(jobs)} jobs.")
         except Exception as e:
-            logger.error(f"[Landing.jobs API] Error: {e}")
+            logger.error(f"[Landing.jobs Portal] Error: {e}")
         return jobs
 
 class RemotiveScraper:
-    """Scrapes Remotive.com public API for remote AI & Data Science jobs."""
+    """Scrapes Remotive.com portal API for remote AI & Data Science jobs."""
     def fetch(self) -> List[Job]:
         jobs = []
         url = "https://remotive.com/api/remote-jobs?category=data"
@@ -210,12 +162,8 @@ class RemotiveScraper:
                 data = resp.json()
                 for item in data.get("jobs", []):
                     title = item.get("title", "")
-                    company = item.get("company_name", "N/A")
+                    company = item.get("company_name", "Remotive Company")
                     link = item.get("url", "")
-                    
-                    if is_search_aggregator(link, title):
-                        continue
-
                     location = item.get("candidate_required_location", "Worldwide Remote")
                     desc = BeautifulSoup(item.get("description", ""), "html.parser").get_text(strip=True)
                     pub_date = item.get("publication_date", datetime.date.today().isoformat())[:10]
@@ -225,13 +173,13 @@ class RemotiveScraper:
                         work_mode="Remoto", link=link, description=desc,
                         source="Remotive", pub_date=pub_date
                     ))
-                logger.info(f"[Remotive API] Fetched {len(jobs)} jobs.")
+                logger.info(f"[Remotive Portal] Fetched {len(jobs)} jobs.")
         except Exception as e:
-            logger.error(f"[Remotive API] Error: {e}")
+            logger.error(f"[Remotive Portal] Error: {e}")
         return jobs
 
 class ArbeitnowScraper:
-    """Scrapes Arbeitnow public API for European & Remote tech jobs."""
+    """Scrapes Arbeitnow European job portal API."""
     def fetch(self) -> List[Job]:
         jobs = []
         url = "https://www.arbeitnow.com/api/job-board-api"
@@ -241,12 +189,8 @@ class ArbeitnowScraper:
                 data = resp.json()
                 for item in data.get("data", []):
                     title = item.get("title", "")
-                    company = item.get("company_name", "N/A")
+                    company = item.get("company_name", "Arbeitnow Company")
                     link = item.get("url", "")
-                    
-                    if is_search_aggregator(link, title):
-                        continue
-
                     location = item.get("location", "Europe / Remote")
                     remote = item.get("remote", False)
                     work_mode = "Remoto" if remote else "Presencial / Híbrido"
@@ -258,13 +202,13 @@ class ArbeitnowScraper:
                         work_mode=work_mode, link=link, description=desc,
                         source="Arbeitnow", pub_date=pub_date
                     ))
-                logger.info(f"[Arbeitnow API] Fetched {len(jobs)} jobs.")
+                logger.info(f"[Arbeitnow Portal] Fetched {len(jobs)} jobs.")
         except Exception as e:
-            logger.error(f"[Arbeitnow API] Error: {e}")
+            logger.error(f"[Arbeitnow Portal] Error: {e}")
         return jobs
 
 class WeWorkRemotelyScraper:
-    """Scrapes WeWorkRemotely RSS feed for remote roles."""
+    """Scrapes WeWorkRemotely job portal RSS feed."""
     def fetch(self) -> List[Job]:
         jobs = []
         rss_url = "https://weworkremotely.com/categories/remote-back-end-programming-jobs.rss"
@@ -273,14 +217,10 @@ class WeWorkRemotelyScraper:
             for entry in feed.entries:
                 title = entry.get("title", "")
                 link = entry.get("link", "")
-                
-                if is_search_aggregator(link, title):
-                    continue
-
                 desc = BeautifulSoup(entry.get("summary", ""), "html.parser").get_text(strip=True)
                 pub_date = entry.get("published", datetime.date.today().isoformat())
                 
-                company = "Empresa Remote"
+                company = "WeWorkRemotely Company"
                 if ":" in title:
                     parts = title.split(":", 1)
                     company = parts[0].strip()
@@ -291,89 +231,73 @@ class WeWorkRemotelyScraper:
                     work_mode="Remoto", link=link, description=desc,
                     source="WeWorkRemotely", pub_date=pub_date
                 ))
-            logger.info(f"[WeWorkRemotely RSS] Fetched {len(jobs)} jobs.")
+            logger.info(f"[WeWorkRemotely Portal] Fetched {len(jobs)} jobs.")
         except Exception as e:
-            logger.error(f"[WeWorkRemotely RSS] Error: {e}")
+            logger.error(f"[WeWorkRemotely Portal] Error: {e}")
         return jobs
 
-class DuckDuckGoJobScraper:
-    """Targeted search queries via DuckDuckGo for direct job view links."""
-    def fetch(self, target_queries: List[str]) -> List[Job]:
+class RemoteOKScraper:
+    """Scrapes RemoteOK portal API for remote data & AI roles."""
+    def fetch(self) -> List[Job]:
         jobs = []
-        if not DDG_AVAILABLE:
-            logger.warning("[DuckDuckGo] Search library not available.")
-            return jobs
-            
+        url = "https://remoteok.com/api?tag=data"
         try:
-            with DDGS() as ddgs:
-                for query in target_queries:
-                    try:
-                        results = list(ddgs.text(query, max_results=8))
-                        for r in results:
-                            title = r.get("title", "")
-                            link = r.get("href", "")
-                            snippet = r.get("body", "")
+            resp = requests.get(url, headers=HEADERS, timeout=10)
+            if resp.status_code == 200:
+                items = resp.json()
+                # First element in RemoteOK API response is legal metadata dict
+                if isinstance(items, list) and len(items) > 1:
+                    for item in items[1:]:
+                        if isinstance(item, dict):
+                            title = item.get("position", "")
+                            company = item.get("company", "RemoteOK Company")
+                            link = item.get("url", "") or item.get("apply_url", "")
+                            location = item.get("location", "Worldwide Remote")
+                            desc = BeautifulSoup(item.get("description", ""), "html.parser").get_text(strip=True)
+                            pub_date = item.get("date", datetime.date.today().isoformat())[:10]
                             
-                            # Filter out category/search aggregator pages
-                            if is_search_aggregator(link, title):
-                                continue
-
-                            company = "Empresa via Web"
-                            if " | " in title:
-                                parts = title.split(" | ")
-                                title = parts[0]
-                                company = parts[1]
-                            elif " - " in title:
-                                parts = title.split(" - ")
-                                title = parts[0]
-                                company = parts[1]
-
                             jobs.append(Job(
-                                title=title, company=company, location="Portugal / Remoto",
-                                work_mode="Unknown", link=link, description=snippet,
-                                source="Web Search", pub_date=datetime.date.today().isoformat()
+                                title=title, company=company, location=location,
+                                work_mode="Remoto", link=link, description=desc,
+                                source="RemoteOK", pub_date=pub_date
                             ))
-                    except Exception as q_err:
-                        logger.warning(f"[DuckDuckGo Query Error] {query}: {q_err}")
-            logger.info(f"[DuckDuckGo Search] Fetched {len(jobs)} direct job offers.")
+                logger.info(f"[RemoteOK Portal] Fetched {len(jobs)} jobs.")
         except Exception as e:
-            logger.error(f"[DuckDuckGo Search] Error: {e}")
+            logger.error(f"[RemoteOK Portal] Error: {e}")
         return jobs
 
 class JobIngestionPipeline:
-    """Aggregates all scrapers and deduplicates jobs."""
+    """Aggregates all structured job portal scrapers and deduplicates jobs."""
     def __init__(self, itjobs_api_key: str = ""):
         self.itjobs_scraper = ITJobsScraper()
         self.landing_scraper = LandingJobsScraper()
         self.remotive_scraper = RemotiveScraper()
         self.arbeitnow_scraper = ArbeitnowScraper()
         self.wwr_scraper = WeWorkRemotelyScraper()
-        self.ddg_scraper = DuckDuckGoJobScraper()
+        self.remoteok_scraper = RemoteOKScraper()
         self.itjobs_api_key = itjobs_api_key
 
     def run(self) -> List[Job]:
-        logger.info("🚀 Starting multi-source job ingestion pipeline...")
+        logger.info("🚀 Starting job portal ingestion pipeline (100% Direct Portals)...")
         all_jobs: List[Job] = []
 
+        # 1. ITJobs.pt (Portugal IT & AI Portal)
         all_jobs.extend(self.itjobs_scraper.fetch(self.itjobs_api_key))
+        
+        # 2. Landing.jobs (Portugal & Europe Tech Portal)
         all_jobs.extend(self.landing_scraper.fetch())
+        
+        # 3. Remotive.com (Global Remote Tech & AI Portal)
         all_jobs.extend(self.remotive_scraper.fetch())
+        
+        # 4. Arbeitnow (Europe & Remote Tech Portal)
         all_jobs.extend(self.arbeitnow_scraper.fetch())
+        
+        # 5. WeWorkRemotely (Remote Tech Portal)
         all_jobs.extend(self.wwr_scraper.fetch())
 
-        # Targeted queries for DIRECT individual job view pages
-        target_queries = [
-            '"Junior AI Engineer" "apply" OR "view" site:linkedin.com/jobs/view',
-            '"Junior Data Scientist" "apply" OR "view" site:linkedin.com/jobs/view',
-            '"Junior Machine Learning Engineer" site:linkedin.com/jobs/view',
-            '"AI Engineer" IEFP Portugal',
-            '"Data Scientist" IEFP Portugal',
-            '"Estágio" "AI Engineer" OR "Data Scientist" Portugal',
-            '"RAG Developer" OR "NLP Engineer" Portugal OR Remote',
-            '"Junior Data Scientist" remote Europe',
-            '"Junior AI Engineer" remote Europe'
-        ]
-        all_jobs.extend(self.ddg_scraper.fetch(target_queries))
+        # 6. RemoteOK (Global Remote AI & Data Portal)
+        all_jobs.extend(self.remoteok_scraper.fetch())
 
         # Deduplication using job_id hash
         unique_jobs: Dict[str, Job] = {}
@@ -382,5 +306,5 @@ class JobIngestionPipeline:
                 unique_jobs[j.job_id] = j
 
         final_jobs = list(unique_jobs.values())
-        logger.info(f"✅ Ingestion complete. Total raw: {len(all_jobs)} | Unique direct offers: {len(final_jobs)}")
+        logger.info(f"✅ Ingestion complete. Total raw: {len(all_jobs)} | Unique portal job offers: {len(final_jobs)}")
         return final_jobs
