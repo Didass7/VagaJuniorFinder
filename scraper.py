@@ -83,18 +83,10 @@ class ITJobsScraper:
             except Exception as e:
                 logger.warning(f"[ITJobs.pt API] Error: {e}, falling back to Web Scraping.")
 
-        # Direct Web Scraping Fallback for ITJobs.pt
+        # Direct Web Scraping Fallback for ITJobs.pt (AI & Data Science focus)
         search_urls = [
-            "https://www.itjobs.pt/emprego",
-            "https://www.itjobs.pt/emprego?page=2",
-            "https://www.itjobs.pt/emprego?page=3",
-            "https://www.itjobs.pt/emprego?page=4",
-            "https://www.itjobs.pt/emprego?q=data",
-            "https://www.itjobs.pt/emprego?q=python",
-            "https://www.itjobs.pt/emprego?q=junior",
-            "https://www.itjobs.pt/emprego?q=estagio",
-            "https://www.itjobs.pt/emprego?q=iefp",
-            "https://www.itjobs.pt/emprego?q=ai",
+            "https://www.itjobs.pt/emprego?q=data+scientist",
+            "https://www.itjobs.pt/emprego?q=machine+learning",
             "https://www.itjobs.pt/emprego?q=inteligencia+artificial",
             "https://www.itjobs.pt/emprego?q=machine+learning"
         ]

@@ -1,6 +1,8 @@
 import re
+import datetime
+import email.utils
 from dataclasses import dataclass
-from typing import List, Dict
+from typing import List, Dict, Optional
 from config import CandidateProfile
 from scraper import Job
 
@@ -25,24 +27,51 @@ SKILL_ALIASES: Dict[str, List[str]] = {
     "machine learning": ["machine learning", "ml", "deep learning"],
 }
 
-TITLE_DISQUALIFIERS = [
-    "senior", "sr", "sr.", "lead", "principal", "head of", "head", "director",
-    "architect", "staff", "vp of", "vp", "manager", "intermediate", "mid",
-    "mid-level", "midlevel", "pleno", "experienced", "expert", "specialist",
-    "team lead", "tech lead", "chapter lead"
+# Strict Domain Keywords - Title MUST relate to AI, ML, Data Science, Data Engineering, or Data Analytics
+AI_DATA_DOMAIN_KEYWORDS = [
+    "ai", "ia", "data", "machine learning", "ml", "rag", "nlp", "llm", "deep learning", 
+    "computer vision", "inteligência artificial", "inteligencia artificial", "ciência de dados", 
+    "ciencia de dados", "analytics", "analista de dados", "engenheiro de dados", "data engineer", 
+    "data analyst", "data scientist", "ai engineer", "ml engineer", "bi", "business intelligence", 
+    "python", "prompt engineer", "algorithm", "estatística", "dados"
 ]
 
-# Robust Regex catching experience requirements >= 3 years or mid/senior level indicators:
-# Handles hyphens, en-dashes (\u2013), em-dashes (\u2014), 'to', 'a', 'yrs', 'years', 'anos'
-# Examples caught: "3-5 years", "4–8 years", "5-7 years", "3 to 5 years", "3+ years", "4+ yrs", "mid-senior", etc.
-# Ignores: "0-2 years", "1-2 years", "0 to 1 year"
+# Irrelevant Non-AI/Data Roles Disqualifiers in Title
+IRRELEVANT_TECH_DISQUALIFIERS = [
+    "php", "sap", "abap", "rpa", "blue prism", "embedded", "c++", "c/c++", "dotnet", ".net", 
+    "c#", "frontend", "front-end", "front end", "react", "angular", "vue", "node.js", "wordpress", 
+    "laravel", "qa", "tester", "sysadmin", "network", "cybersecurity", "cibersegurança", "salesforce", 
+    "cobol", "ios", "android", "flutter", "web developer", "webmaster", "helpdesk", "support technician",
+    "mainframe", "devops engineer", "scrum master"
+]
+
+TITLE_DISQUALIFIERS = [
+    "senior", "sr", "lead", "principal", "head of", "director", "architect", "staff", "vp of", "manager"
+]
+
 YEARS_EXP_PATTERN = re.compile(
     r"\b([3-9]|1[0-5])\s*(?:\+|\-|[\u2010-\u2015\~]|to|a)?\s*([3-9]|1[0-5])?\s*(?:years?|yrs?|anos?)|"
     r"\b([3-9]|1[0-5])\s*(?:years?|yrs?|anos?)\s+(?:of\s+)?experience|"
-    r"(?:at\s+least|mínimo\s+de?)\s+([3-9]|1[0-5])\s*(?:years?|yrs?|anos?)|"
-    r"\b(?:mid-senior|senior level|seniority:\s*senior|seniority:\s*mid|experienced level)\b",
+    r"(?:at\s+least|mínimo\s+de?)\s+([3-9]|1[0-5])\s*(?:years?|yrs?|anos?)",
     re.IGNORECASE
 )
+
+def parse_job_date(date_str: str) -> datetime.date:
+    """Parses various date formats to a standard datetime.date."""
+    if not date_str:
+        return datetime.date.today()
+    try:
+        # ISO format YYYY-MM-DD
+        if re.match(r"^\d{4}-\d{2}-\d{2}", date_str):
+            return datetime.date.fromisoformat(date_str[:10])
+        # RFC 822 format (e.g., 'Tue, 04 Aug 2026 12:00:00 GMT')
+        parsed_tuple = email.utils.parsedate_tz(date_str)
+        if parsed_tuple:
+            dt = datetime.datetime.fromtimestamp(email.utils.mktime_tz(parsed_tuple))
+            return dt.date()
+    except Exception:
+        pass
+    return datetime.date.today()
 
 @dataclass
 class ScoredJob:
@@ -50,7 +79,7 @@ class ScoredJob:
     score: float
     matched_skills: List[str]
     missing_skills: List[str]
-    seniority_status: str  # "Junior / Estágio IEFP", "Junior / Entry Level", "Geral / Pleno"
+    seniority_status: str
 
 class JobMatcher:
     def __init__(self, profile: CandidateProfile):
@@ -60,12 +89,35 @@ class JobMatcher:
         text = f"{job.title} {job.description}".lower()
         title_lower = job.title.lower()
 
-        # 1. Disqualification Logic
-        is_explicit_junior = any(j_term in title_lower for j_term in ["junior", "jr", "estágio", "estagio", "trainee", "graduate", "entry level", "intern", "internship"])
+        # 0. 24-Hour Freshness Filter (Max 1 day old)
+        today = datetime.date.today()
+        job_date = parse_job_date(job.pub_date)
+        days_old = (today - job_date).days
+
+        if days_old > 1:
+            return ScoredJob(
+                job=job,
+                score=0.0,
+                matched_skills=[],
+                missing_skills=[],
+                seniority_status="Vaga Antiga (> 24h)"
+            )
+
+        # 1. Strict Irrelevant Role Disqualification
+        for disq in IRRELEVANT_TECH_DISQUALIFIERS:
+            if re.search(rf"\b{re.escape(disq)}\b", title_lower):
+                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Tecnologia Irrelevante")
+
+        # 2. Mandatory AI & Data Science Domain Check
+        has_domain_match = any(kw in title_lower for kw in ["ai", "ia", "data", "machine learning", "ml", "rag", "nlp", "llm", "analytics", "dados", "python"])
+        if not has_domain_match:
+            if not any(k in text for k in ["data scientist", "ai engineer", "machine learning", "python", "sql", "data analyst"]):
+                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Fora do Âmbito AI/Data Science")
+
+        # 3. Seniority & Experience Disqualification Logic
+        is_explicit_junior = any(j_term in title_lower for j_term in ["junior", "jr", "estágio", "estagio", "trainee", "graduate", "entry level", "intern"])
         
         disqualified = False
-        
-        # Check Title Disqualifiers (unless explicitly Junior/Entry level in title)
         if not is_explicit_junior:
             for disq in TITLE_DISQUALIFIERS:
                 pattern = rf"\b{re.escape(disq)}\b" if len(disq) <= 3 else re.escape(disq)
@@ -73,29 +125,45 @@ class JobMatcher:
                     disqualified = True
                     break
 
-            # Check Candidate Profile Disqualifiers in title or description
-            if not disqualified:
-                for disq in self.profile.disqualifiers:
-                    pattern = rf"\b{re.escape(disq)}\b" if len(disq) <= 3 else re.escape(disq)
-                    if re.search(pattern, title_lower):
-                        disqualified = True
-                        break
-
-            # Check Experience Years Disqualifier in text (>= 3 years or mid-senior level)
-            if not disqualified:
-                if YEARS_EXP_PATTERN.search(text):
-                    disqualified = True
+        if not disqualified:
+            if YEARS_EXP_PATTERN.search(text) and not is_explicit_junior:
+                disqualified = True
 
         if disqualified:
             return ScoredJob(
                 job=job,
-                score=10.0,
+                score=0.0,
                 matched_skills=[],
                 missing_skills=[],
                 seniority_status="Sénior / Requisitos Desajustados"
             )
 
-        # 2. Tech Stack Skill Matching (with Aliases)
+        # 4. Target Role Title Base Score (55.0 points base for matching target AI/Data roles)
+        title_score = 0.0
+        exact_targets = ["data scientist", "ai engineer", "machine learning", "ml engineer", "rag", "nlp", "llm", "data analyst", "data engineer", "inteligência artificial", "ciência de dados"]
+        
+        if any(t in title_lower for t in exact_targets):
+            title_score = 55.0
+        elif any(t in title_lower for t in ["data", "ai", "ia", "python"]):
+            title_score = 45.0
+        else:
+            title_score = 35.0
+
+        # 5. Junior / Entry Level / IEFP Booster (+25.0 points)
+        booster_score = 0.0
+        seniority_status = "Geral / Pleno"
+
+        if job.iefp_mentioned or "iefp" in text or "ativar" in text:
+            booster_score = 25.0
+            seniority_status = "Junior / Estágio IEFP"
+        elif is_explicit_junior:
+            booster_score = 25.0
+            seniority_status = "Junior / Entry Level"
+        elif any(b in text for b in ["recém-licenciado", "recem licenciado", "0-1", "0-2", "1-2", "trainee"]):
+            booster_score = 20.0
+            seniority_status = "Junior / 0-2 anos"
+
+        # 6. Tech Stack Skill Matching (+5.0 points per matched skill)
         matched_skills: List[str] = []
         for canonical_skill, aliases in SKILL_ALIASES.items():
             for alias in aliases:
@@ -104,62 +172,10 @@ class JobMatcher:
                     matched_skills.append(canonical_skill)
                     break
 
-        # Tech score calculation (up to 50 points)
-        tech_score = min(50.0, len(matched_skills) * 8.5)
-
-        # Tech Combo Bonus: Python + (SQL or Pandas) + (ML or RAG or LLM) -> +10 points
-        has_python = "python" in matched_skills
-        has_data = any(s in matched_skills for s in ["sql", "pandas", "numpy"])
-        has_ai_ml = any(s in matched_skills for s in ["machine learning", "rag", "llm", "scikit-learn", "langchain", "nlp"])
-        
-        combo_bonus = 0.0
-        if has_python and has_data and has_ai_ml:
-            combo_bonus = 10.0
-
-        # 3. Target Title Match (up to 25 points)
-        title_score = 0.0
-        core_role_keywords = ["ai engineer", "data scientist", "machine learning", "ml engineer", "rag", "nlp", "llm", "data analyst", "developer", "engenheiro"]
-        
-        for target in self.profile.target_titles:
-            if target.lower() in title_lower:
-                title_score = 25.0
-                break
-        
-        if title_score == 0.0:
-            for kw in core_role_keywords:
-                if kw in title_lower:
-                    title_score = 18.0
-                    break
-
-        # 4. Junior & IEFP Seniority Boosters (up to 30 points)
-        booster_score = 0.0
-        seniority_status = "Geral / Pleno"
-        
-        has_booster = False
-        for booster in self.profile.junior_boosters:
-            pattern = rf"\b{re.escape(booster)}\b"
-            if re.search(pattern, text):
-                has_booster = True
-                break
-
-        if job.iefp_mentioned or "iefp" in text or "ativar" in text:
-            booster_score = 30.0
-            seniority_status = "Junior / Estágio IEFP"
-        elif is_explicit_junior or has_booster:
-            booster_score = 30.0
-            seniority_status = "Junior / Entry Level"
-        elif "0-1" in text or "0-2" in text or "1-2" in text or "recém-licenciado" in text or "recem licenciado" in text:
-            booster_score = 25.0
-            seniority_status = "Junior / 0-2 anos"
-
-        # 5. Location Preference Boost (+5 points for Portugal / Remote)
-        location_score = 0.0
-        loc_text = f"{job.location} {job.work_mode}".lower()
-        if any(loc in loc_text for loc in ["portugal", "lisboa", "porto", "braga", "coimbra", "remoto", "remote"]):
-            location_score = 5.0
+        tech_score = min(20.0, len(matched_skills) * 5.0)
 
         # Calculate Final Match Score
-        final_score = min(100.0, tech_score + combo_bonus + title_score + booster_score + location_score)
+        final_score = min(100.0, title_score + booster_score + tech_score)
 
         return ScoredJob(
             job=job,
@@ -173,7 +189,7 @@ class JobMatcher:
         scored_jobs = []
         for job in jobs:
             evaluated = self.evaluate_job(job)
-            if evaluated.score >= 35.0 and evaluated.seniority_status != "Sénior / Requisitos Desajustados":
+            if evaluated.score >= 40.0:
                 scored_jobs.append(evaluated)
 
         scored_jobs.sort(key=lambda x: x.score, reverse=True)
