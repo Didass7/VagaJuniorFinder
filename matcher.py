@@ -45,9 +45,17 @@ IRRELEVANT_TECH_DISQUALIFIERS = [
     "mainframe", "devops engineer", "scrum master"
 ]
 
+# Title Disqualifiers for Senior Roles or Academic Doctorate Requirements
 TITLE_DISQUALIFIERS = [
-    "senior", "sr", "lead", "principal", "head of", "director", "architect", "staff", "vp of", "manager"
+    "senior", "sr", "lead", "principal", "head of", "director", "architect", "staff", "vp of", "manager",
+    "phd", "ph.d", "doctorate", "doutoramento", "postdoc", "post-doc", "postdoctoral"
 ]
+
+# Disqualify jobs requiring a PhD / Doctorate degree
+PHD_REQUIREMENT_PATTERN = re.compile(
+    r"\b(?:phd|ph\.d|doctorate|doutoramento|postdoc|post-doc|postdoctoral)\b",
+    re.IGNORECASE
+)
 
 YEARS_EXP_PATTERN = re.compile(
     r"\b([3-9]|1[0-5])\s*(?:\+|\-|[\u2010-\u2015\~]|to|a)?\s*([3-9]|1[0-5])?\s*(?:years?|yrs?|anos?)|"
@@ -119,28 +127,38 @@ class JobMatcher:
                 seniority_status="Vaga Antiga (> 24h)"
             )
 
-        # 1. Foreign Language Job Post Disqualification (German/French/Spanish text posts or language requirements)
+        # 1. PhD / Doctorate Degree Requirement Disqualification
+        if PHD_REQUIREMENT_PATTERN.search(title_lower) or PHD_REQUIREMENT_PATTERN.search(text):
+            return ScoredJob(
+                job=job,
+                score=0.0,
+                matched_skills=[],
+                missing_skills=[],
+                seniority_status="Requer Doutoramento / PhD"
+            )
+
+        # 2. Foreign Language Job Post Disqualification (German/French/Spanish text posts or language requirements)
         if MANDATORY_OTHER_LANGUAGES_PATTERN.search(text) or FOREIGN_JOB_POST_PATTERN.search(text):
             return ScoredJob(
                 job=job,
                 score=0.0,
                 matched_skills=[],
                 missing_skills=[],
-                seniority_status="Anúncio em Alemão/Francês/Espanhol"
+                seniority_status="Exige Outro Idioma (Alemão/Francês/Espanhol)"
             )
 
-        # 2. Strict Irrelevant Role Disqualification (PHP, SAP, RPA, Embedded, C++, QA, Web Dev)
+        # 3. Strict Irrelevant Role Disqualification (PHP, SAP, RPA, Embedded, C++, QA, Web Dev)
         for disq in IRRELEVANT_TECH_DISQUALIFIERS:
             if re.search(rf"\b{re.escape(disq)}\b", title_lower):
                 return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Tecnologia Irrelevante")
 
-        # 3. Mandatory AI & Data Science Domain Check
+        # 4. Mandatory AI & Data Science Domain Check
         has_domain_match = any(kw in title_lower for kw in ["ai", "ia", "data", "machine learning", "ml", "rag", "nlp", "llm", "analytics", "dados", "python"])
         if not has_domain_match:
             if not any(k in text for k in ["data scientist", "ai engineer", "machine learning", "python", "sql", "data analyst"]):
                 return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Fora do Âmbito AI/Data Science")
 
-        # 4. Seniority & Experience Disqualification Logic
+        # 5. Seniority & Experience Disqualification Logic
         is_explicit_junior = any(j_term in title_lower for j_term in ["junior", "jr", "estágio", "estagio", "trainee", "graduate", "entry level", "intern"])
         
         disqualified = False
@@ -164,7 +182,7 @@ class JobMatcher:
                 seniority_status="Sénior / Requisitos Desajustados"
             )
 
-        # 5. Target Role Title Base Score (55.0 points base for matching target AI/Data roles)
+        # 6. Target Role Title Base Score (55.0 points base for matching target AI/Data roles)
         title_score = 0.0
         exact_targets = ["data scientist", "ai engineer", "machine learning", "ml engineer", "rag", "nlp", "llm", "data analyst", "data engineer", "inteligência artificial", "ciência de dados"]
         
@@ -175,7 +193,7 @@ class JobMatcher:
         else:
             title_score = 35.0
 
-        # 6. Junior / Entry Level / IEFP Booster (+25.0 points)
+        # 7. Junior / Entry Level / IEFP Booster (+25.0 points)
         booster_score = 0.0
         seniority_status = "Geral / Pleno"
 
@@ -189,7 +207,7 @@ class JobMatcher:
             booster_score = 20.0
             seniority_status = "Junior / 0-2 anos"
 
-        # 7. Tech Stack Skill Matching (+5.0 points per matched skill)
+        # 8. Tech Stack Skill Matching (+5.0 points per matched skill)
         matched_skills: List[str] = []
         for canonical_skill, aliases in SKILL_ALIASES.items():
             for alias in aliases:
