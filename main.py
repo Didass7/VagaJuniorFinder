@@ -7,6 +7,7 @@ from scraper import JobIngestionPipeline
 from matcher import JobMatcher
 from report_builder import ReportBuilder
 from notifier import EmailNotifier
+from telegram_notifier import TelegramNotifier
 
 # Ensure Windows terminal stdout handles UTF-8 emojis cleanly
 if sys.stdout.encoding != 'utf-8':
@@ -44,12 +45,14 @@ def run_pipeline(dry_run: bool = False):
     # 3. Report Building
     report_builder = ReportBuilder(profile=config.candidate)
     markdown_content = report_builder.build_markdown(scored_jobs)
+    telegram_html_content = report_builder.build_telegram_html(scored_jobs)
+    
     saved_report_path = report_builder.save_report(markdown_content, output_dir=config.reports_dir)
     logger.info(f"📄 Markdown report saved to: {saved_report_path}")
 
-    # 4. Email Notification
+    # 4. Dispatch Notifications
     if dry_run:
-        logger.info("ℹ️ Dry-run mode active. Skipping email dispatch.")
+        logger.info("ℹ️ Dry-run mode active. Skipping notification dispatch.")
         logger.info("---------------- REPORT PREVIEW ----------------")
         try:
             print(markdown_content[:800] + "\n\n[... truncated preview ...]")
@@ -57,14 +60,29 @@ def run_pipeline(dry_run: bool = False):
             print(markdown_content[:800].encode('ascii', errors='replace').decode('ascii') + "\n\n[... truncated preview ...]")
         logger.info("------------------------------------------------")
     else:
-        notifier = EmailNotifier(
-            smtp_server=config.smtp_server,
-            smtp_port=config.smtp_port,
-            smtp_email=config.smtp_email,
-            smtp_password=config.smtp_password,
-            receiver_email=config.receiver_email
-        )
-        notifier.send_email_report(markdown_content, md_filepath=saved_report_path)
+        # A) Telegram Notification (Primary)
+        if config.telegram_bot_token and config.telegram_chat_id:
+            telegram_bot = TelegramNotifier(
+                bot_token=config.telegram_bot_token,
+                chat_id=config.telegram_chat_id
+            )
+            telegram_bot.send_message(telegram_html_content, parse_mode="HTML")
+            telegram_bot.send_document(saved_report_path, caption="📄 Relatório completo em Markdown")
+        else:
+            logger.info("ℹ️ Telegram credentials not configured. Skipping Telegram dispatch.")
+
+        # B) Email Notification (Secondary)
+        if config.smtp_password:
+            notifier = EmailNotifier(
+                smtp_server=config.smtp_server,
+                smtp_port=config.smtp_port,
+                smtp_email=config.smtp_email,
+                smtp_password=config.smtp_password,
+                receiver_email=config.receiver_email
+            )
+            notifier.send_email_report(markdown_content, md_filepath=saved_report_path)
+        else:
+            logger.info("ℹ️ Email SMTP password not configured. Skipping Email dispatch.")
 
     logger.info("==================================================")
     logger.info("✅ VagaJuniorFinder Pipeline Finished Successfully")
@@ -72,7 +90,7 @@ def run_pipeline(dry_run: bool = False):
 
 def main():
     parser = argparse.ArgumentParser(description="VagaJuniorFinder — Daily Junior AI & Data Science Job Finder")
-    parser.add_argument("--dry-run", action="store_true", help="Run ingestion and report generation without sending email")
+    parser.add_argument("--dry-run", action="store_true", help="Run ingestion and report generation without sending notifications")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose log level")
 
     args = parser.parse_args()

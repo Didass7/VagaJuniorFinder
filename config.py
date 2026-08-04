@@ -62,6 +62,10 @@ class AppConfig:
     smtp_password: str = os.getenv("SMTP_PASSWORD", "")
     receiver_email: str = os.getenv("RECEIVER_EMAIL", "diogon.oliveira1@gmail.com")
     
+    # Telegram Configuration
+    telegram_bot_token: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    telegram_chat_id: str = os.getenv("TELEGRAM_CHAT_ID", "")
+    
     # API Keys / Feeds
     itjobs_api_key: str = os.getenv("ITJOBS_API_KEY", "")
     
