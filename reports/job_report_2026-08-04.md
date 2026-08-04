@@ -140,13 +140,13 @@
 
 ## Tecnologias Mais Demandadas Hoje
 
-- **Python**: `11 vagas` (21.2%)
-- **Machine Learning**: `8 vagas` (15.4%)
-- **Sql**: `5 vagas` (9.6%)
-- **Llm**: `3 vagas` (5.8%)
-- **Git**: `2 vagas` (3.8%)
+- **Python**: `11 vagas` (21.6%)
+- **Machine Learning**: `8 vagas` (15.7%)
+- **Sql**: `5 vagas` (9.8%)
+- **Llm**: `2 vagas` (3.9%)
+- **Git**: `2 vagas` (3.9%)
 
 
 ---
 
-*VagaJuniorFinder | Gerado a 04/08/2026 23:36.*
+*VagaJuniorFinder | Gerado a 04/08/2026 23:44.*

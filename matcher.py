@@ -56,15 +56,23 @@ YEARS_EXP_PATTERN = re.compile(
     re.IGNORECASE
 )
 
+# Mandatory Non-English/Portuguese Language Disqualifier (German, French, Spanish, Dutch, Italian mandatory requirements)
+MANDATORY_OTHER_LANGUAGES_PATTERN = re.compile(
+    r"\b(?:german|deutsch|french|français|francais|spanish|español|espanhol|dutch|nederlands|italian|italiano)\s*"
+    r"(?:required|mandatory|essential|fluent|fluency|c1|c2|b2|native|language\s+skills|level|nível|nivel|auf\s+c1|auf\s+b2|exigido|obrigatório)\b|"
+    r"\b(?:fließendes|fließend|gutes)\s+deutsch\b|"
+    r"\b(?:fluent|fluency|must\s+speak|speaking|proficient\s+in)\s+(?:in\s+)?(?:german|deutsch|french|français|spanish|español|dutch|italian)\b|"
+    r"\b(?:deutschkenntnisse|sprachkenntnisse)\b",
+    re.IGNORECASE
+)
+
 def parse_job_date(date_str: str) -> datetime.date:
     """Parses various date formats to a standard datetime.date."""
     if not date_str:
         return datetime.date.today()
     try:
-        # ISO format YYYY-MM-DD
         if re.match(r"^\d{4}-\d{2}-\d{2}", date_str):
             return datetime.date.fromisoformat(date_str[:10])
-        # RFC 822 format (e.g., 'Tue, 04 Aug 2026 12:00:00 GMT')
         parsed_tuple = email.utils.parsedate_tz(date_str)
         if parsed_tuple:
             dt = datetime.datetime.fromtimestamp(email.utils.mktime_tz(parsed_tuple))
@@ -103,18 +111,28 @@ class JobMatcher:
                 seniority_status="Vaga Antiga (> 24h)"
             )
 
-        # 1. Strict Irrelevant Role Disqualification
+        # 1. Mandatory Non-English/Portuguese Language Disqualification (German, French, Spanish, etc.)
+        if MANDATORY_OTHER_LANGUAGES_PATTERN.search(text):
+            return ScoredJob(
+                job=job,
+                score=0.0,
+                matched_skills=[],
+                missing_skills=[],
+                seniority_status="Exige Outro Idioma (Alemão/Francês/Espanhol)"
+            )
+
+        # 2. Strict Irrelevant Role Disqualification (PHP, SAP, RPA, Embedded, C++, QA, Web Dev)
         for disq in IRRELEVANT_TECH_DISQUALIFIERS:
             if re.search(rf"\b{re.escape(disq)}\b", title_lower):
                 return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Tecnologia Irrelevante")
 
-        # 2. Mandatory AI & Data Science Domain Check
+        # 3. Mandatory AI & Data Science Domain Check
         has_domain_match = any(kw in title_lower for kw in ["ai", "ia", "data", "machine learning", "ml", "rag", "nlp", "llm", "analytics", "dados", "python"])
         if not has_domain_match:
             if not any(k in text for k in ["data scientist", "ai engineer", "machine learning", "python", "sql", "data analyst"]):
                 return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Fora do Âmbito AI/Data Science")
 
-        # 3. Seniority & Experience Disqualification Logic
+        # 4. Seniority & Experience Disqualification Logic
         is_explicit_junior = any(j_term in title_lower for j_term in ["junior", "jr", "estágio", "estagio", "trainee", "graduate", "entry level", "intern"])
         
         disqualified = False
@@ -138,7 +156,7 @@ class JobMatcher:
                 seniority_status="Sénior / Requisitos Desajustados"
             )
 
-        # 4. Target Role Title Base Score (55.0 points base for matching target AI/Data roles)
+        # 5. Target Role Title Base Score (55.0 points base for matching target AI/Data roles)
         title_score = 0.0
         exact_targets = ["data scientist", "ai engineer", "machine learning", "ml engineer", "rag", "nlp", "llm", "data analyst", "data engineer", "inteligência artificial", "ciência de dados"]
         
@@ -149,7 +167,7 @@ class JobMatcher:
         else:
             title_score = 35.0
 
-        # 5. Junior / Entry Level / IEFP Booster (+25.0 points)
+        # 6. Junior / Entry Level / IEFP Booster (+25.0 points)
         booster_score = 0.0
         seniority_status = "Geral / Pleno"
 
@@ -163,7 +181,7 @@ class JobMatcher:
             booster_score = 20.0
             seniority_status = "Junior / 0-2 anos"
 
-        # 6. Tech Stack Skill Matching (+5.0 points per matched skill)
+        # 7. Tech Stack Skill Matching (+5.0 points per matched skill)
         matched_skills: List[str] = []
         for canonical_skill, aliases in SKILL_ALIASES.items():
             for alias in aliases:
