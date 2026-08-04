@@ -26,17 +26,21 @@ SKILL_ALIASES: Dict[str, List[str]] = {
 }
 
 TITLE_DISQUALIFIERS = [
-    "senior", "sr", "lead", "principal", "head of", "director", "architect", "staff", "vp of", "manager"
+    "senior", "sr", "sr.", "lead", "principal", "head of", "head", "director",
+    "architect", "staff", "vp of", "vp", "manager", "intermediate", "mid",
+    "mid-level", "midlevel", "pleno", "experienced", "expert", "specialist",
+    "team lead", "tech lead", "chapter lead"
 ]
 
-# Robust Regex catching experience requirements >= 3 years:
+# Robust Regex catching experience requirements >= 3 years or mid/senior level indicators:
 # Handles hyphens, en-dashes (\u2013), em-dashes (\u2014), 'to', 'a', 'yrs', 'years', 'anos'
-# Examples caught: "4–8 years", "5-7 years", "3 to 5 years", "3+ years", "4+ yrs", "at least 3 years", etc.
+# Examples caught: "3-5 years", "4–8 years", "5-7 years", "3 to 5 years", "3+ years", "4+ yrs", "mid-senior", etc.
 # Ignores: "0-2 years", "1-2 years", "0 to 1 year"
 YEARS_EXP_PATTERN = re.compile(
     r"\b([3-9]|1[0-5])\s*(?:\+|\-|[\u2010-\u2015\~]|to|a)?\s*([3-9]|1[0-5])?\s*(?:years?|yrs?|anos?)|"
     r"\b([3-9]|1[0-5])\s*(?:years?|yrs?|anos?)\s+(?:of\s+)?experience|"
-    r"(?:at\s+least|mínimo\s+de?)\s+([3-9]|1[0-5])\s*(?:years?|yrs?|anos?)",
+    r"(?:at\s+least|mínimo\s+de?)\s+([3-9]|1[0-5])\s*(?:years?|yrs?|anos?)|"
+    r"\b(?:mid-senior|senior level|seniority:\s*senior|seniority:\s*mid|experienced level)\b",
     re.IGNORECASE
 )
 
@@ -57,7 +61,7 @@ class JobMatcher:
         title_lower = job.title.lower()
 
         # 1. Disqualification Logic
-        is_explicit_junior = any(j_term in title_lower for j_term in ["junior", "jr", "estágio", "estagio", "trainee", "graduate", "entry level", "intern"])
+        is_explicit_junior = any(j_term in title_lower for j_term in ["junior", "jr", "estágio", "estagio", "trainee", "graduate", "entry level", "intern", "internship"])
         
         disqualified = False
         
@@ -69,10 +73,18 @@ class JobMatcher:
                     disqualified = True
                     break
 
-        # Check Experience Years Disqualifier in text (>= 3 years)
-        if not disqualified:
-            if YEARS_EXP_PATTERN.search(text) and not is_explicit_junior:
-                disqualified = True
+            # Check Candidate Profile Disqualifiers in title or description
+            if not disqualified:
+                for disq in self.profile.disqualifiers:
+                    pattern = rf"\b{re.escape(disq)}\b" if len(disq) <= 3 else re.escape(disq)
+                    if re.search(pattern, title_lower):
+                        disqualified = True
+                        break
+
+            # Check Experience Years Disqualifier in text (>= 3 years or mid-senior level)
+            if not disqualified:
+                if YEARS_EXP_PATTERN.search(text):
+                    disqualified = True
 
         if disqualified:
             return ScoredJob(
@@ -119,7 +131,7 @@ class JobMatcher:
                     title_score = 18.0
                     break
 
-        # 4. Junior & IEFP Seniority Boosters (up to 20 points)
+        # 4. Junior & IEFP Seniority Boosters (up to 30 points)
         booster_score = 0.0
         seniority_status = "Geral / Pleno"
         
@@ -131,13 +143,13 @@ class JobMatcher:
                 break
 
         if job.iefp_mentioned or "iefp" in text or "ativar" in text:
-            booster_score = 20.0
+            booster_score = 30.0
             seniority_status = "Junior / Estágio IEFP"
         elif is_explicit_junior or has_booster:
-            booster_score = 20.0
+            booster_score = 30.0
             seniority_status = "Junior / Entry Level"
         elif "0-1" in text or "0-2" in text or "1-2" in text or "recém-licenciado" in text or "recem licenciado" in text:
-            booster_score = 15.0
+            booster_score = 25.0
             seniority_status = "Junior / 0-2 anos"
 
         # 5. Location Preference Boost (+5 points for Portugal / Remote)
@@ -148,9 +160,6 @@ class JobMatcher:
 
         # Calculate Final Match Score
         final_score = min(100.0, tech_score + combo_bonus + title_score + booster_score + location_score)
-        
-        if title_score >= 18.0 and final_score < 45.0:
-            final_score = 45.0
 
         return ScoredJob(
             job=job,
@@ -164,7 +173,7 @@ class JobMatcher:
         scored_jobs = []
         for job in jobs:
             evaluated = self.evaluate_job(job)
-            if evaluated.score >= 35.0:
+            if evaluated.score >= 35.0 and evaluated.seniority_status != "Sénior / Requisitos Desajustados":
                 scored_jobs.append(evaluated)
 
         scored_jobs.sort(key=lambda x: x.score, reverse=True)

@@ -86,9 +86,17 @@ class ITJobsScraper:
         # Direct Web Scraping Fallback for ITJobs.pt
         search_urls = [
             "https://www.itjobs.pt/emprego",
+            "https://www.itjobs.pt/emprego?page=2",
+            "https://www.itjobs.pt/emprego?page=3",
+            "https://www.itjobs.pt/emprego?page=4",
             "https://www.itjobs.pt/emprego?q=data",
             "https://www.itjobs.pt/emprego?q=python",
-            "https://www.itjobs.pt/emprego?q=junior"
+            "https://www.itjobs.pt/emprego?q=junior",
+            "https://www.itjobs.pt/emprego?q=estagio",
+            "https://www.itjobs.pt/emprego?q=iefp",
+            "https://www.itjobs.pt/emprego?q=ai",
+            "https://www.itjobs.pt/emprego?q=inteligencia+artificial",
+            "https://www.itjobs.pt/emprego?q=machine+learning"
         ]
         
         seen_links = set()
@@ -318,18 +326,26 @@ class JobIngestionPipeline:
         # 5. WeWorkRemotely
         all_jobs.extend(self.wwr_scraper.fetch())
 
-        # 6. Targeted DuckDuckGo Web Searches (LinkedIn, Indeed, Glassdoor, IEFP)
+        # 6. Targeted DuckDuckGo Web Searches (LinkedIn, Indeed, Net-Empregos, Glassdoor, IEFP)
         target_queries = [
             '"Junior AI Engineer" site:linkedin.com/jobs',
             '"Junior Data Scientist" site:linkedin.com/jobs',
             '"Junior Machine Learning Engineer" site:linkedin.com/jobs',
+            '"Junior Data Analyst" site:linkedin.com/jobs',
             '"AI Engineer" IEFP Portugal',
             '"Data Scientist" IEFP Portugal',
             '"Estágio" "AI Engineer" OR "Data Scientist" Portugal',
+            '"Estágio Profissional" "Data" OR "IA" OR "Python" Portugal',
             '"RAG Developer" OR "NLP Engineer" Portugal OR Remote',
             '"Junior Data Scientist" remote Europe',
             '"Junior AI Engineer" remote Europe',
             '"Entry Level" "Data Scientist" remote',
+            'site:net-empregos.com "Junior" "Data"',
+            'site:net-empregos.com "Estágio" "Data"',
+            'site:net-empregos.com "AI" OR "Inteligência Artificial"',
+            '"Junior Data Scientist" Portugal',
+            '"Junior AI Engineer" Portugal',
+            '"Junior Machine Learning" Portugal'
         ]
         all_jobs.extend(self.ddg_scraper.fetch(target_queries))
 
