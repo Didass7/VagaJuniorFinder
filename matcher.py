@@ -26,12 +26,20 @@ SKILL_ALIASES: Dict[str, List[str]] = {
 }
 
 TITLE_DISQUALIFIERS = [
-    "senior", "sr", "lead", "principal", "head of", "director", "architect", "staff", "vp of"
+    "senior", "sr", "lead", "principal", "head of", "director", "architect", "staff", "vp of", "manager"
 ]
 
-STRICT_YEARS_DISQUALIFIERS = [
-    "5+ years", "5+ anos", "6+ years", "7+ years", "7+ anos", "8+ years", "10+ years"
-]
+# Regex pattern catching experience requirements >= 3 years:
+# Matches: "5 to 7 years", "5-7 years", "3 to 5 years", "3-5 years", "3+ years", "4+ years", "5+ years",
+# "5 years of experience", "at least 3 years", "mínimo de 3 anos", etc.
+YEARS_EXP_PATTERN = re.compile(
+    r"\b([3-9]|1[0-5])\s*(?:\+|\-|to|a)\s*([3-9]|1[0-5])?\s*(?:years?|anos?)|"
+    r"\b([3-9]|1[0-5])\s*\+\s*(?:years?|anos?)|"
+    r"\b([3-9]|1[0-5])\s*(?:years?|anos?)\s+(?:of\s+)?experience|"
+    r"at\s+least\s+([3-9]|1[0-5])\s*(?:years?|anos?)|"
+    r"mínimo\s+de?\s+([3-9]|1[0-5])\s*(?:years?|anos?)",
+    re.IGNORECASE
+)
 
 @dataclass
 class ScoredJob:
@@ -50,10 +58,11 @@ class JobMatcher:
         title_lower = job.title.lower()
 
         # 1. Disqualification Logic
-        # Check Title Disqualifiers (unless explicitly Junior/Entry level in title)
         is_explicit_junior = any(j_term in title_lower for j_term in ["junior", "jr", "estágio", "estagio", "trainee", "graduate", "entry level", "intern"])
         
         disqualified = False
+        
+        # Check Title Disqualifiers (unless explicitly Junior/Entry level in title)
         if not is_explicit_junior:
             for disq in TITLE_DISQUALIFIERS:
                 pattern = rf"\b{re.escape(disq)}\b" if len(disq) <= 3 else re.escape(disq)
@@ -61,12 +70,10 @@ class JobMatcher:
                     disqualified = True
                     break
 
-        # Check Strict Years Requirements in description body
+        # Check Experience Years Disqualifier in text (>= 3 years)
         if not disqualified:
-            for y_disq in STRICT_YEARS_DISQUALIFIERS:
-                if y_disq in text and not is_explicit_junior:
-                    disqualified = True
-                    break
+            if YEARS_EXP_PATTERN.search(text) and not is_explicit_junior:
+                disqualified = True
 
         if disqualified:
             return ScoredJob(
