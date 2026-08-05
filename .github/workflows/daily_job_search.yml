@@ -94,7 +94,7 @@ jobs:
           else
             SEEN_COUNT=$(python3 -c "import json; print(len(json.load(open('seen_jobs.json'))))" 2>/dev/null || echo "?")
             git commit -m "Update seen_jobs.json (${SEEN_COUNT} tracked jobs) [skip ci]"
-            git push origin data
+            git push --force origin data
             echo "✅ Persisted seen_jobs.json with ${SEEN_COUNT} tracked jobs."
           fi
 
