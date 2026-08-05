@@ -79,7 +79,7 @@ jobs:
 
           # Create or switch to the data branch
           if git rev-parse --verify origin/data >/dev/null 2>&1; then
-            git checkout data
+            git checkout -B data origin/data
           else
             # Create an orphan branch (no code history, just data)
             git checkout --orphan data
@@ -104,3 +104,5 @@ jobs:
           name: daily-job-reports
           path: reports/*.md
           retention-days: 30
+          if-no-files-found: ignore
+
