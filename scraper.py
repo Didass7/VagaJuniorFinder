@@ -806,8 +806,31 @@ class TeamlyzerScraper:
     def __init__(self, session: Optional[requests.Session] = None):
         self.session = session or get_session()
 
+    def _fetch_detail_page(self, card_info: dict) -> Job:
+        link = card_info["link"]
+        title = card_info["title"]
+        company = card_info["company"]
+        desc = card_info["initial_desc"]
+
+        try:
+            r = self.session.get(link, headers=get_random_headers(), timeout=8)
+            if r.status_code == 200:
+                soup = BeautifulSoup(r.text, "html.parser")
+                main_body = soup.find("div", class_=lambda c: c and ("job-detail" in str(c).lower() or "content" in str(c).lower())) or soup.body
+                if main_body:
+                    desc = f"{title} - " + main_body.get_text(separator=" ", strip=True)
+        except Exception:
+            pass
+
+        work_mode = "Remoto" if "remote" in desc.lower() else "Presencial / Híbrido"
+        return Job(
+            title=title, company=company, location="Portugal",
+            work_mode=work_mode, link=link, description=desc,
+            source="Teamlyzer", pub_date=datetime.date.today().isoformat()
+        )
+
     def fetch(self) -> List[Job]:
-        jobs = []
+        cards_to_fetch = []
         url = "https://pt.teamlyzer.com/companies/jobs"
         try:
             resp = self.session.get(url, headers=get_random_headers(), timeout=10)
@@ -842,18 +865,28 @@ class TeamlyzerScraper:
                     if not company:
                         company = "Empresa no Teamlyzer"
                         
-                    desc = card.get_text(separator=" ", strip=True)
-                    work_mode = "Remoto" if "remote" in desc.lower() else "Presencial / Híbrido"
-                    location = "Portugal"
-                    
-                    jobs.append(Job(
-                        title=title, company=company, location=location,
-                        work_mode=work_mode, link=link, description=desc,
-                        source="Teamlyzer", pub_date=datetime.date.today().isoformat()
-                    ))
-            logger.info(f"[Teamlyzer Portal] Fetched {len(jobs)} jobs.")
+                    initial_desc = card.get_text(separator=" ", strip=True)
+                    cards_to_fetch.append({
+                        "link": link,
+                        "title": title,
+                        "company": company,
+                        "initial_desc": initial_desc
+                    })
+
         except Exception as e:
             logger.error(f"[Teamlyzer Portal] Error: {e}")
+
+        jobs = []
+        if cards_to_fetch:
+            with ThreadPoolExecutor(max_workers=8) as executor:
+                future_to_detail = {executor.submit(self._fetch_detail_page, c): c for c in cards_to_fetch}
+                for future in as_completed(future_to_detail):
+                    try:
+                        jobs.append(future.result())
+                    except Exception as err:
+                        logger.debug(f"[Teamlyzer Portal] Detail fetch error: {err}")
+
+        logger.info(f"[Teamlyzer Portal] Fetched {len(jobs)} jobs with full detail body parsing concurrently.")
         return jobs
 
 class JobspressoScraper:
