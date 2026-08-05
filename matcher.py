@@ -73,6 +73,12 @@ TEXT_SENIORITY_DISQUALIFIERS = [
     "leadership experience", "experiência em liderança", "liderança técnica", "experiencia em liderança"
 ]
 
+# Precompiled regexes for fast disqualifier matching
+IRRELEVANT_ROLE_PATTERNS = [(disq, re.compile(rf"\b{re.escape(disq)}\b", re.IGNORECASE)) for disq in IRRELEVANT_ROLE_DISQUALIFIERS]
+TITLE_SENIORITY_PATTERNS = [(disq, re.compile(rf"\b{re.escape(disq.strip())}\b", re.IGNORECASE)) for disq in TITLE_SENIORITY_DISQUALIFIERS]
+TEXT_SENIORITY_PATTERNS = [(disq, re.compile(rf"\b{re.escape(disq)}\b", re.IGNORECASE)) for disq in TEXT_SENIORITY_DISQUALIFIERS]
+BASIC_TITLE_PATTERN = re.compile(r"\b(?:ai|ia|data|python|ml|machine\s+learning|inteligência|inteligencia|dados)\b", re.IGNORECASE)
+
 # Disqualify jobs requiring PhD / Doctorate
 PHD_REQUIREMENT_PATTERN = re.compile(
     r"\b(?:phd|ph\.d|doctorate|doutoramento|postdoc|post-doc|postdoctoral)\b",
@@ -175,16 +181,14 @@ class JobMatcher:
             return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Fora do Âmbito Geográfico", match_reason="Presencial/Híbrido no Estrangeiro")
 
         # 2. Strict Irrelevant Role Disqualification
-        for disq in IRRELEVANT_ROLE_DISQUALIFIERS:
-            pattern = rf"\b{re.escape(disq)}\b"
-            if re.search(pattern, title_lower):
+        for disq, pattern in IRRELEVANT_ROLE_PATTERNS:
+            if pattern.search(title_lower):
                 return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Cargo Irrelevante", match_reason=f"Título desqualificado por conter '{disq}'")
 
         # 3. Mandatory AI & Data Science Core Domain Check
         has_core_title = any(ct in title_lower for ct in ALLOW_CORE_TITLE_TERMS)
         if not has_core_title:
-            basic_title_pattern = re.compile(r"\b(?:ai|ia|data|python|ml|machine\s+learning|inteligência|inteligencia|dados)\b", re.IGNORECASE)
-            if not basic_title_pattern.search(title_lower):
+            if not BASIC_TITLE_PATTERN.search(title_lower):
                 return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Fora de AI/Data Science", match_reason="Título não se enquadra em AI, ML ou Data Science")
 
         # 4. PhD / Doctorate Degree Requirement Disqualification
@@ -201,15 +205,13 @@ class JobMatcher:
         has_verified_junior_indicator = is_explicit_junior or job.iefp_mentioned or is_explicit_zero_to_one
 
         # Check Senior Title Disqualifiers (Senior, Sr, Lead, Principal, III, Level 3, Manager, etc.)
-        for disq in TITLE_SENIORITY_DISQUALIFIERS:
-            pattern = rf"\b{re.escape(disq.strip())}\b"
-            if re.search(pattern, title_lower):
+        for disq, pattern in TITLE_SENIORITY_PATTERNS:
+            if pattern.search(title_lower):
                 return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Sénior / Liderança / Nível Avançado", match_reason=f"Título sénior ({disq})")
 
         # Check Text-level Seniority Disqualifiers (LinkedIn Mid-Senior tags, Technical Leadership, etc.)
-        for disq in TEXT_SENIORITY_DISQUALIFIERS:
-            pattern = rf"\b{re.escape(disq)}\b"
-            if re.search(pattern, text):
+        for disq, pattern in TEXT_SENIORITY_PATTERNS:
+            if pattern.search(text):
                 return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Nível Mid-Senior / Liderança", match_reason=f"Descrição ou tag exige nível avançado ({disq})")
 
         # Check Experience Requirement (>1 year exp required is REJECTED)

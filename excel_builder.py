@@ -162,18 +162,24 @@ class ExcelReportBuilder:
             return alt_filepath
         return filepath
 
-    def update_master_database(self, scored_jobs: List[ScoredJob], master_filepath: str = "jobs_database.xlsx") -> str:
+    def update_master_database(self, scored_jobs: List[ScoredJob], master_filepath: str = os.path.join("data", "jobs_database.xlsx")) -> str:
         """Maintains a cumulative master Excel database accumulating all jobs ever found and preserving candidate notes."""
         master_jobs_dict: Dict[str, ScoredJob] = {}
         user_notes_dict: Dict[str, Dict[str, str]] = {}
 
+        # Fallback to root jobs_database.xlsx if master_filepath doesn't exist yet
+        if not os.path.exists(master_filepath) and os.path.exists("jobs_database.xlsx"):
+            master_filepath_to_read = "jobs_database.xlsx"
+        else:
+            master_filepath_to_read = master_filepath
+
         # 1. Read existing rows from master_filepath if it exists to preserve cumulative history
-        if os.path.exists(master_filepath):
+        if os.path.exists(master_filepath_to_read):
             try:
                 from matcher import JobMatcher
                 matcher = JobMatcher(profile=self.profile)
 
-                old_wb = openpyxl.load_workbook(master_filepath)
+                old_wb = openpyxl.load_workbook(master_filepath_to_read)
                 if "🗃️ Base de Dados Master" in old_wb.sheetnames:
                     old_ws = old_wb["🗃️ Base de Dados Master"]
                     for row in old_ws.iter_rows(min_row=2, values_only=False):
@@ -251,6 +257,10 @@ class ExcelReportBuilder:
                 if url in user_notes_dict:
                     ws.cell(row=row_idx, column=12, value=user_notes_dict[url]["status"])
                     ws.cell(row=row_idx, column=13, value=user_notes_dict[url]["notes"])
+
+        dir_name = os.path.dirname(master_filepath)
+        if dir_name:
+            os.makedirs(dir_name, exist_ok=True)
 
         try:
             wb.save(master_filepath)

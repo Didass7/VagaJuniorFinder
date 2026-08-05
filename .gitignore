@@ -12,13 +12,18 @@ build/
 venv/
 env/
 
-# Seen jobs store (persisted on 'data' branch by GitHub Actions)
+# Data storage & cache
 seen_jobs.json
 jobs_cache.json
+data/*.json
+data/*.xlsx
+*.xlsx
+scratch/
 
 # Reports (uploaded as GH Actions artifacts)
 reports/*.md
 reports/*.html
+reports/*.xlsx
 
 # IDE
 .vscode/

@@ -69,7 +69,7 @@ class AppConfig:
     
     # Data Storage Paths
     reports_dir: str = os.getenv("REPORTS_DIR", "reports")
-    cache_file: str = os.getenv("CACHE_FILE", "jobs_cache.json")
+    cache_file: str = os.getenv("CACHE_FILE", os.path.join("data", "jobs_cache.json"))
     
     # Scoring Thresholds
     top_match_threshold: float = 75.0

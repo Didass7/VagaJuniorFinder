@@ -1,4 +1,5 @@
 import datetime
+import html
 import os
 from typing import List, Optional
 from config import CandidateProfile
@@ -139,17 +140,21 @@ class ReportBuilder:
     def _format_job_card_html(self, sj: ScoredJob, tag: str = "") -> str:
         job = sj.job
         lines = []
-        tag_badge = f" [<i>{tag}</i>]" if tag else ""
-        lines.append(f"📌 <b><a href=\"{job.link}\">{job.title}</a></b>{tag_badge}")
+        safe_title = html.escape(job.title)
+        safe_company = html.escape(job.company)
+        safe_location = html.escape(job.location)
+        tag_badge = f" [<i>{html.escape(tag)}</i>]" if tag else ""
+        
+        lines.append(f"📌 <b><a href=\"{job.link}\">{safe_title}</a></b>{tag_badge}")
         iefp_tag = " | <code>IEFP</code>" if job.iefp_mentioned else ""
-        lines.append(f"• <b>Empresa:</b> {job.company} | <b>Local:</b> {job.location}")
-        lines.append(f"• <b>Match:</b> <code>{sj.score}%</code> | <code>{job.work_mode}</code>{iefp_tag}")
+        lines.append(f"• <b>Empresa:</b> {safe_company} | <b>Local:</b> {safe_location}")
+        lines.append(f"• <b>Match:</b> <code>{sj.score}%</code> | <code>{html.escape(job.work_mode)}</code>{iefp_tag}")
 
         if sj.matched_skills:
-            skills_formatted = " ".join([f"<code>{s}</code>" for s in sj.matched_skills])
+            skills_formatted = " ".join([f"<code>{html.escape(s)}</code>" for s in sj.matched_skills])
             lines.append(f"• <b>Stack:</b> {skills_formatted}")
 
-        lines.append(f"👉 <a href=\"{job.link}\">Candidatar — {job.company}</a>\n")
+        lines.append(f"👉 <a href=\"{job.link}\">Candidatar — {safe_company}</a>\n")
         return "\n".join(lines)
 
     def save_report(self, markdown_content: str, output_dir: str = "reports") -> str:

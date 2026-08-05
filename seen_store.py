@@ -54,11 +54,17 @@ class SeenStore:
         return [j for j in jobs if not self.is_seen(j.job_id)]
 
     def save(self) -> None:
-        """Persist the store to disk."""
+        """Persist the store to disk atomically."""
         try:
-            os.makedirs(os.path.dirname(self.filepath) or ".", exist_ok=True)
-            with open(self.filepath, "w", encoding="utf-8") as f:
-                json.dump(self._store, f, indent=2)
+            target_dir = os.path.dirname(self.filepath) or "."
+            os.makedirs(target_dir, exist_ok=True)
+            
+            import tempfile
+            with tempfile.NamedTemporaryFile("w", dir=target_dir, delete=False, encoding="utf-8") as tf:
+                json.dump(self._store, tf, indent=2)
+                temp_name = tf.name
+
+            os.replace(temp_name, self.filepath)
             logger.info(f"Saved {len(self._store)} seen job IDs to {self.filepath}")
         except OSError as e:
             logger.error(f"Failed to save seen store: {e}")

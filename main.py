@@ -1,6 +1,7 @@
 import argparse
 import logging
 import sys
+import os
 import io
 from config import config
 from scraper import JobIngestionPipeline
@@ -70,7 +71,7 @@ def run_pipeline(dry_run: bool = False):
     # Build Excel Daily Report and Update Master Database Excel
     excel_builder = ExcelReportBuilder(profile=config.candidate)
     daily_excel_path = excel_builder.build_daily_report(all_scored_jobs, output_dir=config.reports_dir)
-    master_excel_path = excel_builder.update_master_database(all_scored_jobs, master_filepath="jobs_database.xlsx")
+    master_excel_path = excel_builder.update_master_database(all_scored_jobs, master_filepath=os.path.join("data", "jobs_database.xlsx"))
     
     logger.info(f"📊 Daily Excel report saved to: {daily_excel_path}")
     logger.info(f"🗃️ Master Excel database updated at: {master_excel_path}")
