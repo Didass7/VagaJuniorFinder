@@ -38,29 +38,29 @@ def run_pipeline(dry_run: bool = False):
         logger.warning("⚠️ No jobs found across any sources today.")
         return
 
-    # 1b. Cross-run deduplication — skip jobs we've already processed
+    # 1b. Cross-run deduplication — split into new vs previously seen jobs
     seen = SeenStore(filepath=config.cache_file)
     new_jobs = seen.filter_new(raw_jobs)
-    logger.info(f"🧠 Seen store: {seen.count} tracked | {len(raw_jobs)} ingested | {len(new_jobs)} new")
-
-    if not new_jobs:
-        logger.info("✅ All jobs were already seen in previous runs. Nothing new to report.")
-        seen.save()
-        return
+    seen_jobs = [j for j in raw_jobs if seen.is_seen(j.job_id)]
+    
+    logger.info(f"🧠 Seen store: {seen.count} tracked | {len(raw_jobs)} ingested | {len(new_jobs)} new | {len(seen_jobs)} previously seen")
 
     # 2. Matching & Scoring
     matcher = JobMatcher(profile=config.candidate)
-    scored_jobs = matcher.process_jobs(new_jobs)
-    logger.info(f"✅ Evaluated {len(scored_jobs)} jobs relevant for matching score evaluation.")
+    scored_new_jobs = matcher.process_jobs(new_jobs) if new_jobs else []
+    scored_seen_jobs = matcher.process_jobs(seen_jobs) if seen_jobs else []
+
+    logger.info(f"✅ Evaluated: {len(scored_new_jobs)} new qualified jobs | {len(scored_seen_jobs)} active seen qualified jobs.")
 
     # Mark all new jobs as seen (even low-scored ones, to avoid re-processing)
-    seen.mark_seen([j.job_id for j in new_jobs])
-    seen.save()
+    if new_jobs:
+        seen.mark_seen([j.job_id for j in new_jobs])
+        seen.save()
 
     # 3. Report Building
     report_builder = ReportBuilder(profile=config.candidate)
-    markdown_content = report_builder.build_markdown(scored_jobs)
-    telegram_html_content = report_builder.build_telegram_html(scored_jobs)
+    markdown_content = report_builder.build_markdown(scored_new_jobs, scored_seen_jobs)
+    telegram_html_content = report_builder.build_telegram_html(scored_new_jobs, scored_seen_jobs)
     
     saved_report_path = report_builder.save_report(markdown_content, output_dir=config.reports_dir)
     logger.info(f"📄 Markdown report saved to: {saved_report_path}")
@@ -70,9 +70,9 @@ def run_pipeline(dry_run: bool = False):
         logger.info("ℹ️ Dry-run mode active. Skipping notification dispatch.")
         logger.info("---------------- REPORT PREVIEW ----------------")
         try:
-            print(markdown_content[:800] + "\n\n[... truncated preview ...]")
+            print(markdown_content[:1200] + "\n\n[... truncated preview ...]")
         except Exception:
-            print(markdown_content[:800].encode('ascii', errors='replace').decode('ascii') + "\n\n[... truncated preview ...]")
+            print(markdown_content[:1200].encode('ascii', errors='replace').decode('ascii') + "\n\n[... truncated preview ...]")
         logger.info("------------------------------------------------")
     else:
         # A) Telegram Notification (Primary)
