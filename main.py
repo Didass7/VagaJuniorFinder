@@ -6,6 +6,7 @@ from config import config
 from scraper import JobIngestionPipeline
 from matcher import JobMatcher
 from report_builder import ReportBuilder
+from excel_builder import ExcelReportBuilder
 from notifier import EmailNotifier
 from telegram_notifier import TelegramNotifier
 from seen_store import SeenStore
@@ -49,6 +50,7 @@ def run_pipeline(dry_run: bool = False):
     matcher = JobMatcher(profile=config.candidate)
     scored_new_jobs = matcher.process_jobs(new_jobs) if new_jobs else []
     scored_seen_jobs = matcher.process_jobs(seen_jobs) if seen_jobs else []
+    all_scored_jobs = matcher.process_jobs(raw_jobs)
 
     logger.info(f"✅ Evaluated: {len(scored_new_jobs)} new qualified jobs | {len(scored_seen_jobs)} active seen qualified jobs.")
 
@@ -57,13 +59,21 @@ def run_pipeline(dry_run: bool = False):
         seen.mark_seen([j.job_id for j in new_jobs])
         seen.save()
 
-    # 3. Report Building
+    # 3. Report Building (Markdown & Excel)
     report_builder = ReportBuilder(profile=config.candidate)
     markdown_content = report_builder.build_markdown(scored_new_jobs, scored_seen_jobs)
     telegram_html_content = report_builder.build_telegram_html(scored_new_jobs, scored_seen_jobs)
     
     saved_report_path = report_builder.save_report(markdown_content, output_dir=config.reports_dir)
     logger.info(f"📄 Markdown report saved to: {saved_report_path}")
+
+    # Build Excel Daily Report and Update Master Database Excel
+    excel_builder = ExcelReportBuilder(profile=config.candidate)
+    daily_excel_path = excel_builder.build_daily_report(all_scored_jobs, output_dir=config.reports_dir)
+    master_excel_path = excel_builder.update_master_database(all_scored_jobs, master_filepath="jobs_database.xlsx")
+    
+    logger.info(f"📊 Daily Excel report saved to: {daily_excel_path}")
+    logger.info(f"🗃️ Master Excel database updated at: {master_excel_path}")
 
     # 4. Dispatch Notifications
     if dry_run:
@@ -82,6 +92,7 @@ def run_pipeline(dry_run: bool = False):
                 chat_id=config.telegram_chat_id
             )
             telegram_bot.send_message(telegram_html_content, parse_mode="HTML")
+            telegram_bot.send_document(daily_excel_path, caption="📊 Relatório Diário em Excel (.xlsx)")
             telegram_bot.send_document(saved_report_path, caption="📄 Relatório completo em Markdown")
         else:
             logger.info("ℹ️ Telegram credentials not configured. Skipping Telegram dispatch.")

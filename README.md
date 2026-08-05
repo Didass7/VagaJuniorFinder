@@ -6,13 +6,21 @@
 
 ## 🚀 Funcionalidades
 
-- **Ingestão Multi-Fonte**:
+- **Ingestão Multi-Fonte (14 Portais)**:
+  - 🇵🇹 **LinkedIn Jobs** (API Pública Guest)
   - 🇵🇹 **ITJobs.pt** (API Pública / Feed RSS)
+  - 🇵🇹 **Carga de Trabalhos** (Scraping de Vagas Tech em Portugal)
+  - 🇵🇹 **Net-Empregos** (Scraping de TI, Data, AI & Estágios IEFP)
+  - 🇵🇹 **Teamlyzer Jobs** (Scraping de Ofertas Tech em Portugal)
+  - 🎓 **Euraxess / Ergas** (Bolsas de Investigação & P&D em IA/ML em Portugal)
   - 🇪🇺 / 🇵🇹 **Landing.jobs** (API Pública)
-  - 🌍 **Remotive.com** (API de Vagas 100% Remotas)
+  - 🌍 **Jobicy** (API de Vagas Remotas Data & AI)
+  - 🏔️ **Himalayas** (API de Vagas Remotas Tech Globais)
+  - 🌍 **Remotive.com** (API de Vagas Remotas)
+  - ☕ **Jobspresso** (Feed RSS de Vagas Remotas Tech)
   - 🇪🇺 **Arbeitnow** (API de Vagas Tech Europa & Remoto)
   - 💻 **WeWorkRemotely** (Feed RSS de Vagas Remotas)
-  - 🔍 **DuckDuckGo Search Engine** (LinkedIn Jobs, Indeed, Glassdoor e sites de carreiras de empresas tech com foco em IEFP/Remoto).
+  - 🌐 **RemoteOK** (API de Vagas Remotas em Data & AI)
 - **Deduplicação Inteligente**: Algoritmo baseado em Hashing SHA-256 para evitar vagas repetidas.
 - **Match Score & Filtragem**: Pontuação de 0 a 100% calculada por sobreposição de stack (`Python`, `SQL`, `FastAPI`, `RAG`, `LangChain`, `Scikit-learn`, `DuckDB`, etc.), bonificação de títulos Junior/Estágio IEFP e eliminação automática de vagas Senior/Lead (5+ anos).
 - **Relatórios Markdown**: Geração diária em `reports/job_report_YYYY-MM-DD.md` com estatísticas, vagas de destaque (≥80%), vagas promissoras (60-79%) e botões de candidatura rápida.

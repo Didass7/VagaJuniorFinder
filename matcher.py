@@ -52,21 +52,25 @@ IRRELEVANT_ROLE_DISQUALIFIERS = [
     "gestor de projeto", "project manager", "blockchain", "scrum master", "consultor funcional",
     "marketing", "social media", "paid media", "growth", "seo", "sem", "crm", "copywriter",
     "content", "branding", "traffic manager", "sales", "comercial", "orçamentista", "videógrafo",
-    "fotógrafo", "podcast", "account executive", "business developer"
+    "fotógrafo", "podcast", "account executive", "business developer",
+    "professor", "professora", "formador", "formadora", "instrutor", "instrutora",
+    "teacher", "instructor", "tutor", "docente", "explicador", "explicadora", "sharkcoders"
 ]
 
 # Title Disqualifiers for Senior / Lead / Level II-III / Doctorate Roles
 TITLE_SENIORITY_DISQUALIFIERS = [
     "senior", "sr", "lead", "principal", "head of", "director", "architect", "staff", "vp of", "manager",
     "phd", "ph.d", "doctorate", "doutoramento", "postdoc", "post-doc", "postdoctoral", "expert", "consultor sénior",
-    "iii", "ii", " level 3", " level 2", " level iii", " level ii", " 3", " 2"
+    "responsável", "responsavel", "coordenador", "coordenadora", "diretor", "diretora", "director", "chefe",
+    "head", "gestor de", "mid", "mid-level", "mid level", "mid-senior", "mid/senior", "pleno",
+    " iii", " ii", " level 3", " level 2", " level iii", " level ii", " 3", " 2"
 ]
 
 # Text-level Seniority Disqualifiers (Catches LinkedIn tags & description requirements)
 TEXT_SENIORITY_DISQUALIFIERS = [
     "mid-senior", "mid senior", "seniority level mid-senior", "seniority level senior",
     "seniority level director", "seniority level executive", "technical leadership",
-    "leadership experience", "experiência em liderança", "liderança técnica"
+    "leadership experience", "experiência em liderança", "liderança técnica", "experiencia em liderança"
 ]
 
 # Disqualify jobs requiring PhD / Doctorate
@@ -79,12 +83,12 @@ PHD_REQUIREMENT_PATTERN = re.compile(
 # Catches: "+5 anos de experiência", "5+ anos", "experiência superior a 3 anos", "experiência mínima de 2 anos", "mais de 1 ano", "1+ anos", "2+ years", etc.
 # Explicitly ALLOWS: "0-1 years", "0-1 ano", "0 a 1 ano", "0 to 1 year".
 MORE_THAN_1_YEAR_EXP_PATTERN = re.compile(
-    r"(?<!0\-)(?<!0\s\-)(?<!0\sto\s)(?<!0\sa\s)\b(?:mais\s+de|more\s+than|at\s+least|mínimo\s+de|mínimo|mínima\s+de|mínima|minimum\s+of|minimum|superior\s+a|igual\s+ou\s+superior\s+a|maior\s+que)\s+([1-9]|1[0-5])\s*(?:years?|yrs?|anos?)|"
-    r"(?<!0\-)(?<!0\s\-)(?<!0\sto\s)(?<!0\sa\s)\b(?:experiência|experience)\s+(?:superior\s+a|mínima\s+de|mínimo\s+de|igual\s+ou\s+superior\s+a|de)\s+([1-9]|1[0-5])\s*(?:years?|yrs?|anos?)|"
+    r"(?<!0\-)(?<!0\s\-)(?<!0\sto\s)(?<!0\sa\s)\b(?:mais\s+de|more\s+than|at\s+least|m[íi]nimo\s+de|m[íi]nimo|m[íi]nima\s+de|m[íi]nima|minimum\s+of|minimum|superior\s+a|igual\s+ou\s+superior\s+a|maior\s+que)\s+([1-9]|1[0-5])\s*(?:years?|yrs?|anos?)|"
+    r"(?<!0\-)(?<!0\s\-)(?<!0\sto\s)(?<!0\sa\s)\b(?:experi[êe]ncia|experience)\s+(?:superior\s+a|m[íi]nima\s+de|m[íi]nimo\s+de|igual\s+ou\s+superior\s+a|de)\s+([1-9]|1[0-5])\s*(?:years?|yrs?|anos?)|"
     r"\+\s*([1-9]|1[0-5])\s*(?:years?|yrs?|anos?)|"
     r"([1-9]|1[0-5])\s*\+\s*(?:years?|yrs?|anos?)|"
     r"(?<!0\-)(?<!0\s\-)(?<!0\sto\s)(?<!0\sa\s)\b([1-9]|1[0-5])\s*(?:\+|\-|to|a)\s*([2-9]|1[0-5])\s*(?:years?|yrs?|anos?)|"
-    r"(?<!0\-)(?<!0\s\-)(?<!0\sto\s)(?<!0\sa\s)\b([2-9]|1[0-5])\s*(?:years?|yrs?|anos?)\s+(?:of\s+)?(?:experience|experiência)",
+    r"(?<!0\-)(?<!0\s\-)(?<!0\sto\s)(?<!0\sa\s)\b([2-9]|1[0-5])\s*(?:years?|yrs?|anos?)\s+(?:of\s+)?(?:experience|experi[êe]ncia)",
     re.IGNORECASE
 )
 

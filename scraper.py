@@ -121,7 +121,7 @@ class Job:
                 self.work_mode = "Presencial / Híbrido"
 
 class LinkedInScraper:
-    """Scrapes LinkedIn public guest API for Portugal AI & Data Science jobs strictly posted in the last 24-48 hours concurrently."""
+    """Scrapes LinkedIn public guest API for Portugal AI & Data Science jobs with conservative rate limiting to protect user IP."""
     def __init__(self, session: Optional[requests.Session] = None):
         self.session = session or get_session()
 
@@ -129,6 +129,7 @@ class LinkedInScraper:
         cards_data = []
         try:
             url = f"https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords={query.replace(' ', '%20')}&location=Portugal&f_TPR=r86400&start=0"
+            time.sleep(random.uniform(0.5, 1.0))
             resp = self.session.get(url, headers=get_random_headers(), timeout=10)
             if resp.status_code == 200:
                 soup = BeautifulSoup(resp.text, "html.parser")
@@ -159,10 +160,8 @@ class LinkedInScraper:
                             "company": company, "location": location,
                             "pub_date": pub_date
                         })
-            elif resp.status_code == 429:
-                logger.warning(f"[LinkedIn Portal] Rate limit (429) hit for search query: '{query}'")
         except Exception as e:
-            logger.error(f"[LinkedIn Portal] Error fetching '{query}': {e}")
+            logger.debug(f"[LinkedIn Portal] Error fetching '{query}': {e}")
         return cards_data
 
     def _fetch_detail_job(self, card_info: Dict) -> Job:
@@ -172,26 +171,31 @@ class LinkedInScraper:
         location = card_info["location"]
         pub_date = card_info["pub_date"]
         
-        desc = f"{title} na {company} em {location}"
+        desc = f"{title} na empresa {company} em {location}."
         try:
             job_id_match = re.search(r"(\d+)$", clean_link)
             if job_id_match:
                 job_id = job_id_match.group(1)
                 detail_url = f"https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/{job_id}"
                 
-                # Polite jitter delay to prevent burst rate-limiting
-                time.sleep(random.uniform(0.05, 0.2))
-                
+                time.sleep(random.uniform(0.3, 0.6))
                 detail_resp = self.session.get(detail_url, headers=get_random_headers(), timeout=6)
                 if detail_resp.status_code == 200:
                     detail_soup = BeautifulSoup(detail_resp.text, "html.parser")
-                    markup = detail_soup.find("div", class_="show-more-less-html__markup")
+                    markup = (
+                        detail_soup.find("div", class_="show-more-less-html__markup") or
+                        detail_soup.find("section", class_="description") or
+                        detail_soup.find("div", class_="description__text")
+                    )
                     if markup:
-                        desc = f"{title} - " + markup.get_text(separator=" ", strip=True)
+                        text_content = markup.get_text(separator=" ", strip=True)
                     else:
-                        desc = f"{title} - " + detail_soup.get_text(separator=" ", strip=True)
+                        text_content = detail_soup.get_text(separator=" ", strip=True)
+                    
+                    if len(text_content) > 50:
+                        desc = f"{title} - " + text_content
                 elif detail_resp.status_code == 429:
-                    logger.warning(f"[LinkedIn Portal] Rate limit (429) for detail job ID: {job_id}")
+                    time.sleep(1.5)
         except Exception as d_err:
             logger.debug(f"LinkedIn detail fetch failed for {clean_link}: {d_err}")
 
@@ -202,41 +206,25 @@ class LinkedInScraper:
         )
 
     def fetch(self) -> List[Job]:
-        queries = [
-            "Junior AI Engineer",
-            "Junior Data Scientist",
-            "Junior Machine Learning Engineer",
-            "Junior Data Engineer",
-            "AI Developer",
-            "Estágio Inteligência Artificial",
-            "Data Science Trainee"
-        ]
-        
-        # 1. Fetch cards for all queries concurrently
+        queries = ["AI Engineer", "Junior AI", "Junior Data Scientist", "Machine Learning Junior"]
         all_cards: List[Dict] = []
         seen_links: Set[str] = set()
-        with ThreadPoolExecutor(max_workers=min(len(queries), 7)) as executor:
-            future_to_query = {executor.submit(self._fetch_query_cards, q): q for q in queries}
-            for future in as_completed(future_to_query):
-                res = future.result()
-                for card in res:
-                    if card["clean_link"] not in seen_links:
-                        seen_links.add(card["clean_link"])
-                        all_cards.append(card)
+        
+        # Sequential polite queries
+        for q in queries:
+            res = self._fetch_query_cards(q)
+            for card in res:
+                if card["clean_link"] not in seen_links:
+                    seen_links.add(card["clean_link"])
+                    all_cards.append(card)
 
-        # 2. Fetch job details concurrently
         jobs: List[Job] = []
-        if all_cards:
-            with ThreadPoolExecutor(max_workers=10) as executor:
-                future_to_card = {executor.submit(self._fetch_detail_job, c): c for c in all_cards}
-                for future in as_completed(future_to_card):
-                    try:
-                        jobs.append(future.result())
-                    except Exception as err:
-                        logger.debug(f"[LinkedIn Portal] Error processing detail card: {err}")
+        for card in all_cards:
+            jobs.append(self._fetch_detail_job(card))
 
-        logger.info(f"[LinkedIn Portal] Fetched {len(jobs)} fresh jobs (last 48h) concurrently.")
+        logger.info(f"[LinkedIn Portal] Safely fetched {len(jobs)} fresh jobs with full detail body parsing.")
         return jobs
+
 
 class ITJobsScraper:
     """Scrapes ITJobs.pt portal for Portugal IT, AI & Data Science jobs with full detail body parsing."""
@@ -620,10 +608,329 @@ class CargaDeTrabalhosScraper:
         logger.info(f"[Carga de Trabalhos Portal] Fetched {len(jobs)} jobs concurrently.")
         return jobs
 
+class JobicyScraper:
+    """Scrapes Jobicy public API for remote tech, data & AI jobs."""
+    def __init__(self, session: Optional[requests.Session] = None):
+        self.session = session or get_session()
+
+    def fetch(self) -> List[Job]:
+        jobs = []
+        url = "https://jobicy.com/api/v2/remote-jobs?count=50&industry=data-science"
+        try:
+            resp = self.session.get(url, headers=get_random_headers(), timeout=10)
+            if resp.status_code == 200:
+                data = resp.json()
+                items = data.get("jobs", [])
+                for item in items:
+                    title = item.get("jobTitle", "")
+                    link = item.get("url", "")
+                    if not is_valid_job_offer(link, title):
+                        continue
+                    company = item.get("companyName", "Jobicy Company")
+                    geo = item.get("jobGeo", "Worldwide Remote")
+                    raw_desc = item.get("jobDescription", "") or item.get("jobExcerpt", "")
+                    desc = BeautifulSoup(raw_desc, "html.parser").get_text(separator=" ", strip=True)
+                    pub_date = item.get("pubDate", datetime.date.today().isoformat())[:10]
+                    jobs.append(Job(
+                        title=title, company=company, location=f"Remoto ({geo})",
+                        work_mode="Remoto", link=link, description=desc,
+                        source="Jobicy", pub_date=pub_date
+                    ))
+            logger.info(f"[Jobicy Portal] Fetched {len(jobs)} jobs.")
+        except Exception as e:
+            logger.error(f"[Jobicy Portal] Error: {e}")
+        return jobs
+
+class HimalayasScraper:
+    """Scrapes Himalayas public API for remote tech & data jobs."""
+    def __init__(self, session: Optional[requests.Session] = None):
+        self.session = session or get_session()
+
+    def fetch(self) -> List[Job]:
+        jobs = []
+        url = "https://himalayas.app/jobs/api?limit=50"
+        try:
+            resp = self.session.get(url, headers=get_random_headers(), timeout=10)
+            if resp.status_code == 200:
+                data = resp.json()
+                items = data.get("jobs", [])
+                for item in items:
+                    title = item.get("title", "")
+                    link = item.get("applicationLink", "") or item.get("guid", "")
+                    if not is_valid_job_offer(link, title):
+                        continue
+                    company = item.get("companyName", "Himalayas Company")
+                    locs = item.get("locationRestrictions", [])
+                    location_str = ", ".join(locs) if locs else "Worldwide Remote"
+                    raw_desc = item.get("description", "") or item.get("excerpt", "")
+                    desc = BeautifulSoup(raw_desc, "html.parser").get_text(separator=" ", strip=True)
+                    pub_ts = item.get("pubDate")
+                    pub_date = datetime.date.fromtimestamp(pub_ts).isoformat() if isinstance(pub_ts, (int, float)) else datetime.date.today().isoformat()
+                    jobs.append(Job(
+                        title=title, company=company, location=f"Remoto ({location_str})",
+                        work_mode="Remoto", link=link, description=desc,
+                        source="Himalayas", pub_date=pub_date
+                    ))
+            logger.info(f"[Himalayas Portal] Fetched {len(jobs)} jobs.")
+        except Exception as e:
+            logger.error(f"[Himalayas Portal] Error: {e}")
+        return jobs
+
+class NetEmpregosScraper:
+    """Scrapes Net-Empregos portal (Portugal's largest job board) for tech, AI, Data & IEFP roles."""
+    def __init__(self, session: Optional[requests.Session] = None):
+        self.session = session or get_session()
+
+    def _fetch_query_links(self, q: str) -> List[Dict]:
+        cards = []
+        try:
+            url = f"https://www.net-empregos.com/pesquisa-empregos.asp?chaves={q.replace(' ', '+')}"
+            resp = self.session.get(url, headers=get_random_headers(), timeout=10)
+            if resp.status_code == 200:
+                soup = BeautifulSoup(resp.text, "html.parser")
+                links = soup.find_all("a", href=re.compile(r"/\d+/[^/]+/"))
+                for a in links:
+                    raw_href = a.get("href", "")
+                    clean_link = f"https://www.net-empregos.com{raw_href}" if not raw_href.startswith("http") else raw_href
+                    title = a.get_text(strip=True)
+                    if title and len(title) >= 5 and is_valid_job_offer(clean_link, title):
+                        cards.append({"title": title, "link": clean_link})
+        except Exception as e:
+            logger.error(f"[Net-Empregos Portal] Error querying '{q}': {e}")
+        return cards
+
+    def _fetch_detail_page(self, card_info: Dict) -> Job:
+        title = card_info["title"]
+        link = card_info["link"]
+        desc = title
+        company = "Empresa via Net-Empregos"
+        location = "Portugal"
+        
+        try:
+            time.sleep(random.uniform(0.05, 0.2))
+            det_resp = self.session.get(link, headers=get_random_headers(), timeout=6)
+            if det_resp.status_code == 200:
+                det_soup = BeautifulSoup(det_resp.text, "html.parser")
+                main_box = (
+                    det_soup.find("div", class_="oferta-detalhe") or
+                    det_soup.find("div", class_="content") or
+                    det_soup.find("div", id="main")
+                )
+                if main_box:
+                    desc = f"{title} - " + main_box.get_text(separator=" ", strip=True)
+                else:
+                    desc = f"{title} - " + det_soup.get_text(separator=" ", strip=True)
+                
+                company_elem = det_soup.find("span", class_="empresa") or det_soup.find("div", class_="oferta-empresa")
+                if company_elem:
+                    comp_text = company_elem.get_text(strip=True)
+                    if comp_text.startswith("Detalhe da Oferta"):
+                        comp_text = comp_text.replace("Detalhe da Oferta:", "").replace("Detalhe da Oferta", "").strip()
+                    if 2 < len(comp_text) < 60:
+                        company = comp_text
+                        
+                if not company or company.strip().lower() in ["detalhe da oferta:", "detalhe da oferta", "empresa", "detalhe da oferta:"]:
+                    company = "Empresa Confidencial (Net-Empregos)"
+        except Exception:
+            pass
+
+        return Job(
+            title=title, company=company, location=location,
+            work_mode="Presencial / Híbrido", link=link, description=desc,
+            source="Net-Empregos", pub_date=datetime.date.today().isoformat()
+        )
+
+    def fetch(self) -> List[Job]:
+        queries = ["python", "data", "inteligencia artificial", "machine learning", "estagio iefp"]
+        cards_to_fetch = []
+        seen_links = set()
+
+        # 1. Fetch query cards concurrently
+        with ThreadPoolExecutor(max_workers=min(len(queries), 5)) as executor:
+            future_to_q = {executor.submit(self._fetch_query_links, q): q for q in queries}
+            for future in as_completed(future_to_q):
+                res = future.result()
+                for c in res:
+                    if c["link"] not in seen_links:
+                        seen_links.add(c["link"])
+                        cards_to_fetch.append(c)
+
+        # 2. Fetch detail pages concurrently
+        jobs = []
+        if cards_to_fetch:
+            with ThreadPoolExecutor(max_workers=10) as executor:
+                future_to_detail = {executor.submit(self._fetch_detail_page, c): c for c in cards_to_fetch}
+                for future in as_completed(future_to_detail):
+                    try:
+                        jobs.append(future.result())
+                    except Exception as err:
+                        logger.debug(f"[Net-Empregos Portal] Detail fetch error: {err}")
+
+        logger.info(f"[Net-Empregos Portal] Fetched {len(jobs)} jobs with full detail body parsing concurrently.")
+        return jobs
+
+class TeamlyzerScraper:
+    """Scrapes Teamlyzer jobs portal for tech & AI positions in Portugal."""
+    def __init__(self, session: Optional[requests.Session] = None):
+        self.session = session or get_session()
+
+    def fetch(self) -> List[Job]:
+        jobs = []
+        url = "https://pt.teamlyzer.com/companies/jobs"
+        try:
+            resp = self.session.get(url, headers=get_random_headers(), timeout=10)
+            if resp.status_code == 200:
+                soup = BeautifulSoup(resp.text, "html.parser")
+                cards = soup.find_all("div", class_=lambda c: c and "jobcard" in str(c).lower())
+                seen_links = set()
+                for card in cards:
+                    a_title = card.find("h4", class_="jobcard__title")
+                    a_tag = a_title.find("a") if a_title else card.find("a", href=lambda h: h and "/get-job/" in h)
+                    if not a_tag:
+                        continue
+                    
+                    href = a_tag.get("href", "")
+                    clean_href = href.split("?")[0]
+                    if clean_href in seen_links:
+                        continue
+                    
+                    link = f"https://pt.teamlyzer.com{href}" if href.startswith("/") else href
+                    seen_links.add(clean_href)
+                    
+                    title = a_tag.get_text(strip=True)
+                    if not title or not is_valid_job_offer(link, title):
+                        continue
+                    
+                    logo_img = card.find("img", alt=True)
+                    company = logo_img["alt"].strip() if logo_img and logo_img.get("alt") else ""
+                    if not company:
+                        comp_a = card.find("a", href=lambda h: h and "/companies/" in h and "/get-job/" not in h)
+                        if comp_a:
+                            company = comp_a.get_text(strip=True) or comp_a.get("href", "").split("/")[-1]
+                    if not company:
+                        company = "Empresa no Teamlyzer"
+                        
+                    desc = card.get_text(separator=" ", strip=True)
+                    work_mode = "Remoto" if "remote" in desc.lower() else "Presencial / Híbrido"
+                    location = "Portugal"
+                    
+                    jobs.append(Job(
+                        title=title, company=company, location=location,
+                        work_mode=work_mode, link=link, description=desc,
+                        source="Teamlyzer", pub_date=datetime.date.today().isoformat()
+                    ))
+            logger.info(f"[Teamlyzer Portal] Fetched {len(jobs)} jobs.")
+        except Exception as e:
+            logger.error(f"[Teamlyzer Portal] Error: {e}")
+        return jobs
+
+class JobspressoScraper:
+    """Scrapes Jobspresso HTML job listings for remote tech & data jobs."""
+    def __init__(self, session: Optional[requests.Session] = None):
+        self.session = session or get_session()
+
+    def fetch(self) -> List[Job]:
+        jobs = []
+        seen_links = set()
+        pages = ["https://jobspresso.co/", "https://jobspresso.co/page/2/"]
+        
+        for url in pages:
+            try:
+                resp = self.session.get(url, headers=get_random_headers(), timeout=10)
+                if resp.status_code == 200:
+                    soup = BeautifulSoup(resp.text, "html.parser")
+                    job_a_tags = soup.find_all("a", href=lambda h: h and "/job/" in h)
+                    for a in job_a_tags:
+                        href = a.get("href", "")
+                        if not href or href in seen_links or href.endswith("/job/") or href == "https://jobspresso.co/job/":
+                            continue
+                        
+                        parent = a.find_parent("li") or a.find_parent("div", class_=lambda c: c and "job" in str(c).lower())
+                        if not parent:
+                            continue
+                        
+                        seen_links.add(href)
+                        title_elem = parent.find(class_=lambda c: c and "title" in str(c).lower()) or a
+                        title = title_elem.get_text(strip=True) if title_elem else a.get_text(strip=True)
+                        if not title:
+                            continue
+                        
+                        if not is_valid_job_offer(href, title):
+                            continue
+                        
+                        comp_elem = parent.find(class_=lambda c: c and "company" in str(c).lower())
+                        company = comp_elem.get_text(strip=True) if comp_elem else "Jobspresso Company"
+                        
+                        loc_elem = parent.find(class_=lambda c: c and "location" in str(c).lower())
+                        location = loc_elem.get_text(strip=True) if loc_elem else "Worldwide Remote"
+                        
+                        desc = parent.get_text(separator=" ", strip=True)
+                        
+                        jobs.append(Job(
+                            title=title, company=company, location=location,
+                            work_mode="Remoto", link=href, description=desc,
+                            source="Jobspresso", pub_date=datetime.date.today().isoformat()
+                        ))
+            except Exception as e:
+                logger.error(f"[Jobspresso Portal] Error at {url}: {e}")
+        logger.info(f"[Jobspresso Portal] Fetched {len(jobs)} jobs.")
+        return jobs
+
+class EuraxessScraper:
+    """Scrapes Euraxess Portugal portal for AI, ML & Data Science research fellowships & R&D grants."""
+    def __init__(self, session: Optional[requests.Session] = None):
+        self.session = session or get_session()
+
+    def fetch(self) -> List[Job]:
+        jobs = []
+        queries = ["Portugal", "AI", "Data"]
+        seen_links = set()
+        
+        for q in queries:
+            url = f"https://euraxess.ec.europa.eu/jobs/search?keywords={q}"
+            try:
+                resp = self.session.get(url, headers=get_random_headers(), timeout=10)
+                if resp.status_code == 200:
+                    soup = BeautifulSoup(resp.text, "html.parser")
+                    job_links = soup.find_all("a", href=lambda h: h and re.search(r"/jobs/\d+", h))
+                    for a in job_links:
+                        href = a.get("href", "")
+                        link = f"https://euraxess.ec.europa.eu{href}" if href.startswith("/") else href
+                        if link in seen_links:
+                            continue
+                        seen_links.add(link)
+                        
+                        title = a.get_text(strip=True)
+                        if not title or not is_valid_job_offer(link, title):
+                            continue
+                        
+                        parent = a.find_parent("div", class_=lambda c: c and any(k in str(c).lower() for k in ["teaser", "card", "view", "item", "row", "result"]))
+                        if not parent:
+                            parent = a.parent.parent if a.parent else None
+                            
+                        desc = parent.get_text(separator=" ", strip=True) if parent else title
+                        
+                        company = "Universidade / Centro de I&D em Portugal"
+                        if parent:
+                            txt = parent.get_text(separator=" | ", strip=True)
+                            parts = txt.split(" | ")
+                            if parts:
+                                company = parts[0].strip()
+                        
+                        jobs.append(Job(
+                            title=title, company=company, location="Portugal",
+                            work_mode="Presencial / Híbrido", link=link, description=desc,
+                            source="Euraxess / Ergas (Bolsas ID)", pub_date=datetime.date.today().isoformat()
+                        ))
+            except Exception as e:
+                logger.error(f"[Euraxess Portal] Error at {url}: {e}")
+        logger.info(f"[Euraxess Portal] Fetched {len(jobs)} research fellowships.")
+        return jobs
+
 class JobIngestionPipeline:
     """Aggregates all structured job portal scrapers concurrently and deduplicates jobs."""
     def __init__(self, itjobs_api_key: str = ""):
-        self.session = get_session(pool_size=30)
+        self.session = get_session(pool_size=35)
         self.linkedin_scraper = LinkedInScraper(session=self.session)
         self.itjobs_scraper = ITJobsScraper(session=self.session)
         self.landing_scraper = LandingJobsScraper(session=self.session)
@@ -632,6 +939,12 @@ class JobIngestionPipeline:
         self.wwr_scraper = WeWorkRemotelyScraper(session=self.session)
         self.remoteok_scraper = RemoteOKScraper(session=self.session)
         self.carga_scraper = CargaDeTrabalhosScraper(session=self.session)
+        self.jobicy_scraper = JobicyScraper(session=self.session)
+        self.himalayas_scraper = HimalayasScraper(session=self.session)
+        self.netempregos_scraper = NetEmpregosScraper(session=self.session)
+        self.teamlyzer_scraper = TeamlyzerScraper(session=self.session)
+        self.jobspresso_scraper = JobspressoScraper(session=self.session)
+        self.euraxess_scraper = EuraxessScraper(session=self.session)
         self.itjobs_api_key = itjobs_api_key
 
     def run(self) -> List[Job]:
@@ -647,6 +960,12 @@ class JobIngestionPipeline:
             ("Arbeitnow", self.arbeitnow_scraper.fetch),
             ("WeWorkRemotely", self.wwr_scraper.fetch),
             ("RemoteOK", self.remoteok_scraper.fetch),
+            ("Jobicy", self.jobicy_scraper.fetch),
+            ("Himalayas", self.himalayas_scraper.fetch),
+            ("Net-Empregos", self.netempregos_scraper.fetch),
+            ("Teamlyzer", self.teamlyzer_scraper.fetch),
+            ("Jobspresso", self.jobspresso_scraper.fetch),
+            ("Euraxess / Ergas", self.euraxess_scraper.fetch),
         ]
 
         # Execute all scrapers in parallel across worker threads
@@ -669,3 +988,4 @@ class JobIngestionPipeline:
         final_jobs = list(unique_jobs.values())
         logger.info(f"✅ Ingestion complete. Total raw: {len(all_jobs)} | Unique portal job offers: {len(final_jobs)}")
         return final_jobs
+
