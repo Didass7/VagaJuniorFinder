@@ -62,6 +62,14 @@ jobs:
         run: |
           python main.py
 
+      - name: 📄 Upload Daily Markdown Report Artifact
+        uses: actions/upload-artifact@v4.3.6
+        with:
+          name: daily-job-reports
+          path: reports/*.md
+          retention-days: 30
+          if-no-files-found: ignore
+
       - name: 💾 Persist seen_jobs.json to data branch
         if: always()
         run: |
@@ -70,12 +78,16 @@ jobs:
             exit 0
           fi
 
-          # Save to temp BEFORE any branch switching (git checkout wipes working tree)
+          # Save seen_jobs.json to temp BEFORE resetting working tree
           cp seen_jobs.json /tmp/seen_jobs.json
 
           # Configure git identity for the commit
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Clean working tree so branch checkout never conflicts with generated files
+          git reset --hard
+          git clean -fd
 
           # Create or switch to the data branch
           if git rev-parse --verify origin/data >/dev/null 2>&1; then
@@ -98,11 +110,4 @@ jobs:
             echo "✅ Persisted seen_jobs.json with ${SEEN_COUNT} tracked jobs."
           fi
 
-      - name: 📄 Upload Daily Markdown Report Artifact
-        uses: actions/upload-artifact@v4.3.6
-        with:
-          name: daily-job-reports
-          path: reports/*.md
-          retention-days: 30
-          if-no-files-found: ignore
 
