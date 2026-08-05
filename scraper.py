@@ -4,7 +4,9 @@ import re
 import datetime
 from dataclasses import dataclass
 from typing import List, Dict, Set, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
+from requests.adapters import HTTPAdapter
 from bs4 import BeautifulSoup
 import feedparser
 
@@ -15,6 +17,15 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
 }
+
+def get_session(pool_size: int = 25) -> requests.Session:
+    """Returns a requests.Session configured with HTTP connection pooling for high-concurrency throughput."""
+    session = requests.Session()
+    adapter = HTTPAdapter(pool_connections=pool_size, pool_maxsize=pool_size)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    session.headers.update(HEADERS)
+    return session
 
 # Non-job documentation / blog / sponsored domains to exclude
 NON_JOB_DOMAINS = [
@@ -84,9 +95,79 @@ class Job:
                 self.work_mode = "Presencial / Híbrido"
 
 class LinkedInScraper:
-    """Scrapes LinkedIn public guest API for Portugal AI & Data Science jobs strictly posted in the last 24-48 hours."""
+    """Scrapes LinkedIn public guest API for Portugal AI & Data Science jobs strictly posted in the last 24-48 hours concurrently."""
+    def __init__(self, session: Optional[requests.Session] = None):
+        self.session = session or get_session()
+
+    def _fetch_query_cards(self, query: str) -> List[Dict]:
+        cards_data = []
+        try:
+            url = f"https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords={query.replace(' ', '%20')}&location=Portugal&f_TPR=r86400&start=0"
+            resp = self.session.get(url, timeout=10)
+            if resp.status_code == 200:
+                soup = BeautifulSoup(resp.text, "html.parser")
+                cards = soup.find_all("div", class_="base-card")
+                for card in cards:
+                    title_elem = card.find("h3", class_="base-search-card__title") or card.find("h3")
+                    link_elem = card.find("a", class_="base-card__full-link") or card.find("a")
+                    company_elem = card.find("h4", class_="base-search-card__subtitle") or card.find("h4")
+                    loc_elem = card.find("span", class_="job-search-card__location") or card.find("span")
+                    time_elem = card.find("time")
+                    
+                    if not title_elem or not link_elem:
+                        continue
+                        
+                    title = title_elem.get_text(strip=True)
+                    raw_link = link_elem.get("href", "")
+                    clean_link = raw_link.split("?")[0].rstrip("/")
+                    company = company_elem.get_text(strip=True) if company_elem else "Empresa no LinkedIn"
+                    location = loc_elem.get_text(strip=True) if loc_elem else "Portugal"
+                    
+                    pub_date = datetime.date.today().isoformat()
+                    if time_elem and time_elem.get("datetime"):
+                        pub_date = time_elem.get("datetime")[:10]
+
+                    if is_valid_job_offer(clean_link, title):
+                        cards_data.append({
+                            "title": title, "clean_link": clean_link,
+                            "company": company, "location": location,
+                            "pub_date": pub_date
+                        })
+        except Exception as e:
+            logger.error(f"[LinkedIn Portal] Error fetching '{query}': {e}")
+        return cards_data
+
+    def _fetch_detail_job(self, card_info: Dict) -> Job:
+        title = card_info["title"]
+        clean_link = card_info["clean_link"]
+        company = card_info["company"]
+        location = card_info["location"]
+        pub_date = card_info["pub_date"]
+        
+        desc = f"{title} na {company} em {location}"
+        try:
+            job_id_match = re.search(r"(\d+)$", clean_link)
+            if job_id_match:
+                job_id = job_id_match.group(1)
+                detail_url = f"https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/{job_id}"
+                detail_resp = self.session.get(detail_url, timeout=6)
+                if detail_resp.status_code == 200:
+                    detail_soup = BeautifulSoup(detail_resp.text, "html.parser")
+                    markup = detail_soup.find("div", class_="show-more-less-html__markup")
+                    if markup:
+                        desc = f"{title} - " + markup.get_text(separator=" ", strip=True)
+                    else:
+                        desc = f"{title} - " + detail_soup.get_text(separator=" ", strip=True)
+        except Exception as d_err:
+            logger.debug(f"LinkedIn detail fetch failed for {clean_link}: {d_err}")
+
+        return Job(
+            title=title, company=company, location=location,
+            work_mode="Presencial / Híbrido", link=clean_link, description=desc,
+            source="LinkedIn", pub_date=pub_date
+        )
+
     def fetch(self) -> List[Job]:
-        jobs = []
         queries = [
             "Junior AI Engineer",
             "Junior Data Scientist",
@@ -96,77 +177,97 @@ class LinkedInScraper:
             "Estágio Inteligência Artificial",
             "Data Science Trainee"
         ]
+        
+        # 1. Fetch cards for all queries concurrently
+        all_cards: List[Dict] = []
         seen_links: Set[str] = set()
-        for q in queries:
-            try:
-                # f_TPR=r86400 restricts results to jobs posted in the last 24 hours (86400 seconds)
-                url = f"https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords={q.replace(' ', '%20')}&location=Portugal&f_TPR=r86400&start=0"
-                resp = requests.get(url, headers=HEADERS, timeout=10)
-                if resp.status_code == 200:
-                    soup = BeautifulSoup(resp.text, "html.parser")
-                    cards = soup.find_all("div", class_="base-card")
-                    for card in cards:
-                        title_elem = card.find("h3", class_="base-search-card__title") or card.find("h3")
-                        link_elem = card.find("a", class_="base-card__full-link") or card.find("a")
-                        company_elem = card.find("h4", class_="base-search-card__subtitle") or card.find("h4")
-                        loc_elem = card.find("span", class_="job-search-card__location") or card.find("span")
-                        time_elem = card.find("time")
-                        
-                        if not title_elem or not link_elem:
-                            continue
-                            
-                        title = title_elem.get_text(strip=True)
-                        raw_link = link_elem.get("href", "")
-                        clean_link = raw_link.split("?")[0].rstrip("/")
-                        company = company_elem.get_text(strip=True) if company_elem else "Empresa no LinkedIn"
-                        location = loc_elem.get_text(strip=True) if loc_elem else "Portugal"
-                        
-                        # Extract exact publication date from time tag (e.g., datetime="2026-08-04")
-                        pub_date = datetime.date.today().isoformat()
-                        if time_elem and time_elem.get("datetime"):
-                            pub_date = time_elem.get("datetime")[:10]
+        with ThreadPoolExecutor(max_workers=min(len(queries), 7)) as executor:
+            future_to_query = {executor.submit(self._fetch_query_cards, q): q for q in queries}
+            for future in as_completed(future_to_query):
+                res = future.result()
+                for card in res:
+                    if card["clean_link"] not in seen_links:
+                        seen_links.add(card["clean_link"])
+                        all_cards.append(card)
 
-                        if not is_valid_job_offer(clean_link, title) or clean_link in seen_links:
-                            continue
-                        seen_links.add(clean_link)
-                        
-                        # Detail page fetch via guest jobPosting API endpoint
-                        desc = f"{title} na {company} em {location}"
-                        try:
-                            job_id_match = re.search(r"(\d+)$", clean_link)
-                            if job_id_match:
-                                job_id = job_id_match.group(1)
-                                detail_url = f"https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/{job_id}"
-                                detail_resp = requests.get(detail_url, headers=HEADERS, timeout=6)
-                                if detail_resp.status_code == 200:
-                                    detail_soup = BeautifulSoup(detail_resp.text, "html.parser")
-                                    markup = detail_soup.find("div", class_="show-more-less-html__markup")
-                                    if markup:
-                                        desc = f"{title} - " + markup.get_text(separator=" ", strip=True)
-                                    else:
-                                        desc = f"{title} - " + detail_soup.get_text(separator=" ", strip=True)
-                        except Exception as d_err:
-                            logger.debug(f"LinkedIn detail fetch failed for {clean_link}: {d_err}")
+        # 2. Fetch job details concurrently
+        jobs: List[Job] = []
+        if all_cards:
+            with ThreadPoolExecutor(max_workers=12) as executor:
+                future_to_card = {executor.submit(self._fetch_detail_job, c): c for c in all_cards}
+                for future in as_completed(future_to_card):
+                    try:
+                        jobs.append(future.result())
+                    except Exception as err:
+                        logger.debug(f"[LinkedIn Portal] Error processing detail card: {err}")
 
-                        jobs.append(Job(
-                            title=title, company=company, location=location,
-                            work_mode="Presencial / Híbrido", link=clean_link, description=desc,
-                            source="LinkedIn", pub_date=pub_date
-                        ))
-            except Exception as e:
-                logger.error(f"[LinkedIn Portal] Error fetching '{q}': {e}")
-
-        logger.info(f"[LinkedIn Portal] Fetched {len(jobs)} fresh jobs (last 48h).")
+        logger.info(f"[LinkedIn Portal] Fetched {len(jobs)} fresh jobs (last 48h) concurrently.")
         return jobs
 
 class ITJobsScraper:
     """Scrapes ITJobs.pt portal for Portugal IT, AI & Data Science jobs with full detail body parsing."""
+    def __init__(self, session: Optional[requests.Session] = None):
+        self.session = session or get_session()
+
+    def _fetch_search_url_cards(self, url: str) -> List[Dict]:
+        cards = []
+        try:
+            resp = self.session.get(url, timeout=10)
+            if resp.status_code == 200:
+                soup = BeautifulSoup(resp.text, "html.parser")
+                title_anchors = soup.find_all("a", class_="title")
+                for a in title_anchors:
+                    href = a.get("href", "")
+                    if href and "/oferta/" in href:
+                        full_link = f"https://www.itjobs.pt{href}" if href.startswith("/") else href
+                        title = a.get_text(strip=True)
+                        if is_valid_job_offer(full_link, title):
+                            parent = a.find_parent("div", class_="info") or a.find_parent("div")
+                            company = "Empresa via ITJobs"
+                            location = "Portugal"
+                            if parent:
+                                company_elem = parent.find("a", class_="company") or parent.find("span", class_="company")
+                                if company_elem:
+                                    company = company_elem.get_text(strip=True)
+                                location_elem = parent.find("span", class_="location") or parent.find("div", class_="location")
+                                if location_elem:
+                                    location = location_elem.get_text(strip=True)
+                            cards.append({
+                                "title": title, "link": full_link,
+                                "company": company, "location": location
+                            })
+        except Exception as e:
+            logger.error(f"[ITJobs.pt Portal] Error querying '{url}': {e}")
+        return cards
+
+    def _fetch_detail_body(self, card_info: Dict) -> Job:
+        full_link = card_info["link"]
+        title = card_info["title"]
+        company = card_info["company"]
+        location = card_info["location"]
+        
+        desc = title
+        try:
+            detail_resp = self.session.get(full_link, timeout=8)
+            if detail_resp.status_code == 200:
+                detail_soup = BeautifulSoup(detail_resp.text, "html.parser")
+                text_blocks = [elem.get_text(strip=True) for elem in detail_soup.find_all(["p", "li"])]
+                desc = f"{title} " + " ".join(text_blocks)
+        except Exception as detail_err:
+            logger.debug(f"Could not fetch offer detail page for {full_link}: {detail_err}")
+
+        return Job(
+            title=title, company=company, location=location,
+            work_mode="Presencial / Híbrido", link=full_link, description=desc,
+            source="ITJobs.pt", pub_date=datetime.date.today().isoformat()
+        )
+
     def fetch(self, api_key: str = "") -> List[Job]:
         jobs = []
         if api_key:
             try:
                 url = f"https://api.itjobs.pt/2/job/search.json?api_key={api_key}&limit=50"
-                resp = requests.get(url, headers=HEADERS, timeout=10)
+                resp = self.session.get(url, timeout=10)
                 if resp.status_code == 200:
                     data = resp.json()
                     for item in data.get("results", []):
@@ -197,63 +298,41 @@ class ITJobsScraper:
         ]
         
         seen_links = set()
-        try:
-            for url in search_urls:
-                resp = requests.get(url, headers=HEADERS, timeout=10)
-                if resp.status_code == 200:
-                    soup = BeautifulSoup(resp.text, "html.parser")
-                    title_anchors = soup.find_all("a", class_="title")
-                    for a in title_anchors:
-                        href = a.get("href", "")
-                        if href and href not in seen_links and "/oferta/" in href:
-                            seen_links.add(href)
-                            full_link = f"https://www.itjobs.pt{href}" if href.startswith("/") else href
-                            title = a.get_text(strip=True)
-                            
-                            if not is_valid_job_offer(full_link, title):
-                                continue
-                                
-                            parent = a.find_parent("div", class_="info") or a.find_parent("div")
-                            company = "Empresa via ITJobs"
-                            location = "Portugal"
-                            
-                            if parent:
-                                company_elem = parent.find("a", class_="company") or parent.find("span", class_="company")
-                                if company_elem:
-                                    company = company_elem.get_text(strip=True)
-                                location_elem = parent.find("span", class_="location") or parent.find("div", class_="location")
-                                if location_elem:
-                                    location = location_elem.get_text(strip=True)
+        cards_to_fetch = []
+        
+        # 1. Fetch search URLs concurrently
+        with ThreadPoolExecutor(max_workers=min(len(search_urls), 5)) as executor:
+            future_to_url = {executor.submit(self._fetch_search_url_cards, url): url for url in search_urls}
+            for future in as_completed(future_to_url):
+                res = future.result()
+                for c in res:
+                    if c["link"] not in seen_links:
+                        seen_links.add(c["link"])
+                        cards_to_fetch.append(c)
 
-                            # Fetch full offer detail page text to inspect requirements
-                            desc = title
-                            try:
-                                detail_resp = requests.get(full_link, headers=HEADERS, timeout=8)
-                                if detail_resp.status_code == 200:
-                                    detail_soup = BeautifulSoup(detail_resp.text, "html.parser")
-                                    text_blocks = [elem.get_text(strip=True) for elem in detail_soup.find_all(["p", "li"])]
-                                    desc = f"{title} " + " ".join(text_blocks)
-                            except Exception as detail_err:
-                                logger.debug(f"Could not fetch offer detail page for {full_link}: {detail_err}")
+        # 2. Fetch offer detail pages concurrently
+        if cards_to_fetch:
+            with ThreadPoolExecutor(max_workers=10) as executor:
+                future_to_detail = {executor.submit(self._fetch_detail_body, c): c for c in cards_to_fetch}
+                for future in as_completed(future_to_detail):
+                    try:
+                        jobs.append(future.result())
+                    except Exception as err:
+                        logger.debug(f"[ITJobs.pt Portal] Error fetching detail: {err}")
 
-                            jobs.append(Job(
-                                title=title, company=company, location=location,
-                                work_mode="Presencial / Híbrido", link=full_link, description=desc,
-                                source="ITJobs.pt", pub_date=datetime.date.today().isoformat()
-                            ))
-
-            logger.info(f"[ITJobs.pt Portal] Fetched {len(jobs)} jobs with full detail body parsing.")
-        except Exception as e:
-            logger.error(f"[ITJobs.pt Portal] Error: {e}")
+        logger.info(f"[ITJobs.pt Portal] Fetched {len(jobs)} jobs with full detail body parsing concurrently.")
         return jobs
 
 class LandingJobsScraper:
     """Scrapes Landing.jobs portal via public API."""
+    def __init__(self, session: Optional[requests.Session] = None):
+        self.session = session or get_session()
+
     def fetch(self) -> List[Job]:
         jobs = []
         url = "https://landing.jobs/api/v1/jobs"
         try:
-            resp = requests.get(url, headers=HEADERS, timeout=10)
+            resp = self.session.get(url, timeout=10)
             if resp.status_code == 200:
                 items = resp.json()
                 for item in items:
@@ -282,11 +361,14 @@ class LandingJobsScraper:
 
 class RemotiveScraper:
     """Scrapes Remotive.com portal API for remote AI & Data Science jobs."""
+    def __init__(self, session: Optional[requests.Session] = None):
+        self.session = session or get_session()
+
     def fetch(self) -> List[Job]:
         jobs = []
         url = "https://remotive.com/api/remote-jobs?category=data"
         try:
-            resp = requests.get(url, headers=HEADERS, timeout=10)
+            resp = self.session.get(url, timeout=10)
             if resp.status_code == 200:
                 data = resp.json()
                 for item in data.get("jobs", []):
@@ -313,11 +395,14 @@ class RemotiveScraper:
 
 class ArbeitnowScraper:
     """Scrapes Arbeitnow European job portal API."""
+    def __init__(self, session: Optional[requests.Session] = None):
+        self.session = session or get_session()
+
     def fetch(self) -> List[Job]:
         jobs = []
         url = "https://www.arbeitnow.com/api/job-board-api"
         try:
-            resp = requests.get(url, headers=HEADERS, timeout=10)
+            resp = self.session.get(url, timeout=10)
             if resp.status_code == 200:
                 data = resp.json()
                 for item in data.get("data", []):
@@ -346,6 +431,9 @@ class ArbeitnowScraper:
 
 class WeWorkRemotelyScraper:
     """Scrapes WeWorkRemotely job portal RSS feed."""
+    def __init__(self, session: Optional[requests.Session] = None):
+        self.session = session or get_session()
+
     def fetch(self) -> List[Job]:
         jobs = []
         rss_url = "https://weworkremotely.com/categories/remote-back-end-programming-jobs.rss"
@@ -379,11 +467,14 @@ class WeWorkRemotelyScraper:
 
 class RemoteOKScraper:
     """Scrapes RemoteOK portal API for remote data & AI roles."""
+    def __init__(self, session: Optional[requests.Session] = None):
+        self.session = session or get_session()
+
     def fetch(self) -> List[Job]:
         jobs = []
         url = "https://remoteok.com/api?tag=data"
         try:
-            resp = requests.get(url, headers=HEADERS, timeout=10)
+            resp = self.session.get(url, timeout=10)
             if resp.status_code == 200:
                 items = resp.json()
                 if isinstance(items, list) and len(items) > 1:
@@ -412,86 +503,128 @@ class RemoteOKScraper:
 
 class CargaDeTrabalhosScraper:
     """Scrapes Carga de Trabalhos portal for Portuguese tech & AI jobs."""
-    def fetch(self) -> List[Job]:
-        jobs = []
-        queries = ["data", "python", "inteligencia", "machine learning", "ai"]
-        seen_links: Set[str] = set()
-        
-        for q in queries:
-            try:
-                url = f"https://cargadetrabalhos.pt/?s={q}"
-                resp = requests.get(url, headers=HEADERS, timeout=10)
-                if resp.status_code == 200:
-                    soup = BeautifulSoup(resp.text, "html.parser")
-                    articles = soup.find_all("article")
-                    for art in articles:
-                        a_tag = art.find("a")
-                        if not a_tag:
-                            continue
-                        link = a_tag.get("href", "").split("?")[0].rstrip("/")
-                        if "/ofertas/" not in link or link in seen_links:
-                            continue
-                        
-                        title = a_tag.get_text(strip=True)
-                        if not title or not is_valid_job_offer(link, title):
-                            continue
-                        seen_links.add(link)
-                        
-                        text = art.get_text(separator=" ", strip=True)
-                        
-                        # Fetch detail page
-                        try:
-                            det_resp = requests.get(link, headers=HEADERS, timeout=5)
-                            if det_resp.status_code == 200:
-                                det_soup = BeautifulSoup(det_resp.text, "html.parser")
-                                
-                                # Check if job is closed/expired on Carga de Trabalhos
-                                is_closed = bool(det_soup.find(class_=lambda c: c and ("closed-job" in c or "job-closed" in c)))
-                                if is_closed:
-                                    text = f"{title} - Oferta Expirada"
-                                else:
-                                    main_div = det_soup.find("div", class_="noo-main") or det_soup.find("div", class_="entry-content")
-                                    if main_div:
-                                        text = f"{title} - " + main_div.get_text(separator=" ", strip=True)
-                        except Exception:
-                            pass
+    def __init__(self, session: Optional[requests.Session] = None):
+        self.session = session or get_session()
 
-                        jobs.append(Job(
-                            title=title, company="Empresa via Carga de Trabalhos", location="Portugal",
-                            work_mode="Presencial / Híbrido", link=link, description=text,
-                            source="Carga de Trabalhos", pub_date=datetime.date.today().isoformat()
-                        ))
-            except Exception as e:
-                logger.error(f"[Carga de Trabalhos Portal] Error querying '{q}': {e}")
-                
-        logger.info(f"[Carga de Trabalhos Portal] Fetched {len(jobs)} jobs.")
+    def _fetch_query_articles(self, q: str) -> List[Dict]:
+        cards = []
+        try:
+            url = f"https://cargadetrabalhos.pt/?s={q}"
+            resp = self.session.get(url, timeout=10)
+            if resp.status_code == 200:
+                soup = BeautifulSoup(resp.text, "html.parser")
+                articles = soup.find_all("article")
+                for art in articles:
+                    a_tag = art.find("a")
+                    if not a_tag:
+                        continue
+                    link = a_tag.get("href", "").split("?")[0].rstrip("/")
+                    if "/ofertas/" not in link:
+                        continue
+                    
+                    title = a_tag.get_text(strip=True)
+                    if not title or not is_valid_job_offer(link, title):
+                        continue
+                    
+                    text = art.get_text(separator=" ", strip=True)
+                    cards.append({"title": title, "link": link, "summary_text": text})
+        except Exception as e:
+            logger.error(f"[Carga de Trabalhos Portal] Error querying '{q}': {e}")
+        return cards
+
+    def _fetch_detail_page(self, card_info: Dict) -> Job:
+        title = card_info["title"]
+        link = card_info["link"]
+        text = card_info["summary_text"]
+
+        try:
+            det_resp = self.session.get(link, timeout=5)
+            if det_resp.status_code == 200:
+                det_soup = BeautifulSoup(det_resp.text, "html.parser")
+                is_closed = bool(det_soup.find(class_=lambda c: c and ("closed-job" in c or "job-closed" in c)))
+                if is_closed:
+                    text = f"{title} - Oferta Expirada"
+                else:
+                    main_div = det_soup.find("div", class_="noo-main") or det_soup.find("div", class_="entry-content")
+                    if main_div:
+                        text = f"{title} - " + main_div.get_text(separator=" ", strip=True)
+        except Exception:
+            pass
+
+        return Job(
+            title=title, company="Empresa via Carga de Trabalhos", location="Portugal",
+            work_mode="Presencial / Híbrido", link=link, description=text,
+            source="Carga de Trabalhos", pub_date=datetime.date.today().isoformat()
+        )
+
+    def fetch(self) -> List[Job]:
+        queries = ["data", "python", "inteligencia", "machine learning", "ai"]
+        cards_to_fetch = []
+        seen_links = set()
+
+        # 1. Query search pages concurrently
+        with ThreadPoolExecutor(max_workers=min(len(queries), 5)) as executor:
+            future_to_q = {executor.submit(self._fetch_query_articles, q): q for q in queries}
+            for future in as_completed(future_to_q):
+                res = future.result()
+                for c in res:
+                    if c["link"] not in seen_links:
+                        seen_links.add(c["link"])
+                        cards_to_fetch.append(c)
+
+        # 2. Fetch detail pages concurrently
+        jobs = []
+        if cards_to_fetch:
+            with ThreadPoolExecutor(max_workers=8) as executor:
+                future_to_detail = {executor.submit(self._fetch_detail_page, c): c for c in cards_to_fetch}
+                for future in as_completed(future_to_detail):
+                    try:
+                        jobs.append(future.result())
+                    except Exception as err:
+                        logger.debug(f"[Carga de Trabalhos Portal] Detail fetch error: {err}")
+
+        logger.info(f"[Carga de Trabalhos Portal] Fetched {len(jobs)} jobs concurrently.")
         return jobs
 
 class JobIngestionPipeline:
-    """Aggregates all structured job portal scrapers including LinkedIn and deduplicates jobs."""
+    """Aggregates all structured job portal scrapers concurrently and deduplicates jobs."""
     def __init__(self, itjobs_api_key: str = ""):
-        self.linkedin_scraper = LinkedInScraper()
-        self.itjobs_scraper = ITJobsScraper()
-        self.landing_scraper = LandingJobsScraper()
-        self.remotive_scraper = RemotiveScraper()
-        self.arbeitnow_scraper = ArbeitnowScraper()
-        self.wwr_scraper = WeWorkRemotelyScraper()
-        self.remoteok_scraper = RemoteOKScraper()
-        self.carga_scraper = CargaDeTrabalhosScraper()
+        self.session = get_session(pool_size=30)
+        self.linkedin_scraper = LinkedInScraper(session=self.session)
+        self.itjobs_scraper = ITJobsScraper(session=self.session)
+        self.landing_scraper = LandingJobsScraper(session=self.session)
+        self.remotive_scraper = RemotiveScraper(session=self.session)
+        self.arbeitnow_scraper = ArbeitnowScraper(session=self.session)
+        self.wwr_scraper = WeWorkRemotelyScraper(session=self.session)
+        self.remoteok_scraper = RemoteOKScraper(session=self.session)
+        self.carga_scraper = CargaDeTrabalhosScraper(session=self.session)
         self.itjobs_api_key = itjobs_api_key
 
     def run(self) -> List[Job]:
-        logger.info("🚀 Starting job portal ingestion pipeline (LinkedIn + ITJobs + Carga de Trabalhos + Global Portals)...")
+        logger.info("🚀 Starting concurrent job portal ingestion pipeline...")
         all_jobs: List[Job] = []
 
-        all_jobs.extend(self.linkedin_scraper.fetch())
-        all_jobs.extend(self.itjobs_scraper.fetch(self.itjobs_api_key))
-        all_jobs.extend(self.carga_scraper.fetch())
-        all_jobs.extend(self.landing_scraper.fetch())
-        all_jobs.extend(self.remotive_scraper.fetch())
-        all_jobs.extend(self.arbeitnow_scraper.fetch())
-        all_jobs.extend(self.wwr_scraper.fetch())
-        all_jobs.extend(self.remoteok_scraper.fetch())
+        scrapers = [
+            ("LinkedIn", self.linkedin_scraper.fetch),
+            ("ITJobs", lambda: self.itjobs_scraper.fetch(self.itjobs_api_key)),
+            ("Carga de Trabalhos", self.carga_scraper.fetch),
+            ("Landing.jobs", self.landing_scraper.fetch),
+            ("Remotive", self.remotive_scraper.fetch),
+            ("Arbeitnow", self.arbeitnow_scraper.fetch),
+            ("WeWorkRemotely", self.wwr_scraper.fetch),
+            ("RemoteOK", self.remoteok_scraper.fetch),
+        ]
+
+        # Execute all scrapers in parallel across worker threads
+        with ThreadPoolExecutor(max_workers=len(scrapers)) as executor:
+            future_to_scraper = {executor.submit(func): name for name, func in scrapers}
+            for future in as_completed(future_to_scraper):
+                scraper_name = future_to_scraper[future]
+                try:
+                    res = future.result()
+                    all_jobs.extend(res)
+                except Exception as e:
+                    logger.error(f"[{scraper_name}] Execution error during concurrent fetch: {e}")
 
         # Deduplication using job_id hash
         unique_jobs: Dict[str, Job] = {}
