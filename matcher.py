@@ -73,7 +73,8 @@ TITLE_SENIORITY_DISQUALIFIERS = [
 
 # Text-level Seniority Disqualifiers (Catches LinkedIn tags & description requirements)
 TEXT_SENIORITY_DISQUALIFIERS = [
-    "mid-senior", "mid senior", "seniority level mid-senior", "seniority level senior",
+    "mid-senior", "mid senior", "mid-to-senior", "mid to senior", "mid-to-senior-level", "mid to senior level",
+    "mid-level to senior", "mid level to senior", "seniority level mid-senior", "seniority level senior",
     "seniority level director", "seniority level executive", "technical leadership",
     "leadership experience", "experiência em liderança", "liderança técnica", "experiencia em liderança"
 ]
