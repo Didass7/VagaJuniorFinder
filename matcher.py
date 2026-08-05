@@ -307,7 +307,7 @@ class JobMatcher:
             matched_skills=matched_skills,
             missing_skills=[],
             seniority_status=seniority_status,
-            match_reason=f"Title: {title_score}pt | Level: {booster_score}pt | Loc: {location_score}pt | Tech: {tech_score}pt"
+            match_reason=f"Vaga de {job.title} adequada para perfil Júnior em Tecnologia/IA"
         )
 
     def process_jobs(self, jobs: List[Job]) -> List[ScoredJob]:
