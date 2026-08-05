@@ -14,6 +14,8 @@ concurrency:
 jobs:
   job-search-pipeline:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: 📥 Checkout repository code
@@ -68,6 +70,9 @@ jobs:
             exit 0
           fi
 
+          # Save to temp BEFORE any branch switching (git checkout wipes working tree)
+          cp seen_jobs.json /tmp/seen_jobs.json
+
           # Configure git identity for the commit
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -81,8 +86,8 @@ jobs:
             git rm -rf . 2>/dev/null || true
           fi
 
-          # Stage and commit seen_jobs.json
-          cp $GITHUB_WORKSPACE/seen_jobs.json seen_jobs.json 2>/dev/null || true
+          # Restore seen_jobs.json from temp and commit
+          cp /tmp/seen_jobs.json seen_jobs.json
           git add seen_jobs.json
           if git diff --cached --quiet; then
             echo "No changes to seen_jobs.json — skipping commit."
