@@ -6,7 +6,7 @@ from main import run_pipeline
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("Scheduler")
 
-TARGET_TIME = "08:00"
+TARGET_TIME = "21:00"
 
 def job_task():
     logger.info("⏰ Scheduled trigger fired! Starting daily job search...")

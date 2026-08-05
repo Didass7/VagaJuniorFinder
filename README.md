@@ -18,7 +18,7 @@
 - **Relatórios Markdown**: Geração diária em `reports/job_report_YYYY-MM-DD.md` com estatísticas, vagas de destaque (≥80%), vagas promissoras (60-79%) e botões de candidatura rápida.
 - **Dicas Personalizadas de CV**: Sugestões automáticas de adaptação de CV para destacar competências específicas requisitadas pela vaga.
 - **Notificação por E-mail (HTML + MD)**: Converte o relatório em HTML moderno estilizado com Dark Mode e envia por SMTP para `diogon.oliveira1@gmail.com` anexando o ficheiro `.md`.
-- **Automação sem Custos**: Execução automática via **GitHub Actions** todos os dias às **08:00 AM UTC** ou agendador local em daemon.
+- **Automação sem Custos**: Execução automática via **GitHub Actions** todos os dias às **21:00 (9 PM / 20:00 UTC)** ou agendador local em daemon.
 
 ---
 
@@ -38,7 +38,7 @@ VagaJuniorFinder/
 ├── README.md             # Documentação do projeto
 └── .github/
     └── workflows/
-        └── daily_job_search.yml  # Automação no GitHub Actions (08:00 AM UTC)
+        └── daily_job_search.yml  # Automação no GitHub Actions (21:00 / 20:00 UTC)
 ```
 
 ---
@@ -105,7 +105,7 @@ python main.py
 ```
 
 ### 3. Agendador Local Contínuo
-Para manter o script a rodar em background no teu computador localmente todos os dias às 08:00:
+Para manter o script a rodar em background no teu computador localmente todos os dias às 21:00:
 ```bash
 python scheduler.py
 ```
@@ -122,7 +122,7 @@ O projeto já inclui o workflow `.github/workflows/daily_job_search.yml`. Para c
    - `SMTP_EMAIL`: `diogon.oliveira1@gmail.com`
    - `SMTP_PASSWORD`: (A tua Senha de Aplicação de 16 caracteres)
    - `RECEIVER_EMAIL`: `diogon.oliveira1@gmail.com`
-4. O GitHub Actions executará a pesquisa todos os dias às **08:00 AM UTC** e enviará o e-mail automaticamente. Podes também disparar a pesquisa manualmente no separador **Actions** > **Run workflow**.
+4. O GitHub Actions executará a pesquisa todos os dias às **21:00 (20:00 UTC)** e enviará o e-mail automaticamente. Podes também disparar a pesquisa manualmente no separador **Actions** > **Run workflow**.
 
 ---
 
