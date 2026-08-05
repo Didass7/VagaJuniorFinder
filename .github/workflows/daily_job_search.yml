@@ -58,6 +58,11 @@ jobs:
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           RECEIVER_EMAIL: ${{ secrets.RECEIVER_EMAIL || 'diogon.oliveira1@gmail.com' }}
           ITJOBS_API_KEY: ${{ secrets.ITJOBS_API_KEY }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+          ENABLE_NOTION_SYNC: "true"
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           CACHE_FILE: seen_jobs.json
         run: |
           python main.py

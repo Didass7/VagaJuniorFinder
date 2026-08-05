@@ -57,7 +57,8 @@ IRRELEVANT_ROLE_DISQUALIFIERS = [
     "professor", "professora", "formador", "formadora", "instrutor", "instrutora",
     "teacher", "instructor", "tutor", "docente", "explicador", "explicadora", "sharkcoders",
     "administrativo", "administrativa", "contabilidade", "contabilista", "accounting", "accountant",
-    "recursos humanos", "recruiter", "recrutamento", "secretária", "secretaria", "secretariado", "financeiro", "financeira"
+    "recursos humanos", "recruiter", "recrutamento", "secretária", "secretaria", "secretariado", "financeiro", "financeira",
+    "crianças", "criancas", "adolescentes", "pós-letivo", "pos-letivo", "kids", "children", "academias de ia"
 ]
 
 # Title Disqualifiers for Senior / Lead / Level II-III / Doctorate Roles
@@ -196,6 +197,10 @@ class JobMatcher:
         for disq, pattern in IRRELEVANT_ROLE_PATTERNS:
             if pattern.search(title_lower):
                 return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Cargo Irrelevante", match_reason=f"Título desqualificado por conter '{disq}'")
+
+        # Check text-level Kids / Teaching / Tutoring disqualifier
+        if any(k in text for k in ["crianças", "criancas", "adolescentes", "pós-letivo", "pos-letivo", "sharkcoders"]):
+            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Ensino Infantil / Tutoria", match_reason="Ensino de programação/IA a crianças/adolescentes")
 
         # 3. Mandatory AI & Data Science Core Domain Check
         has_core_title = any(ct in title_lower for ct in ALLOW_CORE_TITLE_TERMS)
