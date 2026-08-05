@@ -341,15 +341,25 @@ class JobMatcher:
                     sj.score = blended_score
                     sj.ai_evaluated = True
                     sj.ai_reasoning = ai_res.reasoning
+                    if ai_res.seniority_detected and ai_res.seniority_detected != "Desconhecido":
+                        sj.seniority_status = ai_res.seniority_detected
                     sj.ai_pros = ai_res.pros
                     sj.ai_cons = ai_res.cons
-                    if ai_res.seniority_detected:
-                        sj.seniority_status = ai_res.seniority_detected
-                    if ai_res.reasoning:
-                        sj.match_reason = ai_res.reasoning
+                    final_scored_jobs.append(sj)
+                else:
+                    # Fallback if AI batch didn't return result for this candidate
+                    text_c = f"{sj.job.title} {sj.job.description}".lower()
+                    if "iefp" in text_c or "ativar.pt" in text_c:
+                        sj.seniority_status = "Elegível IEFP / ATIVAR.pt"
+                    elif "estágio" in text_c or "estagio" in text_c or "trainee" in text_c:
+                        sj.seniority_status = "Estágio / Trainee"
+                    elif "recém-licenciado" in text_c or "recem-licenciado" in text_c or "0-1" in text_c:
+                        sj.seniority_status = "Recém-Licenciado (0-1 anos)"
+                    else:
+                        sj.seniority_status = "Júnior (0-2 anos)"
 
-
-                if sj.score >= 55.0:
+                    if not sj.ai_reasoning:
+                        sj.ai_reasoning = f"Vaga de {sj.job.title} adequada para perfil Júnior"
                     final_scored_jobs.append(sj)
 
             final_scored_jobs.sort(key=lambda x: x.score, reverse=True)

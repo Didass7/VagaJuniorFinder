@@ -157,7 +157,7 @@ class NotionStore:
             ("Elegível IEFP", ["Elegível IEFP", "IEFP"], "checkbox", bool(job.iefp_mentioned)),
             ("Estado", ["Estado", "Status"], "select", {"name": "Por Candidatar"}),
             ("Estado", ["Estado", "Status"], "status", {"name": "Por Candidatar"}),
-            ("Data Extração", ["Data Extração", "Data de Extração", "Data Ingestão", "Data/Hora", "Date"], "date", {"start": getattr(job, 'fetched_at', None)[:10] if getattr(job, 'fetched_at', None) else datetime.date.today().isoformat()}),
+            ("Data Extração", ["Data Extração", "Data de Extração", "Data Ingestão", "Data/Hora", "Date"], "date", {"start": getattr(job, 'fetched_at', None) if getattr(job, 'fetched_at', None) else datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")}),
             ("Análise IA", ["Análise IA", "Análise da IA", "AI Reasoning", "Notas"], "rich_text", [{"text": {"content": (sj.ai_reasoning if sj.ai_evaluated else sj.match_reason)[:2000]}}]),
         ]
 
