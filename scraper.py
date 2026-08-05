@@ -2,29 +2,55 @@ import hashlib
 import logging
 import re
 import datetime
+import random
+import time
 from dataclasses import dataclass
 from typing import List, Dict, Set, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
 from bs4 import BeautifulSoup
 import feedparser
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("Scraper")
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-}
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15"
+]
+
+def get_random_headers() -> Dict[str, str]:
+    """Generates realistic HTTP headers with rotated User-Agent to prevent scraping blocks."""
+    return {
+        "User-Agent": random.choice(USER_AGENTS),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9,pt-PT;q=0.8,pt;q=0.7",
+        "Cache-Control": "no-cache",
+        "Pragma": "no-cache",
+    }
 
 def get_session(pool_size: int = 25) -> requests.Session:
-    """Returns a requests.Session configured with HTTP connection pooling for high-concurrency throughput."""
+    """Returns a requests.Session configured with automatic retries, exponential backoff, and HTTP connection pooling."""
     session = requests.Session()
-    adapter = HTTPAdapter(pool_connections=pool_size, pool_maxsize=pool_size)
+    
+    # Configure retry logic for HTTP 429 (Rate Limit) and server errors (500, 502, 503, 504)
+    retries = Retry(
+        total=3,
+        backoff_factor=1.0,  # Delays: 1s, 2s, 4s...
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["GET"],
+        raise_on_status=False
+    )
+    
+    adapter = HTTPAdapter(pool_connections=pool_size, pool_maxsize=pool_size, max_retries=retries)
     session.mount("http://", adapter)
     session.mount("https://", adapter)
-    session.headers.update(HEADERS)
+    session.headers.update(get_random_headers())
     return session
 
 # Non-job documentation / blog / sponsored domains to exclude
@@ -103,7 +129,7 @@ class LinkedInScraper:
         cards_data = []
         try:
             url = f"https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords={query.replace(' ', '%20')}&location=Portugal&f_TPR=r86400&start=0"
-            resp = self.session.get(url, timeout=10)
+            resp = self.session.get(url, headers=get_random_headers(), timeout=10)
             if resp.status_code == 200:
                 soup = BeautifulSoup(resp.text, "html.parser")
                 cards = soup.find_all("div", class_="base-card")
@@ -133,6 +159,8 @@ class LinkedInScraper:
                             "company": company, "location": location,
                             "pub_date": pub_date
                         })
+            elif resp.status_code == 429:
+                logger.warning(f"[LinkedIn Portal] Rate limit (429) hit for search query: '{query}'")
         except Exception as e:
             logger.error(f"[LinkedIn Portal] Error fetching '{query}': {e}")
         return cards_data
@@ -150,7 +178,11 @@ class LinkedInScraper:
             if job_id_match:
                 job_id = job_id_match.group(1)
                 detail_url = f"https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/{job_id}"
-                detail_resp = self.session.get(detail_url, timeout=6)
+                
+                # Polite jitter delay to prevent burst rate-limiting
+                time.sleep(random.uniform(0.05, 0.2))
+                
+                detail_resp = self.session.get(detail_url, headers=get_random_headers(), timeout=6)
                 if detail_resp.status_code == 200:
                     detail_soup = BeautifulSoup(detail_resp.text, "html.parser")
                     markup = detail_soup.find("div", class_="show-more-less-html__markup")
@@ -158,6 +190,8 @@ class LinkedInScraper:
                         desc = f"{title} - " + markup.get_text(separator=" ", strip=True)
                     else:
                         desc = f"{title} - " + detail_soup.get_text(separator=" ", strip=True)
+                elif detail_resp.status_code == 429:
+                    logger.warning(f"[LinkedIn Portal] Rate limit (429) for detail job ID: {job_id}")
         except Exception as d_err:
             logger.debug(f"LinkedIn detail fetch failed for {clean_link}: {d_err}")
 
@@ -193,7 +227,7 @@ class LinkedInScraper:
         # 2. Fetch job details concurrently
         jobs: List[Job] = []
         if all_cards:
-            with ThreadPoolExecutor(max_workers=12) as executor:
+            with ThreadPoolExecutor(max_workers=10) as executor:
                 future_to_card = {executor.submit(self._fetch_detail_job, c): c for c in all_cards}
                 for future in as_completed(future_to_card):
                     try:
@@ -212,7 +246,7 @@ class ITJobsScraper:
     def _fetch_search_url_cards(self, url: str) -> List[Dict]:
         cards = []
         try:
-            resp = self.session.get(url, timeout=10)
+            resp = self.session.get(url, headers=get_random_headers(), timeout=10)
             if resp.status_code == 200:
                 soup = BeautifulSoup(resp.text, "html.parser")
                 title_anchors = soup.find_all("a", class_="title")
@@ -248,7 +282,7 @@ class ITJobsScraper:
         
         desc = title
         try:
-            detail_resp = self.session.get(full_link, timeout=8)
+            detail_resp = self.session.get(full_link, headers=get_random_headers(), timeout=8)
             if detail_resp.status_code == 200:
                 detail_soup = BeautifulSoup(detail_resp.text, "html.parser")
                 text_blocks = [elem.get_text(strip=True) for elem in detail_soup.find_all(["p", "li"])]
@@ -267,7 +301,7 @@ class ITJobsScraper:
         if api_key:
             try:
                 url = f"https://api.itjobs.pt/2/job/search.json?api_key={api_key}&limit=50"
-                resp = self.session.get(url, timeout=10)
+                resp = self.session.get(url, headers=get_random_headers(), timeout=10)
                 if resp.status_code == 200:
                     data = resp.json()
                     for item in data.get("results", []):
@@ -332,7 +366,7 @@ class LandingJobsScraper:
         jobs = []
         url = "https://landing.jobs/api/v1/jobs"
         try:
-            resp = self.session.get(url, timeout=10)
+            resp = self.session.get(url, headers=get_random_headers(), timeout=10)
             if resp.status_code == 200:
                 items = resp.json()
                 for item in items:
@@ -368,7 +402,7 @@ class RemotiveScraper:
         jobs = []
         url = "https://remotive.com/api/remote-jobs?category=data"
         try:
-            resp = self.session.get(url, timeout=10)
+            resp = self.session.get(url, headers=get_random_headers(), timeout=10)
             if resp.status_code == 200:
                 data = resp.json()
                 for item in data.get("jobs", []):
@@ -402,7 +436,7 @@ class ArbeitnowScraper:
         jobs = []
         url = "https://www.arbeitnow.com/api/job-board-api"
         try:
-            resp = self.session.get(url, timeout=10)
+            resp = self.session.get(url, headers=get_random_headers(), timeout=10)
             if resp.status_code == 200:
                 data = resp.json()
                 for item in data.get("data", []):
@@ -474,7 +508,7 @@ class RemoteOKScraper:
         jobs = []
         url = "https://remoteok.com/api?tag=data"
         try:
-            resp = self.session.get(url, timeout=10)
+            resp = self.session.get(url, headers=get_random_headers(), timeout=10)
             if resp.status_code == 200:
                 items = resp.json()
                 if isinstance(items, list) and len(items) > 1:
@@ -510,7 +544,7 @@ class CargaDeTrabalhosScraper:
         cards = []
         try:
             url = f"https://cargadetrabalhos.pt/?s={q}"
-            resp = self.session.get(url, timeout=10)
+            resp = self.session.get(url, headers=get_random_headers(), timeout=10)
             if resp.status_code == 200:
                 soup = BeautifulSoup(resp.text, "html.parser")
                 articles = soup.find_all("article")
@@ -538,7 +572,7 @@ class CargaDeTrabalhosScraper:
         text = card_info["summary_text"]
 
         try:
-            det_resp = self.session.get(link, timeout=5)
+            det_resp = self.session.get(link, headers=get_random_headers(), timeout=5)
             if det_resp.status_code == 200:
                 det_soup = BeautifulSoup(det_resp.text, "html.parser")
                 is_closed = bool(det_soup.find(class_=lambda c: c and ("closed-job" in c or "job-closed" in c)))
@@ -601,7 +635,7 @@ class JobIngestionPipeline:
         self.itjobs_api_key = itjobs_api_key
 
     def run(self) -> List[Job]:
-        logger.info("🚀 Starting concurrent job portal ingestion pipeline...")
+        logger.info("🚀 Starting resilient & concurrent job portal ingestion pipeline...")
         all_jobs: List[Job] = []
 
         scrapers = [
