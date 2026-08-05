@@ -25,21 +25,20 @@ class TelegramNotifier:
         chunks = self._split_text(text, TELEGRAM_MAX_LENGTH)
         
         success = True
-        for chunk in chunks:
+        for i, chunk in enumerate(chunks):
             payload = {
                 "chat_id": self.chat_id,
                 "text": chunk,
                 "parse_mode": parse_mode,
                 "disable_web_page_preview": True
             }
-            try:
-                resp = requests.post(url, json=payload, timeout=10)
-                if resp.status_code != 200:
-                    logger.error(f"❌ Telegram API Error ({resp.status_code}): {resp.text}")
-                    success = False
-            except Exception as e:
-                logger.error(f"❌ Failed to send Telegram message: {e}")
+            if not self._post_with_retry(url, json=payload):
                 success = False
+
+            # Small delay between chunks to avoid rate limits
+            if i < len(chunks) - 1:
+                import time
+                time.sleep(1)
 
         if success:
             logger.info("✅ Telegram notification successfully sent!")
@@ -54,12 +53,45 @@ class TelegramNotifier:
             with open(filepath, "rb") as f:
                 files = {"document": f}
                 data = {"chat_id": self.chat_id, "caption": caption[:1024]}
-                resp = requests.post(url, data=data, files=files, timeout=15)
-                if resp.status_code == 200:
+                if self._post_with_retry(url, data=data, files=files):
                     logger.info("✅ Telegram report file attachment sent!")
                     return True
         except Exception as e:
             logger.error(f"❌ Failed to send Telegram document: {e}")
+        return False
+
+    def _post_with_retry(self, url: str, max_retries: int = 3, **kwargs) -> bool:
+        """POST with exponential backoff: 30s → 60s → 90s timeout, 5s → 15s → 30s wait."""
+        import time
+
+        for attempt in range(1, max_retries + 1):
+            timeout = 30 * attempt  # 30s, 60s, 90s
+            try:
+                resp = requests.post(url, timeout=timeout, **kwargs)
+                if resp.status_code == 200:
+                    return True
+                elif resp.status_code == 429:
+                    retry_after = int(resp.headers.get("Retry-After", 10))
+                    logger.warning(f"⏳ Telegram rate-limited. Waiting {retry_after}s (attempt {attempt}/{max_retries})")
+                    time.sleep(retry_after)
+                else:
+                    logger.error(f"❌ Telegram API Error ({resp.status_code}): {resp.text}")
+                    return False
+            except requests.exceptions.Timeout:
+                wait = 5 * (2 ** (attempt - 1))  # 5s, 10s, 20s
+                logger.warning(f"⏳ Telegram timeout ({timeout}s). Retrying in {wait}s (attempt {attempt}/{max_retries})")
+                if attempt < max_retries:
+                    time.sleep(wait)
+            except requests.exceptions.ConnectionError as e:
+                wait = 10 * attempt  # 10s, 20s, 30s
+                logger.warning(f"⏳ Connection error: {e}. Retrying in {wait}s (attempt {attempt}/{max_retries})")
+                if attempt < max_retries:
+                    time.sleep(wait)
+            except Exception as e:
+                logger.error(f"❌ Unexpected Telegram error: {e}")
+                return False
+
+        logger.error(f"❌ Telegram request failed after {max_retries} attempts.")
         return False
 
     def _split_text(self, text: str, max_len: int) -> List[str]:
