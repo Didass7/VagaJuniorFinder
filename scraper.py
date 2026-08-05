@@ -65,7 +65,8 @@ PRE_FILTER_DISQUALIFIERS = [
     "electronics engineer", "rf engineer", "hardware", "embedded", "qa tester", "qa engineer",
     "sysadmin", "network engineer", "cybersecurity", "cibersegurança", "salesforce", "sap ",
     "scrum master", "helpdesk", "support technician", "webmaster", "marketing", "social media",
-    "growth", "sales", "comercial", "branding", "copywriter", "videógrafo"
+    "growth", "sales", "comercial", "branding", "copywriter", "videógrafo", "data annotator", "anotador de dados", "annotator",
+    "administrativo", "administrativa", "contabilidade", "contabilista", "accounting", "accountant", "recursos humanos", "recruiter", "secretariado", "financeiro"
 ]
 
 def is_valid_job_offer(link: str, title: str) -> bool:
@@ -100,8 +101,12 @@ class Job:
     pub_date: str
     iefp_mentioned: bool = False
     job_id: str = ""
+    fetched_at: str = ""
 
     def __post_init__(self):
+        if not self.fetched_at:
+            self.fetched_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
         if not self.job_id:
             raw_str = f"{self.title.lower().strip()}_{self.company.lower().strip()}_{self.link.strip()}"
             self.job_id = hashlib.sha256(raw_str.encode('utf-8')).hexdigest()[:16]
@@ -275,14 +280,36 @@ class ITJobsScraper:
                 detail_soup = BeautifulSoup(detail_resp.text, "html.parser")
                 text_blocks = [elem.get_text(strip=True) for elem in detail_soup.find_all(["p", "li"])]
                 desc = f"{title} " + " ".join(text_blocks)
+
+                # Extract real company name from ITJobs title or link
+                if detail_soup.title:
+                    parts = [p.strip() for p in detail_soup.title.text.split(' - ')]
+                    if len(parts) >= 3 and parts[-1] == 'ITJobs':
+                        c_val = parts[-2]
+                        if len(c_val) > 1 and c_val.lower() not in ['itjobs', 'emprego']:
+                            company = c_val
+
+                if not company or "empresa via" in company.lower() or company == "Empresa Confidencial":
+                    for a in detail_soup.find_all("a", href=True):
+                        if "/empresa/" in a["href"] or "/company/" in a["href"]:
+                            txt = a.get_text(strip=True)
+                            if len(txt) > 2 and txt.lower() not in ["empresas", "empresa", "login"]:
+                                company = txt
+                                break
+
         except Exception as detail_err:
             logger.debug(f"Could not fetch offer detail page for {full_link}: {detail_err}")
+
+        if not company or "empresa via" in company.lower():
+            company = "Empresa Confidencial"
+
 
         return Job(
             title=title, company=company, location=location,
             work_mode="Presencial / Híbrido", link=full_link, description=desc,
             source="ITJobs.pt", pub_date=datetime.date.today().isoformat()
         )
+
 
     def fetch(self, api_key: str = "") -> List[Job]:
         jobs = []
@@ -721,18 +748,22 @@ class NetEmpregosScraper:
                 else:
                     desc = f"{title} - " + det_soup.get_text(separator=" ", strip=True)
                 
-                company_elem = det_soup.find("span", class_="empresa") or det_soup.find("div", class_="oferta-empresa")
-                if company_elem:
-                    comp_text = company_elem.get_text(strip=True)
-                    if comp_text.startswith("Detalhe da Oferta"):
-                        comp_text = comp_text.replace("Detalhe da Oferta:", "").replace("Detalhe da Oferta", "").strip()
-                    if 2 < len(comp_text) < 60:
-                        company = comp_text
-                        
-                if not company or company.strip().lower() in ["detalhe da oferta:", "detalhe da oferta", "empresa", "detalhe da oferta:"]:
-                    company = "Empresa Confidencial (Net-Empregos)"
+                for a in det_soup.find_all("a", href=True):
+                    if "/emprego-empresa-id/" in a["href"]:
+                        txt = a.get_text(strip=True)
+                        if len(txt) > 1:
+                            company = txt
+                            break
+
+                if not company or "empresa via" in company.lower() or company.strip().lower() in ["detalhe da oferta:", "detalhe da oferta", "empresa"]:
+                    company = "Empresa Confidencial"
         except Exception:
             pass
+
+        if not company or "empresa via" in company.lower():
+            company = "Empresa Confidencial"
+
+
 
         return Job(
             title=title, company=company, location=location,

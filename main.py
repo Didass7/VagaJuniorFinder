@@ -11,6 +11,8 @@ from excel_builder import ExcelReportBuilder
 from notifier import EmailNotifier
 from telegram_notifier import TelegramNotifier
 from seen_store import SeenStore
+from notion_store import NotionStore
+from cleanup_notion_duplicates import cleanup_empty_or_duplicate_notion_pages
 
 # Ensure Windows terminal stdout handles UTF-8 emojis cleanly
 if sys.stdout.encoding != 'utf-8':
@@ -51,7 +53,8 @@ def run_pipeline(dry_run: bool = False):
     matcher = JobMatcher(profile=config.candidate)
     scored_new_jobs = matcher.process_jobs(new_jobs) if new_jobs else []
     scored_seen_jobs = matcher.process_jobs(seen_jobs) if seen_jobs else []
-    all_scored_jobs = matcher.process_jobs(raw_jobs)
+    all_scored_jobs = scored_new_jobs + scored_seen_jobs
+
 
     logger.info(f"✅ Evaluated: {len(scored_new_jobs)} new qualified jobs | {len(scored_seen_jobs)} active seen qualified jobs.")
 
@@ -75,6 +78,12 @@ def run_pipeline(dry_run: bool = False):
     
     logger.info(f"📊 Daily Excel report saved to: {daily_excel_path}")
     logger.info(f"🗃️ Master Excel database updated at: {master_excel_path}")
+
+    # 3b. Sync to Notion Database (if configured)
+    if config.enable_notion_sync:
+        notion_store = NotionStore()
+        notion_store.sync_jobs(all_scored_jobs)
+        cleanup_empty_or_duplicate_notion_pages()
 
     # 4. Dispatch Notifications
     if dry_run:

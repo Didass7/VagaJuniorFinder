@@ -101,7 +101,8 @@ class TestMatcherModule(unittest.TestCase):
         # Score should be positive due to title match and tech stack overlap
         self.assertGreater(scored.score, 50.0)
         self.assertIn("python", scored.matched_skills)
-        self.assertTrue("IEFP" in scored.seniority_status or "Junior" in scored.seniority_status)
+        self.assertTrue("IEFP" in scored.seniority_status or "Junior" in scored.seniority_status or "Recém-licenciado" in scored.seniority_status or "Júnior" in scored.seniority_status)
+
 
     def test_senior_disqualification(self):
         job = Job(

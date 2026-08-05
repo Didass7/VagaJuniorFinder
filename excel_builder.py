@@ -29,9 +29,11 @@ class ExcelReportBuilder:
             "Tecnologias Encontradas",
             "Nível Senioridade",
             "Data Publicação",
+            "Data Extração",
             "Fonte",
             "Link de Candidatura",
             "Estado Candidatura",
+            "Análise da IA",
             "Notas Pessoais"
         ]
         
@@ -61,6 +63,8 @@ class ExcelReportBuilder:
             job = sj.job
             skills_str = ", ".join(sj.matched_skills) if sj.matched_skills else "N/A"
             iefp_str = "Sim (IEFP / ATIVAR)" if job.iefp_mentioned else "Não especificado"
+            ai_reason = sj.ai_reasoning if sj.ai_evaluated else sj.match_reason
+            fetched_time = getattr(job, 'fetched_at', None) or datetime.date.today().isoformat()
             
             ws.cell(row=row_idx, column=1, value=round(sj.score, 1))
             ws.cell(row=row_idx, column=2, value=job.title)
@@ -71,19 +75,21 @@ class ExcelReportBuilder:
             ws.cell(row=row_idx, column=7, value=skills_str)
             ws.cell(row=row_idx, column=8, value=sj.seniority_status)
             ws.cell(row=row_idx, column=9, value=job.pub_date)
-            ws.cell(row=row_idx, column=10, value=job.source)
+            ws.cell(row=row_idx, column=10, value=fetched_time)
+            ws.cell(row=row_idx, column=11, value=job.source)
             
             # Clickable hyperlink in Excel
-            link_cell = ws.cell(row=row_idx, column=11, value="Abrir Vaga 🔗")
+            link_cell = ws.cell(row=row_idx, column=12, value="Abrir Vaga 🔗")
             link_cell.hyperlink = job.link
             link_cell.font = Font(name="Segoe UI", size=10, color="0563C1", underline="single")
             
             # Interactive columns for tracking candidate progress
-            ws.cell(row=row_idx, column=12, value="Por Candidatar")
-            ws.cell(row=row_idx, column=13, value="")
+            ws.cell(row=row_idx, column=13, value="Por Candidatar")
+            ws.cell(row=row_idx, column=14, value=ai_reason)
+            ws.cell(row=row_idx, column=15, value="")
 
             # Styling data cells
-            for col_num in range(1, 14):
+            for col_num in range(1, 16):
                 cell = ws.cell(row=row_idx, column=col_num)
                 cell.border = thin_border
                 cell.font = Font(name="Segoe UI", size=10)
@@ -93,6 +99,7 @@ class ExcelReportBuilder:
                     cell.alignment = Alignment(horizontal="center", vertical="center")
                 else:
                     cell.alignment = Alignment(horizontal="left", vertical="center")
+
 
                 # Score color highlights
                 if col_num == 1:
@@ -104,15 +111,15 @@ class ExcelReportBuilder:
                         cell.fill = PatternFill(start_color="FFF2CC", fill_type="solid")  # Soft yellow
                         cell.font = Font(name="Segoe UI", size=10, bold=True, color="7F6000")
 
-        # Add Data Validation dropdown for "Estado Candidatura" (Column L / 12)
+        # Add Data Validation dropdown for "Estado Candidatura" (Column M / 13)
         dv = DataValidation(
             type="list",
-            formula1='"Por Candidatar,Candidatado,Entrevista,Proposta,Rejeitado,Sem Resposta"',
+            formula1='"Por Candidatar,Candidatura feita,Cadidatura feita,Candidatado,Entrevista,Proposta,Rejeitado,Sem Resposta"',
             allow_blank=True
         )
         ws.add_data_validation(dv)
         max_row = max(len(sorted_jobs) + 1, 2)
-        dv.add(f"L2:L{max_row}")
+        dv.add(f"M2:M{max_row}")
 
         # Set row height
         ws.row_dimensions[1].height = 28
@@ -203,7 +210,7 @@ class ExcelReportBuilder:
                             pub_date = str(row[8].value or "")
                             source = str(row[9].value or "")
                             status = str(row[11].value or "Por Candidatar")
-                            notes = str(row[12].value or "")
+                            notes = str(row[13].value or row[12].value or "")
                             
                             user_notes_dict[url] = {"status": status, "notes": notes}
                             
@@ -256,7 +263,8 @@ class ExcelReportBuilder:
                 url = cell_link.hyperlink.target
                 if url in user_notes_dict:
                     ws.cell(row=row_idx, column=12, value=user_notes_dict[url]["status"])
-                    ws.cell(row=row_idx, column=13, value=user_notes_dict[url]["notes"])
+                    ws.cell(row=row_idx, column=14, value=user_notes_dict[url]["notes"])
+
 
         dir_name = os.path.dirname(master_filepath)
         if dir_name:

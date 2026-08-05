@@ -1,10 +1,11 @@
 import re
 import datetime
 import email.utils
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Dict, Optional
-from config import CandidateProfile
+from config import CandidateProfile, config
 from scraper import Job
+from ai_evaluator import AIEvaluator, AIEvaluationResult
 
 # Skill canonical mapping & aliases based on Diogo Oliveira's CV
 SKILL_ALIASES: Dict[str, List[str]] = {
@@ -54,7 +55,9 @@ IRRELEVANT_ROLE_DISQUALIFIERS = [
     "content", "branding", "traffic manager", "sales", "comercial", "orçamentista", "videógrafo",
     "fotógrafo", "podcast", "account executive", "business developer",
     "professor", "professora", "formador", "formadora", "instrutor", "instrutora",
-    "teacher", "instructor", "tutor", "docente", "explicador", "explicadora", "sharkcoders"
+    "teacher", "instructor", "tutor", "docente", "explicador", "explicadora", "sharkcoders",
+    "administrativo", "administrativa", "contabilidade", "contabilista", "accounting", "accountant",
+    "recursos humanos", "recruiter", "recrutamento", "secretária", "secretaria", "secretariado", "financeiro", "financeira"
 ]
 
 # Title Disqualifiers for Senior / Lead / Level II-III / Doctorate Roles
@@ -89,12 +92,16 @@ PHD_REQUIREMENT_PATTERN = re.compile(
 # Catches: "+5 anos de experiência", "5+ anos", "experiência superior a 3 anos", "experiência mínima de 2 anos", "mais de 1 ano", "1+ anos", "2+ years", etc.
 # Explicitly ALLOWS: "0-1 years", "0-1 ano", "0 a 1 ano", "0 to 1 year".
 MORE_THAN_1_YEAR_EXP_PATTERN = re.compile(
-    r"(?<!0\-)(?<!0\s\-)(?<!0\sto\s)(?<!0\sa\s)\b(?:mais\s+de|more\s+than|at\s+least|m[íi]nimo\s+de|m[íi]nimo|m[íi]nima\s+de|m[íi]nima|minimum\s+of|minimum|superior\s+a|igual\s+ou\s+superior\s+a|maior\s+que)\s+([1-9]|1[0-5])\s*(?:years?|yrs?|anos?)|"
-    r"(?<!0\-)(?<!0\s\-)(?<!0\sto\s)(?<!0\sa\s)\b(?:experi[êe]ncia|experience)\s+(?:superior\s+a|m[íi]nima\s+de|m[íi]nimo\s+de|igual\s+ou\s+superior\s+a|de)\s+([1-9]|1[0-5])\s*(?:years?|yrs?|anos?)|"
-    r"\+\s*([1-9]|1[0-5])\s*(?:years?|yrs?|anos?)|"
-    r"([1-9]|1[0-5])\s*\+\s*(?:years?|yrs?|anos?)|"
-    r"(?<!0\-)(?<!0\s\-)(?<!0\sto\s)(?<!0\sa\s)\b([1-9]|1[0-5])\s*(?:\+|\-|to|a)\s*([2-9]|1[0-5])\s*(?:years?|yrs?|anos?)|"
-    r"(?<!0\-)(?<!0\s\-)(?<!0\sto\s)(?<!0\sa\s)\b([2-9]|1[0-5])\s*(?:years?|yrs?|anos?)\s+(?:of\s+)?(?:experience|experi[êe]ncia)",
+    r"(?<!0\-)(?<!0\s\-)(?<!0\sto\s)(?<!0\sa\s)\b(?:mais\s+de|more\s+than|at\s+least|m[íi]nimo\s+de|m[íi]nimo|m[íi]nima\s+de|m[íi]nima|minimum\s+of|minimum|superior\s+a|igual\s+ou\s+superior\s+a|maior\s+que)\s+([1-9]|1[0-5])\s*(?:years?|yrs?|anos?|y\b)|"
+    r"([1-9]|1[0-5])\s+(?:or\s+more|ou\s+mais)\s*(?:years?|yrs?|anos?|y\b)|"
+    r"(?<!0\-)(?<!0\s\-)(?<!0\sto\s)(?<!0\sa\s)\b(?:experi[êe]ncia|experience)\s+(?:superior\s+a|m[íi]nima\s+de|m[íi]nimo\s+de|igual\s+ou\s+superior\s+a|de)\s+([1-9]|1[0-5])\s*(?:years?|yrs?|anos?|y\b)|"
+    r"\+\s*([1-9]|1[0-5])\s*(?:years?|yrs?|anos?|y\b)|"
+    r"([1-9]|1[0-5])\s*\+\s*(?:years?|yrs?|anos?|y\b)|"
+    r"([1-9]|1[0-5])\s*(?:y|yr|yrs|years|anos)\s*\+|"
+    r"(?<!0\-)(?<!0\s\-)(?<!0\sto\s)(?<!0\sa\s)\b([1-9]|1[0-5])\s*(?:\+|\-|to|a)\s*([2-9]|1[0-5])\s*(?:years?|yrs?|anos?|y\b)|"
+    r"(?<!0\-)(?<!0\s\-)(?<!0\sto\s)(?<!0\sa\s)\b([2-9]|1[0-5])\s*(?:years?|yrs?|anos?|y\b)\s+(?:of\s+)?(?:relevant\s+|professional\s+|hands-on\s+)?(?:experience|experi[êe]ncia)|"
+    r"\b(?:level\s+of\s+experience|seniority\s+level|experience\s+level)\s*:\s*(?:mid|senior|lead|executive)\b|"
+    r"\bmid\s*\(\s*more\s+than\b",
     re.IGNORECASE
 )
 
@@ -140,10 +147,15 @@ class ScoredJob:
     missing_skills: List[str]
     seniority_status: str
     match_reason: str = ""
+    ai_evaluated: bool = False
+    ai_reasoning: str = ""
+    ai_pros: List[str] = field(default_factory=lambda: [])
+    ai_cons: List[str] = field(default_factory=lambda: [])
 
 class JobMatcher:
     def __init__(self, profile: CandidateProfile):
         self.profile = profile
+        self.ai_evaluator = AIEvaluator() if config.enable_ai_evaluation else None
 
     def evaluate_job(self, job: Job) -> ScoredJob:
         text = f"{job.title} {job.description}".lower()
@@ -293,12 +305,53 @@ class JobMatcher:
         )
 
     def process_jobs(self, jobs: List[Job]) -> List[ScoredJob]:
-        scored_jobs = []
+        # Stage 1: Fast Heuristic Pre-filter
+        heuristic_candidates: List[ScoredJob] = []
         for job in jobs:
             evaluated = self.evaluate_job(job)
-            # Threshold: Only include jobs with score >= 55.0%
             if evaluated.score >= 55.0:
-                scored_jobs.append(evaluated)
+                heuristic_candidates.append(evaluated)
 
-        scored_jobs.sort(key=lambda x: x.score, reverse=True)
-        return scored_jobs
+        if not heuristic_candidates:
+            return []
+
+        # Stage 2: Batch AI Evaluation (if enabled and available)
+        if self.ai_evaluator and self.ai_evaluator.is_available:
+            candidate_jobs = [sj.job for sj in heuristic_candidates]
+            ai_results = self.ai_evaluator.evaluate_jobs_batch(candidate_jobs, self.profile, batch_size=3)
+
+
+            final_scored_jobs: List[ScoredJob] = []
+            for sj in heuristic_candidates:
+                ai_res = ai_results.get(sj.job.job_id)
+                if ai_res:
+                    reason_lower = ai_res.reasoning.lower()
+                    if not ai_res.is_suitable or ("exige" in reason_lower and ("2 anos" in reason_lower or "3 anos" in reason_lower or "superior a" in reason_lower)):
+                        sj.score = 0.0
+                        sj.seniority_status = f"Rejeitada por IA ({ai_res.seniority_detected})"
+                        sj.match_reason = ai_res.reasoning
+                        continue
+
+                    blended_score = round(0.5 * sj.score + 0.5 * ai_res.fit_score, 1)
+                    sj.score = blended_score
+                    sj.ai_evaluated = True
+                    sj.ai_reasoning = ai_res.reasoning
+                    sj.ai_pros = ai_res.pros
+                    sj.ai_cons = ai_res.cons
+                    if ai_res.seniority_detected:
+                        sj.seniority_status = ai_res.seniority_detected
+                    if ai_res.reasoning:
+                        sj.match_reason = ai_res.reasoning
+
+
+                if sj.score >= 55.0:
+                    final_scored_jobs.append(sj)
+
+            final_scored_jobs.sort(key=lambda x: x.score, reverse=True)
+            return final_scored_jobs
+
+        # Fallback if AI not available
+        heuristic_candidates.sort(key=lambda x: x.score, reverse=True)
+        return heuristic_candidates
+
+

@@ -129,6 +129,9 @@ class ReportBuilder:
             skills_formatted = " ".join([f"`{s}`" for s in sj.matched_skills])
             lines.append(f"**Stack:** {skills_formatted}\n")
 
+        if sj.ai_evaluated and sj.ai_reasoning:
+            lines.append(f"🤖 **Análise IA:** *{sj.ai_reasoning}*\n")
+
         clean_desc = job.description[:260].replace("\n", " ").strip()
         if len(job.description) > 260:
             clean_desc += "..."
@@ -153,6 +156,10 @@ class ReportBuilder:
         if sj.matched_skills:
             skills_formatted = " ".join([f"<code>{html.escape(s)}</code>" for s in sj.matched_skills])
             lines.append(f"• <b>Stack:</b> {skills_formatted}")
+
+        if sj.ai_evaluated and sj.ai_reasoning:
+            safe_ai = html.escape(sj.ai_reasoning)
+            lines.append(f"🤖 <b>Análise IA:</b> <i>{safe_ai}</i>")
 
         lines.append(f"👉 <a href=\"{job.link}\">Candidatar — {safe_company}</a>\n")
         return "\n".join(lines)
