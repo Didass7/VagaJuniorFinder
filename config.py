@@ -9,46 +9,44 @@ load_dotenv()
 class CandidateProfile:
     name: str = "Diogo Oliveira"
     email: str = "diogon.oliveira1@gmail.com"
-    degree: str = "Licenciatura em Engenharia Informática (Média 15/20)"
+    degree: str = "Licenciatura em Engenharia Informática (IPCB-ESTCB | Média 15/20)"
     iefp_eligible: bool = True
-    languages: List[str] = field(default_factory=lambda: ["Português (Nativo)", "Inglês (C2 - Fluente)"])
+    languages: List[str] = field(default_factory=lambda: [
+        "Português (Nativo)", "Inglês (C2 - Proficiente)", "Espanhol (B1)", "Alemão (A2)"
+    ])
     
-    # Target job titles
+    # Target job titles strictly in AI, Data Science, ML, and Data Engineering
     target_titles: List[str] = field(default_factory=lambda: [
-        "Junior AI Engineer", "AI Engineer",
+        "Junior AI Engineer", "AI Engineer", "AI Developer",
         "Junior Data Scientist", "Data Scientist",
         "Machine Learning Engineer", "Junior ML Engineer",
         "RAG Developer", "NLP Engineer", "LLM Engineer",
-        "Estágio AI Engineer", "Estágio Data Scientist"
+        "Junior Data Engineer", "Junior Data Analyst",
+        "Estágio AI Engineer", "Estágio Data Scientist",
+        "Estágio Profissional IEFP", "Estágio ATIVAR.pt"
     ])
     
-    # Key technical skills to match in job descriptions
+    # Key technical skills from Diogo's CV to match in job descriptions
     tech_stack: List[str] = field(default_factory=lambda: [
         "python", "sql", "mysql", "duckdb", "pandas", "numpy",
         "scikit-learn", "sklearn", "xgboost", "random forest",
         "langchain", "chromadb", "huggingface", "embeddings",
-        "fastapi", "streamlit", "git", "github actions", "pyarrow",
+        "fastapi", "streamlit", "git", "github actions", "pyarrow", "parquet",
         "nlp", "rag", "llm", "machine learning", "deep learning",
-        "pytorch", "tensorflow"
+        "monte carlo", "poisson"
     ])
     
     # Positive keywords for boosting match score
     junior_boosters: List[str] = field(default_factory=lambda: [
         "junior", "jr", "entry level", "graduate", "trainee",
         "estágio", "estagio", "iefp", "ativar.pt", "ativar",
-        "0-1", "0-2", "recém-licenciado", "recem licenciado", "intern", "internship"
-    ])
-    
-    # Negative keywords for disqualification or heavy penalty
-    disqualifiers: List[str] = field(default_factory=lambda: [
-        "senior", "sr", "lead", "principal", "head of",
-        "manager", "director", "architect", "5+ years", "5+ anos",
-        "7+ years", "7+ anos", "8+ years", "10+ years"
+        "0-1", "recém-licenciado", "recem licenciado", "intern", "internship"
     ])
     
     # Preferred locations
     locations: List[str] = field(default_factory=lambda: [
-        "portugal", "lisboa", "porto", "braga", "coimbra", "remoto", "remote", "hybrid", "híbrido", "europe"
+        "portugal", "lisboa", "porto", "braga", "coimbra", "castelo branco",
+        "remoto", "remote", "hybrid", "híbrido"
     ])
 
 @dataclass
@@ -74,7 +72,7 @@ class AppConfig:
     cache_file: str = os.getenv("CACHE_FILE", "jobs_cache.json")
     
     # Scoring Thresholds
-    top_match_threshold: float = 80.0
-    promising_match_threshold: float = 60.0
+    top_match_threshold: float = 75.0
+    promising_match_threshold: float = 55.0
 
 config = AppConfig()

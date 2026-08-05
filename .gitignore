@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Environment
+.env
+.venv/
+venv/
+env/
+
+# Seen jobs store (persisted on 'data' branch by GitHub Actions)
+seen_jobs.json
+jobs_cache.json
+
+# Reports (uploaded as GH Actions artifacts)
+reports/*.md
+reports/*.html
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

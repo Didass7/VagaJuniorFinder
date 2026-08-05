@@ -8,6 +8,7 @@ from matcher import JobMatcher
 from report_builder import ReportBuilder
 from notifier import EmailNotifier
 from telegram_notifier import TelegramNotifier
+from seen_store import SeenStore
 
 # Ensure Windows terminal stdout handles UTF-8 emojis cleanly
 if sys.stdout.encoding != 'utf-8':
@@ -37,10 +38,24 @@ def run_pipeline(dry_run: bool = False):
         logger.warning("⚠️ No jobs found across any sources today.")
         return
 
+    # 1b. Cross-run deduplication — skip jobs we've already processed
+    seen = SeenStore(filepath=config.cache_file)
+    new_jobs = seen.filter_new(raw_jobs)
+    logger.info(f"🧠 Seen store: {seen.count} tracked | {len(raw_jobs)} ingested | {len(new_jobs)} new")
+
+    if not new_jobs:
+        logger.info("✅ All jobs were already seen in previous runs. Nothing new to report.")
+        seen.save()
+        return
+
     # 2. Matching & Scoring
     matcher = JobMatcher(profile=config.candidate)
-    scored_jobs = matcher.process_jobs(raw_jobs)
+    scored_jobs = matcher.process_jobs(new_jobs)
     logger.info(f"✅ Evaluated {len(scored_jobs)} jobs relevant for matching score evaluation.")
+
+    # Mark all new jobs as seen (even low-scored ones, to avoid re-processing)
+    seen.mark_seen([j.job_id for j in new_jobs])
+    seen.save()
 
     # 3. Report Building
     report_builder = ReportBuilder(profile=config.candidate)
