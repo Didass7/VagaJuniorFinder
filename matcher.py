@@ -58,7 +58,8 @@ IRRELEVANT_ROLE_DISQUALIFIERS = [
     "teacher", "instructor", "tutor", "docente", "explicador", "explicadora", "sharkcoders",
     "administrativo", "administrativa", "contabilidade", "contabilista", "accounting", "accountant",
     "recursos humanos", "recruiter", "recrutamento", "secretária", "secretaria", "secretariado", "financeiro", "financeira",
-    "crianças", "criancas", "adolescentes", "pós-letivo", "pos-letivo", "kids", "children", "academias de ia"
+    "crianças", "criancas", "adolescentes", "pós-letivo", "pos-letivo", "kids", "children", "academias de ia",
+    "data entry", "introdução de dados", "introducao de dados", "entry assistant", "entry clerk"
 ]
 
 # Title Disqualifiers for Senior / Lead / Level II-III / Doctorate Roles

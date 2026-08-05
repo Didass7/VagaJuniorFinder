@@ -66,7 +66,8 @@ PRE_FILTER_DISQUALIFIERS = [
     "sysadmin", "network engineer", "cybersecurity", "cibersegurança", "salesforce", "sap ",
     "scrum master", "helpdesk", "support technician", "webmaster", "marketing", "social media",
     "growth", "sales", "comercial", "branding", "copywriter", "videógrafo", "data annotator", "anotador de dados", "annotator",
-    "administrativo", "administrativa", "contabilidade", "contabilista", "accounting", "accountant", "recursos humanos", "recruiter", "secretariado", "financeiro"
+    "administrativo", "administrativa", "contabilidade", "contabilista", "accounting", "accountant", "recursos humanos", "recruiter", "secretariado", "financeiro",
+    "data entry", "introdução de dados", "introducao de dados", "entry assistant", "entry clerk"
 ]
 
 def is_valid_job_offer(link: str, title: str) -> bool:
