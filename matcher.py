@@ -136,6 +136,12 @@ FOREIGN_JOB_POST_PATTERN = re.compile(
     re.IGNORECASE
 )
 
+# Geo-Restricted Remote Pattern (e.g. US/UK only)
+GEO_RESTRICTED_REMOTE_PATTERN = re.compile(
+    r"\b(?:based\s+in\s+(?:the\s+)?(?:us|united\s+states|usa|uk|united\s+kingdom)|legally\s+authorized\s+to\s+work\s+in\s+(?:the\s+)?(?:us|united\s+states|usa|uk|united\s+kingdom)|work\s+from\s+anywhere\s+in\s+(?:the\s+)?(?:us|united\s+states|usa|uk|united\s+kingdom)|(?:us|uk)\s+residents\s+only|only\s+open\s+to\s+(?:us|uk)\s+candidates|right\s+to\s+work\s+in\s+(?:the\s+)?(?:us|uk|united\s+states|united\s+kingdom)|located\s+in\s+(?:the\s+)?(?:us|usa|united\s+states|uk|united\s+kingdom))\b",
+    re.IGNORECASE
+)
+
 def parse_job_date(date_str: str) -> datetime.date:
     """Parses various date formats to a standard datetime.date."""
     if not date_str:
@@ -219,6 +225,10 @@ class JobMatcher:
 
         if not is_portugal and not is_strictly_remote:
             return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Fora do Âmbito Geográfico", match_reason="Presencial/Híbrido no Estrangeiro")
+
+        # Check for geo-restricted remote roles (e.g. US or UK only)
+        if is_strictly_remote and GEO_RESTRICTED_REMOTE_PATTERN.search(text):
+            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Remoto Geobloqueado (EUA/UK)", match_reason="Vaga remota mas restrita aos Estados Unidos ou Reino Unido")
 
         # 2. Strict Irrelevant Role Disqualification
         for disq, pattern in IRRELEVANT_ROLE_PATTERNS:
