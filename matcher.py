@@ -88,10 +88,10 @@ TEXT_SENIORITY_DISQUALIFIERS = [
     "proven experience", "proven track record", "experiência sólida", "experiencia sólida", "solid experience",
     "senior developer", "senior engineer", "senior backend", "senior software", "senior data scientist",
     "senior data engineer", "sénior developer", "sénior engineer", "sénior backend", "sr developer", "sr engineer",
-    "3+ years", "4+ years", "5+ years", "6+ years", "7+ years", "8+ years", "9+ years", "10+ years",
-    "3+ anos", "4+ anos", "5+ anos", "6+ anos", "7+ anos", "8+ anos", "9+ anos", "10+ anos",
-    "3 anos de experiência", "4 anos de experiência", "5 anos de experiência", "6 anos de experiência", "7 anos de experiência",
-    "3 years of experience", "4 years of experience", "5 years of experience", "6 years of experience", "7 years of experience"
+    "2+ years", "3+ years", "4+ years", "5+ years", "6+ years", "7+ years", "8+ years", "9+ years", "10+ years",
+    "2+ anos", "3+ anos", "4+ anos", "5+ anos", "6+ anos", "7+ anos", "8+ anos", "9+ anos", "10+ anos",
+    "2 anos de experiência", "3 anos de experiência", "4 anos de experiência", "5 anos de experiência", "6 anos de experiência", "7 anos de experiência",
+    "2 years of experience", "3 years of experience", "4 years of experience", "5 years of experience", "6 years of experience", "7 years of experience"
 ]
 
 # Precompiled regexes for fast disqualifier matching
