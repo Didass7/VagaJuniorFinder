@@ -205,12 +205,12 @@ class JobMatcher:
         if any(exp_term in clean_desc_lower for exp_term in ["oferta expirada", "vaga expirada", "anúncio expirado", "job no longer available", "no longer accepting applications", "this job is no longer available"]):
             return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Oferta Expirada", match_reason="Anúncio marcado como expirado no portal")
 
-        # 0. Freshness Filter (Max 24 hours / 1 day old)
+        # 0. Freshness Filter (Max 14 days old)
         today = datetime.date.today()
         job_date = parse_job_date(job.pub_date)
         days_old = (today - job_date).days
-        if days_old > 1:
-            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Vaga Antiga (> 24h)", match_reason="Oferta expirada (> 24h)")
+        if days_old > 14:
+            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Vaga Antiga (> 14 dias)", match_reason="Oferta expirada (> 14 dias)")
 
         # 1. Location & Work Mode Filter (STRICT)
         # If job is outside Portugal, it MUST BE 100% REMOTO! Foreign On-site/Hybrid is REJECTED!
