@@ -87,14 +87,22 @@ TEXT_SENIORITY_DISQUALIFIERS = [
     "experiencia comprovada", "comprovada experiência", "comprovada experiencia",
     "proven experience", "proven track record", "experiência sólida", "experiencia sólida", "solid experience",
     "senior developer", "senior engineer", "senior backend", "senior software", "senior data scientist",
-    "senior data engineer", "sénior developer", "sénior engineer", "sénior backend", "sr developer", "sr engineer"
+    "senior data engineer", "sénior developer", "sénior engineer", "sénior backend", "sr developer", "sr engineer",
+    "3+ years", "4+ years", "5+ years", "6+ years", "7+ years", "8+ years", "9+ years", "10+ years",
+    "3+ anos", "4+ anos", "5+ anos", "6+ anos", "7+ anos", "8+ anos", "9+ anos", "10+ anos",
+    "3 anos de experiência", "4 anos de experiência", "5 anos de experiência", "6 anos de experiência", "7 anos de experiência",
+    "3 years of experience", "4 years of experience", "5 years of experience", "6 years of experience", "7 years of experience"
 ]
 
 # Precompiled regexes for fast disqualifier matching
-IRRELEVANT_ROLE_PATTERNS = [(disq, re.compile(rf"\b{re.escape(disq)}\b", re.IGNORECASE)) for disq in IRRELEVANT_ROLE_DISQUALIFIERS]
-TITLE_SENIORITY_PATTERNS = [(disq, re.compile(rf"\b{re.escape(disq.strip())}\b", re.IGNORECASE)) for disq in TITLE_SENIORITY_DISQUALIFIERS]
-TEXT_SENIORITY_PATTERNS = [(disq, re.compile(rf"\b{re.escape(disq)}\b", re.IGNORECASE)) for disq in TEXT_SENIORITY_DISQUALIFIERS]
-BASIC_TITLE_PATTERN = re.compile(r"\b(?:ai|ia|data|ml|machine\s+learning|inteligência|inteligencia|dados)\b", re.IGNORECASE)
+# Using lookarounds (?<![a-zA-Z0-9_]) and (?![a-zA-Z0-9_]) instead of \b to properly match words with punctuation like .net or c++
+def build_strict_pattern(word: str) -> re.Pattern:
+    return re.compile(rf"(?<![a-zA-Z0-9_]){re.escape(word.strip())}(?![a-zA-Z0-9_])", re.IGNORECASE)
+
+IRRELEVANT_ROLE_PATTERNS = [(disq, build_strict_pattern(disq)) for disq in IRRELEVANT_ROLE_DISQUALIFIERS]
+TITLE_SENIORITY_PATTERNS = [(disq, build_strict_pattern(disq)) for disq in TITLE_SENIORITY_DISQUALIFIERS]
+TEXT_SENIORITY_PATTERNS = [(disq, build_strict_pattern(disq)) for disq in TEXT_SENIORITY_DISQUALIFIERS]
+BASIC_TITLE_PATTERN = re.compile(r"(?<![a-zA-Z0-9_])(?:ai|ia|data|ml|machine\s+learning|inteligência|inteligencia|dados)(?![a-zA-Z0-9_])", re.IGNORECASE)
 
 # Titles with just 'python' need a secondary AI/Data context check in the description
 PYTHON_ONLY_TITLE_PATTERN = re.compile(r"\bpython\b", re.IGNORECASE)
