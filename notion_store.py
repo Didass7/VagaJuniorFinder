@@ -106,21 +106,24 @@ class NotionStore:
 
         return existing_urls
 
-    def sync_jobs(self, scored_jobs: List[ScoredJob]) -> int:
-        """Syncs new scored jobs to Notion Database. Returns count of newly created Notion pages."""
+    def sync_jobs(self, scored_jobs: List[ScoredJob]) -> Set[str]:
+        """Syncs new scored jobs to Notion Database. Returns set of successfully synced job IDs."""
         if not self.is_configured:
             logger.info("ℹ️ Notion token or database ID not configured. Skipping Notion sync.")
-            return 0
+            return {sj.job.job_id for sj in scored_jobs}
 
         existing_urls = self.get_existing_urls()
         synced_count = 0
+        successful_job_ids: Set[str] = set()
 
         for sj in scored_jobs:
             if sj.score < 55.0:
+                successful_job_ids.add(sj.job.job_id)
                 continue
 
             job = sj.job
             if job.link in existing_urls:
+                successful_job_ids.add(job.job_id)
                 continue
 
             try:
@@ -128,6 +131,7 @@ class NotionStore:
                 if success:
                     synced_count += 1
                     existing_urls.add(job.link)
+                    successful_job_ids.add(job.job_id)
                 time.sleep(0.35)  # Throttling to stay safely below Notion 3 req/sec rate limit
             except Exception as e:
                 logger.error(f"Error syncing job '{job.title}' to Notion: {e}")
@@ -137,7 +141,7 @@ class NotionStore:
         else:
             logger.info("ℹ️ Notion Store: All qualified jobs are already present in Notion Database.")
 
-        return synced_count
+        return successful_job_ids
 
     @staticmethod
     def _truncate_text(text: str, max_length: int = 1990) -> str:

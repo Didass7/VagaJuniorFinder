@@ -4,6 +4,7 @@ import re
 import datetime
 import random
 import time
+import string
 from dataclasses import dataclass
 from typing import List, Dict, Set, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -130,7 +131,9 @@ class Job:
             self.fetched_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         if not self.job_id:
-            raw_str = f"{self.title.lower().strip()}_{self.company.lower().strip()}_{self.link.strip()}"
+            def _norm(s: str) -> str:
+                return " ".join(s.lower().translate(str.maketrans('', '', string.punctuation)).split())
+            raw_str = f"{_norm(self.title)}_{_norm(self.company)}"
             self.job_id = hashlib.sha256(raw_str.encode('utf-8')).hexdigest()[:16]
         
         text_content = f"{self.title} {self.description}".lower()

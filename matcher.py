@@ -86,8 +86,7 @@ TEXT_SENIORITY_DISQUALIFIERS = [
     "experiencia comprovada", "comprovada experiência", "comprovada experiencia",
     "proven experience", "proven track record", "experiência sólida", "experiencia sólida", "solid experience",
     "senior developer", "senior engineer", "senior backend", "senior software", "senior data scientist",
-    "senior data engineer", "sénior developer", "sénior engineer", "sénior backend", "sr developer", "sr engineer",
-    "7+ years", "7+ anos", "6+ years", "6+ anos", "5+ years", "5+ anos", "4+ years", "4+ anos", "3+ years", "3+ anos", "2+ years", "2+ anos"
+    "senior data engineer", "sénior developer", "sénior engineer", "sénior backend", "sr developer", "sr engineer"
 ]
 
 # Precompiled regexes for fast disqualifier matching
@@ -106,22 +105,6 @@ PHD_REQUIREMENT_PATTERN = re.compile(
     re.IGNORECASE
 )
 
-# Experience Requirement Disqualification (STRICT: >1 year experience required is REJECTED)
-# Catches: "+5 anos de experiência", "5+ anos", "experiência superior a 3 anos", "experiência mínima de 2 anos", "mais de 1 ano", "1+ anos", "2+ years", etc.
-# Explicitly ALLOWS: "0-1 years", "0-1 ano", "0 a 1 ano", "0 to 1 year".
-MORE_THAN_1_YEAR_EXP_PATTERN = re.compile(
-    r"(?<!0\-)(?<!0\s\-)(?<!0\sto\s)(?<!0\sa\s)\b(?:mais\s+de|more\s+than|at\s+least|m[íi]nimo\s+de|m[íi]nimo|m[íi]nima\s+de|m[íi]nima|minimum\s+of|minimum|superior\s+a|igual\s+ou\s+superior\s+a|maior\s+que)\s+([1-9]|1[0-5])\s*(?:years?|yrs?|anos?|y\b)|"
-    r"([1-9]|1[0-5])\s+(?:or\s+more|ou\s+mais)\s*(?:years?|yrs?|anos?|y\b)|"
-    r"(?<!0\-)(?<!0\s\-)(?<!0\sto\s)(?<!0\sa\s)\b(?:experi[êe]ncia|experience)\s+(?:superior\s+a|m[íi]nima\s+de|m[íi]nimo\s+de|igual\s+ou\s+superior\s+a|de)\s+([1-9]|1[0-5])\s*(?:years?|yrs?|anos?|y\b)|"
-    r"\+\s*([1-9]|1[0-5])\s*(?:years?|yrs?|anos?|y\b)|"
-    r"([1-9]|1[0-5])\s*\+\s*(?:years?|yrs?|anos?|y\b)|"
-    r"([1-9]|1[0-5])\s*(?:y|yr|yrs|years|anos)\s*\+|"
-    r"(?<!0\-)(?<!0\s\-)(?<!0\sto\s)(?<!0\sa\s)\b([1-9]|1[0-5])\s*(?:\+|\-|to|a)\s*([2-9]|1[0-5])\s*(?:years?|yrs?|anos?|y\b)|"
-    r"(?<!0\-)(?<!0\s\-)(?<!0\sto\s)(?<!0\sa\s)\b([2-9]|1[0-5])\s*(?:years?|yrs?|anos?|y\b)\s+(?:of\s+)?(?:relevant\s+|professional\s+|hands-on\s+)?(?:experience|experi[êe]ncia)|"
-    r"\b(?:level\s+of\s+experience|seniority\s+level|experience\s+level)\s*:\s*(?:mid|senior|lead|executive)\b|"
-    r"\bmid\s*\(\s*more\s+than\b",
-    re.IGNORECASE
-)
 
 # Mandatory Non-English/Portuguese Language Requirements Pattern
 MANDATORY_OTHER_LANGUAGES_PATTERN = re.compile(
@@ -269,9 +252,6 @@ class JobMatcher:
             if pattern.search(text):
                 return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Nível Mid-Senior / Liderança", match_reason=f"Descrição ou tag exige nível avançado ({disq})")
 
-        # Check Experience Requirement (>1 year exp required is REJECTED)
-        if MORE_THAN_1_YEAR_EXP_PATTERN.search(text):
-            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Experiência > 1 Ano Exigida", match_reason="Requer mais de 1 ano de experiência prévia")
 
         # -------------------------------------------------------------
         # PHASE 2: WEIGHTED SCORING SYSTEM (0.0 to 100.0)

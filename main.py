@@ -56,17 +56,22 @@ def run_pipeline(dry_run: bool = False):
         logger.info("ℹ️ Dry-run mode active. Skipping Notion sync.")
         for sj in scored_jobs[:10]:
             logger.info(f"  → [{sj.score}%] {sj.job.title} @ {sj.job.company} ({sj.seniority_status})")
+        successful_job_ids = {sj.job.job_id for sj in scored_jobs}
     else:
         # ── Step 4: Sync to Notion ── Send qualified new jobs to Notion database
         if config.enable_notion_sync:
             notion_store = NotionStore()
-            synced = notion_store.sync_jobs(scored_jobs)
-            logger.info(f"📝 Synced {synced} new jobs to Notion.")
+            successful_job_ids = notion_store.sync_jobs(scored_jobs)
+            logger.info(f"📝 Synced {len(successful_job_ids)} new jobs to Notion.")
         else:
             logger.info("ℹ️ Notion sync disabled.")
+            successful_job_ids = {sj.job.job_id for sj in scored_jobs}
 
-    # Mark all new jobs as seen AFTER successful sync (prevents losing jobs if Notion fails)
-    seen.mark_seen([j.job_id for j in new_jobs])
+    # Mark as seen ONLY jobs that were filtered out OR successfully synced
+    scored_job_ids = {sj.job.job_id for sj in scored_jobs}
+    jobs_to_mark = [j.job_id for j in new_jobs if j.job_id not in scored_job_ids or j.job_id in successful_job_ids]
+    
+    seen.mark_seen(jobs_to_mark)
     seen.save()
 
     logger.info("==================================================")

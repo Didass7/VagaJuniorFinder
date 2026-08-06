@@ -233,7 +233,7 @@ class AIEvaluator:
 - Fonte: {job.source}
 - Descrição:
 \"\"\"
-{job.description[:800]}
+{job.description[:4000]}
 \"\"\"
 """)
 
