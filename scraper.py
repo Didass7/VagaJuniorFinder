@@ -179,6 +179,8 @@ class LinkedInScraper:
             })
             time.sleep(random.uniform(0.5, 1.2))
             resp = self.session.get(url, headers=headers, timeout=12)
+            if resp.status_code != 200:
+                logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {resp.status_code} for {resp.url}")
             if resp.status_code == 200:
                 soup = BeautifulSoup(resp.text, "html.parser")
                 cards = soup.find_all("div", class_=lambda c: c and "base-card" in str(c))
@@ -229,6 +231,8 @@ class LinkedInScraper:
             })
             time.sleep(random.uniform(0.3, 0.6))
             detail_resp = self.session.get(clean_link, headers=headers, timeout=8)
+            if detail_resp.status_code != 200:
+                logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {detail_resp.status_code} for {detail_resp.url}")
             if detail_resp.status_code == 200:
                 detail_soup = BeautifulSoup(detail_resp.text, "html.parser")
                 markup = (
@@ -281,6 +285,8 @@ class ITJobsScraper:
         cards = []
         try:
             resp = self.session.get(url, headers=get_random_headers(), timeout=10)
+            if resp.status_code != 200:
+                logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {resp.status_code} for {resp.url}")
             if resp.status_code == 200:
                 soup = BeautifulSoup(resp.text, "html.parser")
                 title_anchors = soup.find_all("a", class_="title")
@@ -317,6 +323,8 @@ class ITJobsScraper:
         desc = title
         try:
             detail_resp = self.session.get(full_link, headers=get_random_headers(), timeout=8)
+            if detail_resp.status_code != 200:
+                logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {detail_resp.status_code} for {detail_resp.url}")
             if detail_resp.status_code == 200:
                 detail_soup = BeautifulSoup(detail_resp.text, "html.parser")
                 text_blocks = [elem.get_text(strip=True) for elem in detail_soup.find_all(["p", "li"])]
@@ -358,6 +366,8 @@ class ITJobsScraper:
             try:
                 url = f"https://api.itjobs.pt/2/job/search.json?api_key={api_key}&limit=50"
                 resp = self.session.get(url, headers=get_random_headers(), timeout=10)
+                if resp.status_code != 200:
+                    logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {resp.status_code} for {resp.url}")
                 if resp.status_code == 200:
                     data = resp.json()
                     for item in data.get("results", []):
@@ -423,6 +433,8 @@ class LandingJobsScraper:
         url = "https://landing.jobs/api/v1/jobs"
         try:
             resp = self.session.get(url, headers=get_random_headers(), timeout=10)
+            if resp.status_code != 200:
+                logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {resp.status_code} for {resp.url}")
             if resp.status_code == 200:
                 items = resp.json()
                 for item in items:
@@ -459,6 +471,8 @@ class RemotiveScraper:
         url = "https://remotive.com/api/remote-jobs?category=data"
         try:
             resp = self.session.get(url, headers=get_random_headers(), timeout=10)
+            if resp.status_code != 200:
+                logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {resp.status_code} for {resp.url}")
             if resp.status_code == 200:
                 data = resp.json()
                 for item in data.get("jobs", []):
@@ -493,6 +507,8 @@ class ArbeitnowScraper:
         url = "https://www.arbeitnow.com/api/job-board-api"
         try:
             resp = self.session.get(url, headers=get_random_headers(), timeout=10)
+            if resp.status_code != 200:
+                logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {resp.status_code} for {resp.url}")
             if resp.status_code == 200:
                 data = resp.json()
                 for item in data.get("data", []):
@@ -565,6 +581,8 @@ class RemoteOKScraper:
         url = "https://remoteok.com/api?tag=data"
         try:
             resp = self.session.get(url, headers=get_random_headers(), timeout=10)
+            if resp.status_code != 200:
+                logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {resp.status_code} for {resp.url}")
             if resp.status_code == 200:
                 items = resp.json()
                 if isinstance(items, list) and len(items) > 1:
@@ -601,6 +619,8 @@ class CargaDeTrabalhosScraper:
         try:
             url = f"https://cargadetrabalhos.pt/?s={q}"
             resp = self.session.get(url, headers=get_random_headers(), timeout=10)
+            if resp.status_code != 200:
+                logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {resp.status_code} for {resp.url}")
             if resp.status_code == 200:
                 soup = BeautifulSoup(resp.text, "html.parser")
                 articles = soup.find_all("article")
@@ -629,6 +649,8 @@ class CargaDeTrabalhosScraper:
 
         try:
             det_resp = self.session.get(link, headers=get_random_headers(), timeout=5)
+            if det_resp.status_code != 200:
+                logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {det_resp.status_code} for {det_resp.url}")
             if det_resp.status_code == 200:
                 det_soup = BeautifulSoup(det_resp.text, "html.parser")
                 is_closed = bool(det_soup.find(class_=lambda c: c and ("closed-job" in c or "job-closed" in c)))
@@ -686,6 +708,8 @@ class JobicyScraper:
         url = "https://jobicy.com/api/v2/remote-jobs?count=50&industry=data-science"
         try:
             resp = self.session.get(url, headers=get_random_headers(), timeout=10)
+            if resp.status_code != 200:
+                logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {resp.status_code} for {resp.url}")
             if resp.status_code == 200:
                 data = resp.json()
                 items = data.get("jobs", [])
@@ -719,6 +743,8 @@ class HimalayasScraper:
         url = "https://himalayas.app/jobs/api?limit=50"
         try:
             resp = self.session.get(url, headers=get_random_headers(), timeout=10)
+            if resp.status_code != 200:
+                logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {resp.status_code} for {resp.url}")
             if resp.status_code == 200:
                 data = resp.json()
                 items = data.get("jobs", [])
@@ -754,6 +780,8 @@ class NetEmpregosScraper:
         try:
             url = f"https://www.net-empregos.com/pesquisa-empregos.asp?chaves={q.replace(' ', '+')}"
             resp = self.session.get(url, headers=get_random_headers(), timeout=10)
+            if resp.status_code != 200:
+                logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {resp.status_code} for {resp.url}")
             if resp.status_code == 200:
                 soup = BeautifulSoup(resp.text, "html.parser")
                 links = soup.find_all("a", href=re.compile(r"/\d+/[^/]+/"))
@@ -777,6 +805,8 @@ class NetEmpregosScraper:
         try:
             time.sleep(random.uniform(0.05, 0.2))
             det_resp = self.session.get(link, headers=get_random_headers(), timeout=6)
+            if det_resp.status_code != 200:
+                logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {det_resp.status_code} for {det_resp.url}")
             if det_resp.status_code == 200:
                 det_soup = BeautifulSoup(det_resp.text, "html.parser")
                 main_box = (
@@ -854,6 +884,8 @@ class TeamlyzerScraper:
 
         try:
             r = self.session.get(link, headers=get_random_headers(), timeout=12, allow_redirects=True)
+            if r.status_code != 200:
+                logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {r.status_code} for {r.url}")
             if r.status_code == 200:
                 soup = BeautifulSoup(r.text, "html.parser")
                 h1_tag = soup.find("h1")
@@ -880,6 +912,8 @@ class TeamlyzerScraper:
         url = "https://pt.teamlyzer.com/companies/jobs"
         try:
             resp = self.session.get(url, headers=get_random_headers(), timeout=10)
+            if resp.status_code != 200:
+                logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {resp.status_code} for {resp.url}")
             if resp.status_code == 200:
                 soup = BeautifulSoup(resp.text, "html.parser")
                 cards = soup.find_all("div", class_=lambda c: c and "jobcard" in str(c).lower())
@@ -948,6 +982,8 @@ class JobspressoScraper:
         for url in pages:
             try:
                 resp = self.session.get(url, headers=get_random_headers(), timeout=10)
+                if resp.status_code != 200:
+                    logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {resp.status_code} for {resp.url}")
                 if resp.status_code == 200:
                     soup = BeautifulSoup(resp.text, "html.parser")
                     job_a_tags = soup.find_all("a", href=lambda h: h and "/job/" in h)
@@ -1001,6 +1037,8 @@ class EuraxessScraper:
             url = f"https://euraxess.ec.europa.eu/jobs/search?keywords={q}"
             try:
                 resp = self.session.get(url, headers=get_random_headers(), timeout=10)
+                if resp.status_code != 200:
+                    logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {resp.status_code} for {resp.url}")
                 if resp.status_code == 200:
                     soup = BeautifulSoup(resp.text, "html.parser")
                     job_links = soup.find_all("a", href=lambda h: h and re.search(r"/jobs/\d+", h))
