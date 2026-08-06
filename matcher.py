@@ -359,8 +359,8 @@ class JobMatcher:
         # Stage 2: Batch AI Evaluation (if enabled and available)
         if self.ai_evaluator and self.ai_evaluator.is_available:
             candidate_jobs = [sj.job for sj in heuristic_candidates]
-            ai_results = self.ai_evaluator.evaluate_jobs_batch(candidate_jobs, self.profile, batch_size=4)
-
+            # Reduce batch size to 2 to minimize payload size and avoid triggering Groq TPM limits
+            ai_results = self.ai_evaluator.evaluate_jobs_batch(candidate_jobs, self.profile, batch_size=2)
 
             final_scored_jobs: List[ScoredJob] = []
             for sj in heuristic_candidates:
@@ -385,19 +385,19 @@ class JobMatcher:
                     sj.ai_cons = ai_res.cons
                     final_scored_jobs.append(sj)
                 else:
-                    # Fallback if AI batch didn't return result for this candidate
+                    # Fallback if AI batch didn't return result for this candidate (e.g., rate limit or API crash)
                     text_c = f"{sj.job.title} {sj.job.description}".lower()
                     if "iefp" in text_c or "ativar.pt" in text_c:
-                        sj.seniority_status = "Elegível IEFP / ATIVAR.pt"
+                        sj.seniority_status = "Elegível IEFP (Avaliado s/ IA)"
                     elif "estágio" in text_c or "estagio" in text_c or "trainee" in text_c:
-                        sj.seniority_status = "Estágio / Trainee"
+                        sj.seniority_status = "Estágio (Avaliado s/ IA)"
                     elif "recém-licenciado" in text_c or "recem-licenciado" in text_c or "0-1" in text_c:
-                        sj.seniority_status = "Recém-Licenciado (0-1 anos)"
+                        sj.seniority_status = "Recém-Licenciado (Avaliado s/ IA)"
                     else:
-                        sj.seniority_status = "Júnior (0-2 anos)"
+                        sj.seniority_status = "Júnior Potencial (Avaliado s/ IA)"
 
                     if not sj.ai_reasoning:
-                        sj.ai_reasoning = f"Vaga de {sj.job.title} adequada para perfil Júnior"
+                        sj.ai_reasoning = f"⚠️ [Falha IA] Avaliada por heurística: Vaga adequada para perfil Júnior"
                     final_scored_jobs.append(sj)
 
             final_scored_jobs.sort(key=lambda x: x.score, reverse=True)

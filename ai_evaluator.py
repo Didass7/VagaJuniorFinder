@@ -114,9 +114,9 @@ class AIEvaluator:
     def _evaluate_batch_with_groq(self, batch: List[Job], profile: CandidateProfile) -> Dict[str, AIEvaluationResult]:
         prompt = self._build_batch_prompt(batch, profile)
 
-        max_attempts = 3
+        max_attempts = 4
         for attempt in range(1, max_attempts + 1):
-            time.sleep(5.0)  # Pacing delay between batch calls to stay strictly below 6000 TPM limit
+            time.sleep(6.0)  # Pacing delay between batch calls to stay strictly below 6000 TPM limit
             try:
                 response = self._groq_client.chat.completions.create(
                     model=self.groq_model_name,
@@ -147,7 +147,7 @@ class AIEvaluator:
                     if self._gemini_client:
                         logger.warning("⏳ Groq 429 rate limit hit. Falling back immediately to Gemini API...")
                         return self._evaluate_batch_with_gemini(batch, profile)
-                    backoff = 6 * attempt
+                    backoff = 20 * attempt  # Waits 20s, 40s, 60s, 80s to allow TPM limits to reset (1 minute rolling window)
                     logger.warning(f"⏳ Groq rate limit hit (attempt {attempt}/{max_attempts}). Waiting {backoff}s before retry...")
                     time.sleep(backoff)
                     continue
