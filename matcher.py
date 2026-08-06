@@ -182,8 +182,12 @@ class JobMatcher:
             "crie uma conta",
             "sign in to see more"
         ]
-        if len(clean_desc) < 150 or any(ind in clean_desc_lower for ind in incomplete_indicators):
-            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Descrição Incompleta / Bloqueada", match_reason="Descrição indisponível ou bloqueada no portal para verificação de requisitos")
+        
+        # Se a descrição tiver menos de 100 caracteres, é porque o scraper falhou 
+        # (ex: timeout) e só conseguiu extrair o título da vaga. É impossível 
+        # determinar a senioridade sem o corpo do anúncio.
+        if len(clean_desc) < 100 or any(ind in clean_desc_lower for ind in incomplete_indicators):
+            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Descrição Incompleta / Bloqueada", match_reason="Descrição indisponível, bloqueada ou demasiado curta (falha na extração)")
 
         # 0.0 Expired Job Check (Text level)
         clean_desc_lower = clean_desc.lower()
