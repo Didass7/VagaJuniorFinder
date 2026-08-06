@@ -166,7 +166,7 @@ class LinkedInScraper:
     def _fetch_query_cards(self, query: str) -> List[Dict]:
         cards_data = []
         try:
-            url = f"https://www.linkedin.com/jobs/search?keywords={query.replace(' ', '%20')}&location=Portugal&f_TPR=r86400"
+            url = f"https://www.linkedin.com/jobs/search?keywords={query.replace(' ', '%20')}&location=Portugal&f_TPR=r2592000"
             headers = get_random_headers()
             headers.update({
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
@@ -257,7 +257,7 @@ class LinkedInScraper:
         )
 
     def fetch(self) -> List[Job]:
-        queries = ["AI Engineer", "Junior AI", "Junior Data Scientist", "Machine Learning Junior", "Data Engineer Junior", "Generative AI"]
+        queries = ["Junior AI", "Junior Data Scientist", "Machine Learning Trainee", "Data Engineer Trainee", "Entry level AI", "Entry level Data"]
         all_cards: List[Dict] = []
         seen_links: Set[str] = set()
         
