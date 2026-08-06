@@ -258,8 +258,9 @@ VAGAS NO LOTE A AVALIAR:
 REGRAS DE AVALIAÇÃO PARA CADA VAGA:
 1. Nível de Senioridade: O candidato tem 0 anos de experiência empresarial formal, MAS possui 1 ano de experiência prática muito forte através de projetos de engenharia complexos (IA Generativa, LLMs, RAG, FastAPI, DuckDB, Python). Se a vaga exigir "Experiência com [Tecnologia]" (ex: "Experiência com IA Generativa, LLMs", "Familiarity with Python") SEM exigir especificamente anos de experiência no mercado de trabalho (como "3+ years of professional experience"), a vaga É ADEQUADA e deve ser aceite. A vaga SÓ DEVE SER REJEITADA se exigir explicitamente X anos de experiência profissional (ex: "Requires 2+ years of experience in a similar role") ou se mencionar explicitamente posições Mid-Level/Senior.
 2. Adequação da Área: A vaga deve ser estritamente técnica, focada em IA/ML, Engenharia de Dados ou Data Analytics. Vagas funcionais ou de negócio (Recursos Humanos/HR, Marketing, Vendas, Analista de Negócios) que não requeiram programação (Python, SQL) NÃO servem (`is_suitable: false`, `fit_score: 0`).
-3. Línguas: Exigência de Alemão/Francês fluente é eliminatória (`is_suitable: false`, `fit_score: 0`).
-4. Atribui uma pontuação de adequação (`fit_score`) de 0 a 100%. Se a vaga exigir experiência prévia, o `fit_score` deve ser ZERO.
+3. Requisitos Obrigatórios: O candidato domina a Stack Técnica listada. Se a vaga exigir de forma OBRIGATÓRIA ou MÍNIMA ("mandatory", "must have", "mínima") uma linguagem ou ferramenta pesada que o candidato NÃO TEM (por exemplo: R, Tableau, SAP BO, C++, C#), a vaga DEVE SER REJEITADA (`is_suitable: false`).
+4. Línguas: Exigência de Alemão/Francês fluente é eliminatória (`is_suitable: false`, `fit_score: 0`).
+5. Atribui uma pontuação de adequação (`fit_score`) de 0 a 100%. Se a vaga exigir experiência prévia formal (X anos), o `fit_score` deve ser ZERO.
 
 Responde APENAS em formato JSON válido contendo um objeto com uma lista "evaluations", onde cada elemento corresponde ao `job_index`:
 {{
