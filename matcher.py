@@ -63,6 +63,7 @@ IRRELEVANT_ROLE_DISQUALIFIERS = [
     "teacher", "instructor", "tutor", "docente", "explicador", "explicadora", "sharkcoders",
     "administrativo", "administrativa", "contabilidade", "contabilista", "accounting", "accountant",
     "recursos humanos", "recruiter", "recrutamento", "secretária", "secretaria", "secretariado", "financeiro", "financeira",
+    "hr ", "human resources", "hris", "talent acquisition", "business analyst", "systems analyst", "process analyst",
     "crianças", "criancas", "adolescentes", "pós-letivo", "pos-letivo", "kids", "children", "academias de ia",
     "data entry", "introdução de dados", "introducao de dados", "entry assistant", "entry clerk"
 ]
@@ -313,6 +314,8 @@ class JobMatcher:
                     break
 
         tech_score = min(15.0, len(matched_skills) * 3.0)
+        if len(matched_skills) == 0:
+            tech_score = -15.0  # Heavy penalty for roles that lack any technical AI/Data keywords
 
         # Final Combined Score Calculation
         raw_score = title_score + booster_score + location_score + tech_score

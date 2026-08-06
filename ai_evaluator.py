@@ -257,7 +257,7 @@ VAGAS NO LOTE A AVALIAR:
 
 REGRAS DE AVALIAÇÃO PARA CADA VAGA:
 1. Nível de Senioridade: O candidato tem 0 anos de experiência profissional (é júnior / recém-licenciado). Se a descrição da vaga exigir experiência profissional prévia num cargo (ex: "Experience in data engineering role", "Demonstrated experience building...", "Experiência comprovada em..."), MESMO QUE não especifique o número de anos, a vaga NÃO é adequada (`is_suitable: false`, `fit_score: 0`). A vaga só é adequada se for explicitamente para posições Entry-Level, Estágio, Trainee, ou se aceitar recém-licenciados sem experiência profissional prévia.
-2. Adequação da Área: A vaga deve ser focada em IA/ML, Engenharia de Dados ou Data Analytics. Vagas genéricas de software, web, vendas, ou gestão não servem.
+2. Adequação da Área: A vaga deve ser estritamente técnica, focada em IA/ML, Engenharia de Dados ou Data Analytics. Vagas funcionais ou de negócio (Recursos Humanos/HR, Marketing, Vendas, Analista de Negócios) que não requeiram programação (Python, SQL) NÃO servem (`is_suitable: false`, `fit_score: 0`).
 3. Línguas: Exigência de Alemão/Francês fluente é eliminatória (`is_suitable: false`, `fit_score: 0`).
 4. Atribui uma pontuação de adequação (`fit_score`) de 0 a 100%. Se a vaga exigir experiência prévia, o `fit_score` deve ser ZERO.
 
