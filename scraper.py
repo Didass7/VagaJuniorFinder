@@ -90,6 +90,25 @@ def is_valid_job_offer(link: str, title: str) -> bool:
 
     return True
 
+def clean_job_description(html_or_text: str) -> str:
+    """Strips HTML tags, script/style content, and collapses whitespace to reduce prompt token size."""
+    if not html_or_text:
+        return ""
+    if "<" in html_or_text and ">" in html_or_text:
+        try:
+            soup = BeautifulSoup(html_or_text, "html.parser")
+            for element in soup(["script", "style", "nav", "footer", "header"]):
+                element.decompose()
+            text = soup.get_text(separator=" ")
+        except Exception:
+            text = re.sub(r"<[^>]+>", " ", html_or_text)
+    else:
+        text = html_or_text
+
+    # Collapse multiple whitespaces and line breaks
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
 @dataclass
 class Job:
     title: str
@@ -105,6 +124,8 @@ class Job:
     fetched_at: str = ""
 
     def __post_init__(self):
+        self.description = clean_job_description(self.description)
+
         if not self.fetched_at:
             self.fetched_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -116,13 +137,21 @@ class Job:
         if any(term in text_content for term in ["iefp", "ativar.pt", "ativar pt", "estágio profissional", "estagio profissional"]):
             self.iefp_mentioned = True
             
-        if self.work_mode.lower() in ["unknown", "n/a", "não especificado", ""]:
-            if "remot" in text_content or "teletrabalho" in text_content or "anywhere" in text_content:
-                self.work_mode = "Remoto"
-            elif "híbrid" in text_content or "hybrid" in text_content:
+        # Strict Work Mode Inferencing Logic
+        text_lower = f"{self.title} {self.description}".lower()
+        has_hybrid = any(term in text_lower for term in ["híbrid", "hibrid", "hybrid", "modelo híbrido", "trabalho híbrido", "flexível", "dias presencial", "dias remoto"]) or ("presencial" in text_lower and ("remot" in text_lower or "teletrabalho" in text_lower))
+        has_remote = any(term in text_lower for term in ["100% remoto", "100% remote", "totalmente remoto", "full remote", "teletrabalho", "remoto", "remote", "anywhere"])
+        has_onsite = any(term in text_lower for term in ["presencial", "onsite", "on-site", "escritório", "no local"])
+
+        if self.work_mode.lower() in ["unknown", "n/a", "não especificado", "", "presencial / híbrido"]:
+            if has_hybrid:
                 self.work_mode = "Híbrido"
-            elif "presencial" in text_content or "on-site" in text_content or "onsite" in text_content:
+            elif has_remote and not has_onsite:
+                self.work_mode = "Remoto"
+            elif has_onsite and not has_remote:
                 self.work_mode = "Presencial"
+            elif has_remote:
+                self.work_mode = "Remoto"
             else:
                 self.work_mode = "Presencial / Híbrido"
 
@@ -813,12 +842,11 @@ class TeamlyzerScraper:
         desc = card_info["initial_desc"]
 
         try:
-            r = self.session.get(link, headers=get_random_headers(), timeout=8)
+            r = self.session.get(link, headers=get_random_headers(), timeout=8, allow_redirects=True)
             if r.status_code == 200:
-                soup = BeautifulSoup(r.text, "html.parser")
-                main_body = soup.find("div", class_=lambda c: c and ("job-detail" in str(c).lower() or "content" in str(c).lower())) or soup.body
-                if main_body:
-                    desc = f"{title} - " + main_body.get_text(separator=" ", strip=True)
+                fetched_text = clean_job_description(r.text)
+                if len(fetched_text) >= 100:
+                    desc = f"{title} - " + fetched_text
         except Exception:
             pass
 

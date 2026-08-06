@@ -8,7 +8,6 @@ from scraper import JobIngestionPipeline
 from matcher import JobMatcher
 from report_builder import ReportBuilder
 from excel_builder import ExcelReportBuilder
-from notifier import EmailNotifier
 from telegram_notifier import TelegramNotifier
 from seen_store import SeenStore
 from notion_store import NotionStore
@@ -95,7 +94,7 @@ def run_pipeline(dry_run: bool = False):
             print(markdown_content[:1200].encode('ascii', errors='replace').decode('ascii') + "\n\n[... truncated preview ...]")
         logger.info("------------------------------------------------")
     else:
-        # A) Telegram Notification (Primary)
+        # Telegram Notification
         if config.telegram_bot_token and config.telegram_chat_id:
             telegram_bot = TelegramNotifier(
                 bot_token=config.telegram_bot_token,
@@ -106,19 +105,6 @@ def run_pipeline(dry_run: bool = False):
             telegram_bot.send_document(saved_report_path, caption="📄 Relatório completo em Markdown")
         else:
             logger.info("ℹ️ Telegram credentials not configured. Skipping Telegram dispatch.")
-
-        # B) Email Notification (Secondary)
-        if config.smtp_password:
-            notifier = EmailNotifier(
-                smtp_server=config.smtp_server,
-                smtp_port=config.smtp_port,
-                smtp_email=config.smtp_email,
-                smtp_password=config.smtp_password,
-                receiver_email=config.receiver_email
-            )
-            notifier.send_email_report(markdown_content, md_filepath=saved_report_path)
-        else:
-            logger.info("ℹ️ Email SMTP password not configured. Skipping Email dispatch.")
 
     logger.info("==================================================")
     logger.info("✅ VagaJuniorFinder Pipeline Finished Successfully")

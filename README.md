@@ -25,7 +25,7 @@
 - **Match Score & Filtragem**: Pontuação de 0 a 100% calculada por sobreposição de stack (`Python`, `SQL`, `FastAPI`, `RAG`, `LangChain`, `Scikit-learn`, `DuckDB`, etc.), bonificação de títulos Junior/Estágio IEFP e eliminação automática de vagas Senior/Lead (5+ anos).
 - **Relatórios Markdown**: Geração diária em `reports/job_report_YYYY-MM-DD.md` com estatísticas, vagas de destaque (≥80%), vagas promissoras (60-79%) e botões de candidatura rápida.
 - **Dicas Personalizadas de CV**: Sugestões automáticas de adaptação de CV para destacar competências específicas requisitadas pela vaga.
-- **Notificação por E-mail (HTML + MD)**: Converte o relatório em HTML moderno estilizado com Dark Mode e envia por SMTP para `diogon.oliveira1@gmail.com` anexando o ficheiro `.md`.
+- **Notificação por Telegram**: Envia resumos estilizados e relatórios em Markdown e Excel (.xlsx) para o Telegram.
 - **Automação sem Custos**: Execução automática via **GitHub Actions** todos os dias às **21:00 (9 PM / 20:00 UTC)** ou agendador local em daemon.
 
 ---
@@ -38,7 +38,7 @@ VagaJuniorFinder/
 ├── scraper.py            # Módulo de Ingestão Multi-fonte & Deduplicação
 ├── matcher.py            # Módulo de Scoring, Filtragem & Recomendação de CV
 ├── report_builder.py     # Gerador de relatórios Markdown estilizados
-├── notifier.py           # Conversor HTML & Notificador de E-mail via SMTP
+├── telegram_notifier.py  # Notificador para Telegram (Mensagens HTML & Ficheiros)
 ├── main.py               # Entrypoint principal (CLI com suporte a --dry-run)
 ├── scheduler.py          # Agendador local contínuo
 ├── requirements.txt      # Dependências Python
@@ -80,34 +80,26 @@ Copia o ficheiro de exemplo `.env.example` para `.env`:
 cp .env.example .env
 ```
 
-Edita o ficheiro `.env` com as tuas credenciais de SMTP:
+Edita o ficheiro `.env` com as tuas credenciais do Telegram e chaves de API:
 ```env
-SMTP_SERVER=smtp.gmail.com
-SMTP_PORT=587
-SMTP_EMAIL=diogon.oliveira1@gmail.com
-SMTP_PASSWORD=xxxx_xxxx_xxxx_xxxx  # Senha de Aplicação do Gmail
-RECEIVER_EMAIL=diogon.oliveira1@gmail.com
+TELEGRAM_BOT_TOKEN=123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ
+TELEGRAM_CHAT_ID=123456789
+GROQ_API_KEY=gsk_your_groq_api_key_here
 ```
-
-> 🔑 **Como gerar uma Senha de Aplicação no Gmail (App Password)**:
-> 1. Acede à tua Conta Google -> **Segurança**.
-> 2. Ativa a **Verificação em 2 Passos** (caso ainda não esteja ativa).
-> 3. Pesquisa por **Senhas de Aplicação** (App Passwords).
-> 4. Cria uma nova senha chamada "VagaJuniorFinder" e cola a chave de 16 caracteres no campo `SMTP_PASSWORD` do ficheiro `.env`.
 
 ---
 
 ## ⚡ Como Executar
 
 ### 1. Teste de Validação (Modo `--dry-run`)
-Gera o relatório diário sem enviar e-mail (ideal para testar a raspagem e ver os resultados):
+Gera o relatório diário sem enviar notificações (ideal para testar a raspagem e ver os resultados):
 ```bash
 python main.py --dry-run
 ```
 
 O relatório em Markdown será gravado em `reports/job_report_YYYY-MM-DD.md`.
 
-### 2. Execução Completa (Com envio de E-mail)
+### 2. Execução Completa
 ```bash
 python main.py
 ```
@@ -126,11 +118,8 @@ O projeto já inclui o workflow `.github/workflows/daily_job_search.yml`. Para c
 
 1. Cria um repositório no GitHub e envia este código (`git push origin main`).
 2. No repositório do GitHub, vai a **Settings** > **Secrets and variables** > **Actions**.
-3. Adiciona as seguintes **Repository Secrets**:
-   - `SMTP_EMAIL`: `diogon.oliveira1@gmail.com`
-   - `SMTP_PASSWORD`: (A tua Senha de Aplicação de 16 caracteres)
-   - `RECEIVER_EMAIL`: `diogon.oliveira1@gmail.com`
-4. O GitHub Actions executará a pesquisa todos os dias às **21:00 (20:00 UTC)** e enviará o e-mail automaticamente. Podes também disparar a pesquisa manualmente no separador **Actions** > **Run workflow**.
+3. Adiciona as tuas **Repository Secrets** (ex: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `GROQ_API_KEY`, etc.).
+4. O GitHub Actions executará a pesquisa todos os dias às **21:00 (20:00 UTC)** e enviará as notificações automaticamente. Podes também disparar a pesquisa manualmente no separador **Actions** > **Run workflow**.
 
 ---
 

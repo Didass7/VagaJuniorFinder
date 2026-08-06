@@ -1,4 +1,6 @@
 import logging
+import time
+import datetime
 import requests
 from typing import List, Set, Optional, Dict, Any
 from config import config
@@ -33,22 +35,27 @@ class NotionStore:
         """Fetches the Database schema from Notion API to inspect existing column names and types."""
         if not self.is_configured:
             return {}
-        if self._db_schema is not None:
+        if self._db_schema is not None and len(self._db_schema) > 0:
             return self._db_schema
 
         url = f"{NOTION_API_URL}/databases/{self.database_id}"
-        try:
-            resp = requests.get(url, headers=self.headers, timeout=15)
-            if resp.status_code == 200:
-                self._db_schema = resp.json().get("properties", {})
-                return self._db_schema
-            else:
-                logger.warning(f"⚠️ Could not fetch Notion database schema ({resp.status_code}): {resp.text}")
-        except Exception as e:
-            logger.error(f"Exception fetching Notion database schema: {e}")
+        max_retries = 3
+        for attempt in range(1, max_retries + 1):
+            try:
+                resp = requests.get(url, headers=self.headers, timeout=15)
+                if resp.status_code == 200:
+                    self._db_schema = resp.json().get("properties", {})
+                    return self._db_schema
+                else:
+                    logger.warning(f"⚠️ Could not fetch Notion database schema ({resp.status_code}): {resp.text}")
+            except Exception as e:
+                if attempt < max_retries:
+                    logger.warning(f"⚠️ Connection error fetching Notion schema (attempt {attempt}/{max_retries}): {e}. Retrying in {attempt * 2}s...")
+                    time.sleep(attempt * 2)
+                else:
+                    logger.error(f"Exception fetching Notion database schema: {e}")
         
-        self._db_schema = {}
-        return self._db_schema
+        return {}
 
     def get_existing_urls(self) -> Set[str]:
         """Queries the Notion Database to retrieve URLs of already synced jobs."""
@@ -66,26 +73,35 @@ class NotionStore:
             if start_cursor:
                 payload["start_cursor"] = start_cursor
 
-            try:
-                resp = requests.post(url, headers=self.headers, json=payload, timeout=15)
-                if resp.status_code != 200:
-                    logger.warning(f"⚠️ Notion API query returned status {resp.status_code}: {resp.text}")
+            success = False
+            for attempt in range(1, 4):
+                try:
+                    resp = requests.post(url, headers=self.headers, json=payload, timeout=15)
+                    if resp.status_code != 200:
+                        logger.warning(f"⚠️ Notion API query returned status {resp.status_code}: {resp.text}")
+                        break
+
+                    data = resp.json()
+                    results = data.get("results", [])
+                    
+                    for page in results:
+                        props = page.get("properties", {})
+                        # Check any property of type "url"
+                        for prop_data in props.values():
+                            if prop_data.get("type") == "url" and prop_data.get("url"):
+                                existing_urls.add(prop_data.get("url"))
+
+                    has_more = data.get("has_more", False)
+                    start_cursor = data.get("next_cursor")
+                    success = True
                     break
+                except Exception as e:
+                    if attempt < 3:
+                        time.sleep(attempt * 2)
+                    else:
+                        logger.error(f"Error querying Notion Database: {e}")
 
-                data = resp.json()
-                results = data.get("results", [])
-                
-                for page in results:
-                    props = page.get("properties", {})
-                    # Check any property of type "url"
-                    for prop_data in props.values():
-                        if prop_data.get("type") == "url" and prop_data.get("url"):
-                            existing_urls.add(prop_data.get("url"))
-
-                has_more = data.get("has_more", False)
-                start_cursor = data.get("next_cursor")
-            except Exception as e:
-                logger.error(f"Error querying Notion Database: {e}")
+            if not success:
                 break
 
         return existing_urls
@@ -107,10 +123,14 @@ class NotionStore:
             if job.link in existing_urls:
                 continue
 
-            success = self._create_job_page(sj)
-            if success:
-                synced_count += 1
-                existing_urls.add(job.link)
+            try:
+                success = self._create_job_page(sj)
+                if success:
+                    synced_count += 1
+                    existing_urls.add(job.link)
+                time.sleep(0.35)  # Throttling to stay safely below Notion 3 req/sec rate limit
+            except Exception as e:
+                logger.error(f"Error syncing job '{job.title}' to Notion: {e}")
 
         if synced_count > 0:
             logger.info(f"✅ Notion Store: Successfully synced {synced_count} new jobs to Notion Database!")
@@ -118,6 +138,15 @@ class NotionStore:
             logger.info("ℹ️ Notion Store: All qualified jobs are already present in Notion Database.")
 
         return synced_count
+
+    @staticmethod
+    def _truncate_text(text: str, max_length: int = 1990) -> str:
+        """Safely truncates text strings to prevent Notion API rich_text 2000 character validation failures."""
+        if not text:
+            return ""
+        if len(text) > max_length:
+            return text[:max_length - 3] + "..."
+        return text
 
     def _create_job_page(self, sj: ScoredJob) -> bool:
         """Creates a new Notion page row in the database matching existing database properties dynamically."""
@@ -137,7 +166,7 @@ class NotionStore:
                 "title": [
                     {
                         "text": {
-                            "content": job.title[:200]
+                            "content": self._truncate_text(job.title, 200)
                         }
                     }
                 ]
@@ -147,18 +176,24 @@ class NotionStore:
         company_name = extract_company_from_link(job.link, job.title, job.company)
 
         # Map properties dynamically if present in user's database schema
+        raw_reason_text = (sj.ai_reasoning if sj.ai_evaluated else sj.match_reason) or ""
+        # Normalize values to match exact Notion schema options
+        modo_clean = "Remoto" if "remoto" in job.work_mode.lower() else "Presencial / Híbrido"
+        seniority_clean = "Recém-licenciado" if any(t in sj.seniority_status.lower() for t in ["recém", "recem", "0-1", "estágio", "estagio", "iefp", "ativar"]) else "Júnior"
+        fonte_clean = self._sanitize_select_name(job.source)
+
         field_mappings = [
-            ("Empresa", ["Empresa", "Company"], "rich_text", [{"text": {"content": company_name[:100]}}]),
+            ("Empresa", ["Empresa", "Company"], "rich_text", [{"text": {"content": self._truncate_text(company_name, 100)}}]),
             ("Match Score (%)", ["Match Score (%)", "Score (%)", "Match", "Score"], "number", float(round(sj.score, 1))),
-            ("Senioridade", ["Senioridade", "Seniority", "Nível"], "select", {"name": self._sanitize_select_name(sj.seniority_status)}),
+            ("Senioridade", ["Senioridade", "Seniority", "Nível"], "select", {"name": seniority_clean}),
             ("Link", ["Link", "URL", "Link de Candidatura"], "url", job.link),
-            ("Modo", ["Modo", "Modo de Trabalho", "Work Mode"], "select", {"name": self._sanitize_select_name(job.work_mode)}),
-            ("Fonte", ["Fonte", "Source"], "select", {"name": self._sanitize_select_name(job.source)}),
+            ("Modo", ["Modo", "Modo de Trabalho", "Work Mode"], "select", {"name": modo_clean}),
+            ("Fonte", ["Fonte", "Source"], "select", {"name": fonte_clean}),
             ("Elegível IEFP", ["Elegível IEFP", "IEFP"], "checkbox", bool(job.iefp_mentioned)),
             ("Estado", ["Estado", "Status"], "select", {"name": "Por Candidatar"}),
             ("Estado", ["Estado", "Status"], "status", {"name": "Por Candidatar"}),
             ("Data Extração", ["Data Extração", "Data de Extração", "Data Ingestão", "Data/Hora", "Date"], "date", {"start": getattr(job, 'fetched_at', None) if getattr(job, 'fetched_at', None) else datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")}),
-            ("Análise IA", ["Análise IA", "Análise da IA", "AI Reasoning", "Notas"], "rich_text", [{"text": {"content": (sj.ai_reasoning if sj.ai_evaluated else sj.match_reason)[:2000]}}]),
+            ("Análise IA", ["Análise IA", "Análise da IA", "AI Reasoning", "Notas"], "rich_text", [{"text": {"content": self._truncate_text(raw_reason_text, 1990)}}]),
         ]
 
         for canonical_name, aliases, p_type, value in field_mappings:
@@ -251,16 +286,24 @@ class NotionStore:
             "children": children
         }
 
-        try:
-            resp = requests.post(url, headers=self.headers, json=payload, timeout=15)
-            if resp.status_code in [200, 201]:
-                return True
-            else:
-                logger.error(f"❌ Failed to create Notion page for '{job.title}' ({resp.status_code}): {resp.text}")
-                return False
-        except Exception as e:
-            logger.error(f"Exception creating Notion page for '{job.title}': {e}")
-            return False
+        max_retries = 3
+        for attempt in range(1, max_retries + 1):
+            try:
+                resp = requests.post(url, headers=self.headers, json=payload, timeout=15)
+                if resp.status_code in [200, 201]:
+                    return True
+                else:
+                    logger.error(f"❌ Failed to create Notion page for '{job.title}' ({resp.status_code}): {resp.text}")
+                    return False
+            except Exception as e:
+                if attempt < max_retries:
+                    logger.warning(f"⚠️ Connection error creating Notion page for '{job.title}' (attempt {attempt}/{max_retries}): {e}. Retrying in {attempt * 2}s...")
+                    time.sleep(attempt * 2)
+                else:
+                    logger.error(f"Exception creating Notion page for '{job.title}': {e}")
+                    return False
+
+        return False
 
     def _sanitize_select_name(self, name: str) -> str:
         """Sanitizes select option strings for Notion API (replaces commas and trims length)."""

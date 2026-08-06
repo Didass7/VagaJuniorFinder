@@ -1,4 +1,5 @@
 import json
+import re
 import time
 import logging
 from dataclasses import dataclass, field
@@ -64,9 +65,9 @@ class AIEvaluator:
         return res.get(job.job_id)
 
     def evaluate_jobs_batch(
-        self, jobs: List[Job], profile: CandidateProfile, batch_size: int = 3
+        self, jobs: List[Job], profile: CandidateProfile, batch_size: int = 4
     ) -> Dict[str, AIEvaluationResult]:
-        """Evaluates a list of jobs in small batches (e.g. 3 jobs per LLM call) for maximum speed and token efficiency."""
+        """Evaluates a list of jobs in small batches (e.g. 4 jobs per LLM call) for maximum speed and token efficiency."""
         if not self.is_available or not jobs:
             return {}
 
@@ -87,11 +88,35 @@ class AIEvaluator:
             return self._evaluate_batch_with_gemini(batch, profile)
         return {}
 
+    def _clean_and_extract_json(self, raw_text: str) -> str:
+        """Strips markdown code blocks, trims surrounding spaces, and extracts JSON content safely."""
+        if not raw_text:
+            return ""
+        text = raw_text.strip()
+        # Remove markdown code blocks if present (```json ... ``` or ``` ...)
+        if text.startswith("```"):
+            lines = text.splitlines()
+            if lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].strip().startswith("```"):
+                lines = lines[:-1]
+            text = "\n".join(lines).strip()
+
+        # Regex to locate the outermost JSON object or array if extra text exists
+        match = re.search(r"(\{.*\}|\[.*\])", text, re.DOTALL)
+        if match:
+            text = match.group(1).strip()
+
+        # Replace trailing commas before closing braces/brackets (common LLM JSON error)
+        text = re.sub(r",\s*([\}\]])", r"\1", text)
+        return text
+
     def _evaluate_batch_with_groq(self, batch: List[Job], profile: CandidateProfile) -> Dict[str, AIEvaluationResult]:
         prompt = self._build_batch_prompt(batch, profile)
 
-        for attempt in range(1, 3):
-            time.sleep(1.5 * attempt)  # Pacing delay between batch calls to stay strictly below 6000 TPM limit
+        max_attempts = 3
+        for attempt in range(1, max_attempts + 1):
+            time.sleep(5.0)  # Pacing delay between batch calls to stay strictly below 6000 TPM limit
             try:
                 response = self._groq_client.chat.completions.create(
                     model=self.groq_model_name,
@@ -107,7 +132,7 @@ class AIEvaluator:
                     ],
                     response_format={"type": "json_object"},
                     temperature=0.2,
-                    max_completion_tokens=1500
+                    max_completion_tokens=600
                 )
 
                 content = response.choices[0].message.content
@@ -119,8 +144,12 @@ class AIEvaluator:
             except Exception as e:
                 err_str = str(e).lower()
                 if "rate_limit" in err_str or "429" in err_str:
-                    logger.warning(f"⏳ Groq rate limit hit (attempt {attempt}/2). Waiting 6s before retry...")
-                    time.sleep(6)
+                    if self._gemini_client:
+                        logger.warning("⏳ Groq 429 rate limit hit. Falling back immediately to Gemini API...")
+                        return self._evaluate_batch_with_gemini(batch, profile)
+                    backoff = 6 * attempt
+                    logger.warning(f"⏳ Groq rate limit hit (attempt {attempt}/{max_attempts}). Waiting {backoff}s before retry...")
+                    time.sleep(backoff)
                     continue
 
                 logger.error(f"Error calling Groq Batch AI Evaluator: {e}")
@@ -158,13 +187,16 @@ class AIEvaluator:
     def _parse_batch_json_response(self, raw_json: str, batch: List[Job]) -> Dict[str, AIEvaluationResult]:
         results: Dict[str, AIEvaluationResult] = {}
         try:
-            data = json.loads(raw_json)
-            evals = data.get("evaluations", [])
+            cleaned_json = self._clean_and_extract_json(raw_json)
+            data = json.loads(cleaned_json)
+            evals = data.get("evaluations", []) if isinstance(data, dict) else data
             
-            if isinstance(data, list):
-                evals = data
+            if not isinstance(evals, list):
+                evals = []
 
             for item in evals:
+                if not isinstance(item, dict):
+                    continue
                 idx = item.get("job_index")
                 if idx is not None and 0 <= idx < len(batch):
                     target_job = batch[idx]
@@ -172,7 +204,6 @@ class AIEvaluator:
                     words = raw_reason.split()
                     if len(words) > 11:
                         raw_reason = " ".join(words[:10]) + "..."
-
 
                     results[target_job.job_id] = AIEvaluationResult(
                         is_suitable=bool(item.get("is_suitable", False)),
@@ -202,7 +233,7 @@ class AIEvaluator:
 - Fonte: {job.source}
 - Descrição:
 \"\"\"
-{job.description[:1500]}
+{job.description[:800]}
 \"\"\"
 """)
 
@@ -226,7 +257,7 @@ VAGAS NO LOTE A AVALIAR:
 
 REGRAS DE AVALIAÇÃO PARA CADA VAGA:
 1. Nível de Senioridade: Se a vaga exigir expressamente mais de 1-2 anos de experiência ou for Nível Sénior/Lead/Director, a vaga NÃO é adequada (`is_suitable: false`).
-2. Adequação da Área: A vaga deve ser focada em IA, Machine Learning, Data Science, Data Engineering, RAG/LLM ou Data Analytics. Vagas de Vendas, Marketing, Suporte Técnico, PHP puro ou Gestão NÃO são adequadas.
+2. Adequação da Área: A vaga deve ser estritamente focada em Engenharia de IA/ML, Ciência de Dados, Engenharia de Dados, RAG/LLM Backend ou Data Analytics. Vagas de Edição/Geração de Vídeo, Prompt Engineering para Arte/Vídeo, Multimédia, Design, Vendas, Marketing, Suporte Técnico, PHP puro ou Gestão NÃO são adequadas (`is_suitable: false`, `fit_score: 0`).
 3. Línguas: Se a vaga exigir obrigatoriamente Alemão ou Francês fluente (e o candidato apenas possui Alemão A2 e Espanhol B1), deve ser considerado uma limitação importante (`cons`).
 4. Atribui uma pontuação de adequação (`fit_score`) de 0 a 100%.
 

@@ -160,6 +160,33 @@ class TestMatcherModule(unittest.TestCase):
             source="Net-Empregos",
             pub_date="2026-08-05"
         )
+    def test_generative_ai_video_specialist_disqualification(self):
+        """Verifies that Generative AI Video Specialist / Multimedia roles are strictly disqualified."""
+        job = Job(
+            title="Generative AI Video Specialist",
+            company="LOG OSCON LDA",
+            location="Portugal",
+            work_mode="100% Remoto",
+            link="https://www.net-empregos.com/15792256/generative-ai-video-specialist/",
+            description="Procuramos um Generative AI Video Specialist para criar prompts avançados de vídeo com IA usando ferramentas como Google Veo, Runway, Kling AI, Adobe After Effects e Premiere Pro com mais de 120 caracteres.",
+            source="Net-Empregos",
+            pub_date="2026-08-06"
+        )
+        scored_jobs = self.matcher.process_jobs([job])
+        self.assertEqual(len(scored_jobs), 0)
+
+    def test_proven_experience_disqualification(self):
+        """Verifies that jobs requiring proven professional experience (e.g. Rumos Machine Learning Engineer) are strictly disqualified."""
+        job = Job(
+            title="Machine Learning Engineer",
+            company="Rumos Consulting",
+            location="Lisboa",
+            work_mode="Presencial / Híbrido",
+            link="https://www.net-empregos.com/15316798/machine-learning-engineer/",
+            description="Formação superior em TI. Experiência profissional comprovada na automação de infraestrutura de Machine Learning e workloads de Generative AI com mais de 120 caracteres de texto.",
+            source="Net-Empregos",
+            pub_date="2026-08-06"
+        )
         scored_jobs = self.matcher.process_jobs([job])
         self.assertEqual(len(scored_jobs), 0)
 
@@ -293,6 +320,34 @@ class TestExcelBuilderModule(unittest.TestCase):
             self.assertTrue(os.path.exists(saved_path))
             wb = openpyxl.load_workbook(saved_path)
             self.assertIn("🗃️ Base de Dados Master", wb.sheetnames)
+
+
+from ai_evaluator import AIEvaluator
+from notion_store import NotionStore
+from scraper import clean_job_description
+
+class TestRobustnessImprovements(unittest.TestCase):
+    """Unit tests for robust JSON parsing, text truncation, and HTML cleaning."""
+
+    def test_clean_job_description(self):
+        html_input = "<div><h1>Title</h1><script>var x=1;</script><p>Text with <b>HTML</b> tags.</p></div>"
+        cleaned = clean_job_description(html_input)
+        self.assertNotIn("<script>", cleaned)
+        self.assertNotIn("<b>", cleaned)
+        self.assertIn("Title Text with HTML tags.", cleaned)
+
+    def test_clean_and_extract_json(self):
+        evaluator = AIEvaluator()
+        raw_markdown = '```json\n{\n  "evaluations": [\n    {"job_index": 0, "is_suitable": true, "fit_score": 85}\n  ]\n}\n```'
+        cleaned = evaluator._clean_and_extract_json(raw_markdown)
+        self.assertTrue(cleaned.startswith("{"))
+        self.assertTrue(cleaned.endswith("}"))
+
+    def test_notion_truncate_text(self):
+        long_str = "a" * 2500
+        truncated = NotionStore._truncate_text(long_str, 1990)
+        self.assertEqual(len(truncated), 1990)
+        self.assertTrue(truncated.endswith("..."))
 
 
 if __name__ == "__main__":

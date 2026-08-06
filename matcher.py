@@ -38,7 +38,8 @@ ALLOW_CORE_TITLE_TERMS = [
     "rag developer", "nlp engineer", "llm engineer", "data engineer", "data analyst",
     "engenheiro de inteligência artificial", "engenheiro de ia", "cientista de dados",
     "engenheiro de dados", "analista de dados", "python data engineer", "python ai developer",
-    "estágio ai", "estágio data scientist", "estágio inteligência artificial", "generative ai"
+    "estágio ai", "estágio data scientist", "estágio inteligência artificial",
+    "generative ai engineer", "generative ai developer"
 ]
 
 # Irrelevant Non-AI/Data Roles Disqualifiers (Hard Disqualification if present in title)
@@ -52,7 +53,10 @@ IRRELEVANT_ROLE_DISQUALIFIERS = [
     "fullstack", "full stack", "full-stack", "java developer", "backend developer", "back end",
     "gestor de projeto", "project manager", "blockchain", "scrum master", "consultor funcional",
     "marketing", "social media", "paid media", "growth", "seo", "sem", "crm", "copywriter",
-    "content", "branding", "traffic manager", "sales", "comercial", "orçamentista", "videógrafo",
+    "content", "branding", "traffic manager", "sales", "comercial", "orçamentista", "videógrafo", "videografo",
+    "video", "vídeo", "video specialist", "video editor", "editor de vídeo", "editor de video", "videomaker",
+    "multimedia", "multimédia", "designer", "graphic designer", "motion designer", "3d artist", "animador", "animadora",
+    "instructional designer", "e-learning", "elearning",
     "fotógrafo", "podcast", "account executive", "business developer",
     "professor", "professora", "formador", "formadora", "instrutor", "instrutora",
     "teacher", "instructor", "tutor", "docente", "explicador", "explicadora", "sharkcoders",
@@ -76,7 +80,10 @@ TEXT_SENIORITY_DISQUALIFIERS = [
     "mid-senior", "mid senior", "mid-to-senior", "mid to senior", "mid-to-senior-level", "mid to senior level",
     "mid-level to senior", "mid level to senior", "seniority level mid-senior", "seniority level senior",
     "seniority level director", "seniority level executive", "technical leadership",
-    "leadership experience", "experiência em liderança", "liderança técnica", "experiencia em liderança"
+    "leadership experience", "experiência em liderança", "liderança técnica", "experiencia em liderança",
+    "experiência profissional comprovada", "experiência comprovada", "experiencia profissional comprovada",
+    "experiencia comprovada", "comprovada experiência", "comprovada experiencia",
+    "proven experience", "proven track record", "experiência sólida", "experiencia sólida", "solid experience"
 ]
 
 # Precompiled regexes for fast disqualifier matching
@@ -284,8 +291,11 @@ class JobMatcher:
         matched_skills: List[str] = []
         for canonical_skill, aliases in SKILL_ALIASES.items():
             for alias in aliases:
-                pattern = rf"\b{re.escape(alias)}\b"
-                if re.search(pattern, text):
+                escaped = re.escape(alias)
+                prefix = r"\b" if alias[0].isalnum() else ""
+                suffix = r"\b" if alias[-1].isalnum() else ""
+                pattern = rf"{prefix}{escaped}{suffix}"
+                if re.search(pattern, text, re.IGNORECASE):
                     matched_skills.append(canonical_skill)
                     break
 
@@ -325,7 +335,7 @@ class JobMatcher:
         # Stage 2: Batch AI Evaluation (if enabled and available)
         if self.ai_evaluator and self.ai_evaluator.is_available:
             candidate_jobs = [sj.job for sj in heuristic_candidates]
-            ai_results = self.ai_evaluator.evaluate_jobs_batch(candidate_jobs, self.profile, batch_size=3)
+            ai_results = self.ai_evaluator.evaluate_jobs_batch(candidate_jobs, self.profile, batch_size=4)
 
 
             final_scored_jobs: List[ScoredJob] = []
@@ -333,7 +343,9 @@ class JobMatcher:
                 ai_res = ai_results.get(sj.job.job_id)
                 if ai_res:
                     reason_lower = ai_res.reasoning.lower()
-                    if not ai_res.is_suitable or ("exige" in reason_lower and ("2 anos" in reason_lower or "3 anos" in reason_lower or "superior a" in reason_lower)):
+                    seniority_det_lower = (ai_res.seniority_detected or "").lower()
+                    is_non_junior = any(s in seniority_det_lower for s in ["mid", "senior", "sénior", "lead", "pleno", "avançado", "director", "executive"])
+                    if not ai_res.is_suitable or is_non_junior or ("exige" in reason_lower and ("2 anos" in reason_lower or "3 anos" in reason_lower or "superior a" in reason_lower)):
                         sj.score = 0.0
                         sj.seniority_status = f"Rejeitada por IA ({ai_res.seniority_detected})"
                         sj.match_reason = ai_res.reasoning

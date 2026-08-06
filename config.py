@@ -53,13 +53,6 @@ class CandidateProfile:
 class AppConfig:
     candidate: CandidateProfile = field(default_factory=CandidateProfile)
     
-    # Email / SMTP Configuration
-    smtp_server: str = os.getenv("SMTP_SERVER", "smtp.gmail.com")
-    smtp_port: int = int(os.getenv("SMTP_PORT", "587"))
-    smtp_email: str = os.getenv("SMTP_EMAIL", "diogon.oliveira1@gmail.com")
-    smtp_password: str = os.getenv("SMTP_PASSWORD", "")
-    receiver_email: str = os.getenv("RECEIVER_EMAIL", "diogon.oliveira1@gmail.com")
-    
     # Telegram Configuration
     telegram_bot_token: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
     telegram_chat_id: str = os.getenv("TELEGRAM_CHAT_ID", "")
