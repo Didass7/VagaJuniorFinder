@@ -432,7 +432,9 @@ class LandingJobsScraper:
         jobs = []
         url = "https://landing.jobs/api/v1/jobs"
         try:
-            resp = self.session.get(url, headers=get_random_headers(), timeout=10)
+            h = get_random_headers()
+            h["Accept"] = "application/json"
+            resp = self.session.get(url, headers=h, timeout=10)
             if resp.status_code != 200:
                 logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {resp.status_code} for {resp.url}")
             if resp.status_code == 200:
@@ -470,7 +472,9 @@ class RemotiveScraper:
         jobs = []
         url = "https://remotive.com/api/remote-jobs?category=data"
         try:
-            resp = self.session.get(url, headers=get_random_headers(), timeout=10)
+            h = get_random_headers()
+            h["Accept"] = "application/json"
+            resp = self.session.get(url, headers=h, timeout=10)
             if resp.status_code != 200:
                 logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {resp.status_code} for {resp.url}")
             if resp.status_code == 200:
@@ -506,7 +510,9 @@ class ArbeitnowScraper:
         jobs = []
         url = "https://www.arbeitnow.com/api/job-board-api"
         try:
-            resp = self.session.get(url, headers=get_random_headers(), timeout=10)
+            h = get_random_headers()
+            h["Accept"] = "application/json"
+            resp = self.session.get(url, headers=h, timeout=10)
             if resp.status_code != 200:
                 logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {resp.status_code} for {resp.url}")
             if resp.status_code == 200:
@@ -580,7 +586,9 @@ class RemoteOKScraper:
         jobs = []
         url = "https://remoteok.com/api?tag=data"
         try:
-            resp = self.session.get(url, headers=get_random_headers(), timeout=10)
+            h = get_random_headers()
+            h["Accept"] = "application/json"
+            resp = self.session.get(url, headers=h, timeout=10)
             if resp.status_code != 200:
                 logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {resp.status_code} for {resp.url}")
             if resp.status_code == 200:
@@ -742,7 +750,9 @@ class HimalayasScraper:
         jobs = []
         url = "https://himalayas.app/jobs/api?limit=50"
         try:
-            resp = self.session.get(url, headers=get_random_headers(), timeout=10)
+            h = get_random_headers()
+            h["Accept"] = "application/json"
+            resp = self.session.get(url, headers=h, timeout=10)
             if resp.status_code != 200:
                 logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {resp.status_code} for {resp.url}")
             if resp.status_code == 200:
