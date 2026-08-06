@@ -132,7 +132,7 @@ class AIEvaluator:
                     ],
                     response_format={"type": "json_object"},
                     temperature=0.2,
-                    max_completion_tokens=600
+                    max_completion_tokens=2000
                 )
 
                 content = response.choices[0].message.content
@@ -256,10 +256,10 @@ VAGAS NO LOTE A AVALIAR:
 {all_jobs_str}
 
 REGRAS DE AVALIAÇÃO PARA CADA VAGA:
-1. Nível de Senioridade: Se a vaga exigir expressamente mais de 1-2 anos de experiência ou for Nível Sénior/Lead/Director, a vaga NÃO é adequada (`is_suitable: false`).
-2. Adequação da Área: A vaga deve ser estritamente focada em Engenharia de IA/ML, Ciência de Dados, Engenharia de Dados, RAG/LLM Backend ou Data Analytics. Vagas de Edição/Geração de Vídeo, Prompt Engineering para Arte/Vídeo, Multimédia, Design, Vendas, Marketing, Suporte Técnico, PHP puro ou Gestão NÃO são adequadas (`is_suitable: false`, `fit_score: 0`).
-3. Línguas: Se a vaga exigir obrigatoriamente Alemão ou Francês fluente (e o candidato apenas possui Alemão A2 e Espanhol B1), deve ser considerado uma limitação importante (`cons`).
-4. Atribui uma pontuação de adequação (`fit_score`) de 0 a 100%.
+1. Nível de Senioridade: O candidato tem 0 anos de experiência profissional (é júnior / recém-licenciado). Se a descrição da vaga exigir experiência profissional prévia num cargo (ex: "Experience in data engineering role", "Demonstrated experience building...", "Experiência comprovada em..."), MESMO QUE não especifique o número de anos, a vaga NÃO é adequada (`is_suitable: false`, `fit_score: 0`). A vaga só é adequada se for explicitamente para posições Entry-Level, Estágio, Trainee, ou se aceitar recém-licenciados sem experiência profissional prévia.
+2. Adequação da Área: A vaga deve ser focada em IA/ML, Engenharia de Dados ou Data Analytics. Vagas genéricas de software, web, vendas, ou gestão não servem.
+3. Línguas: Exigência de Alemão/Francês fluente é eliminatória (`is_suitable: false`, `fit_score: 0`).
+4. Atribui uma pontuação de adequação (`fit_score`) de 0 a 100%. Se a vaga exigir experiência prévia, o `fit_score` deve ser ZERO.
 
 Responde APENAS em formato JSON válido contendo um objeto com uma lista "evaluations", onde cada elemento corresponde ao `job_index`:
 {{

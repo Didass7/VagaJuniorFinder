@@ -53,9 +53,10 @@ IRRELEVANT_ROLE_DISQUALIFIERS = [
     "fullstack", "full stack", "full-stack", "java developer", "backend developer", "back end",
     "gestor de projeto", "project manager", "blockchain", "scrum master", "consultor funcional",
     "marketing", "social media", "paid media", "growth", "seo", "sem", "crm", "copywriter",
-    "content", "branding", "traffic manager", "sales", "comercial", "orçamentista", "videógrafo", "videografo",
-    "video", "vídeo", "video specialist", "video editor", "editor de vídeo", "editor de video", "videomaker",
-    "multimedia", "multimédia", "designer", "graphic designer", "motion designer", "3d artist", "animador", "animadora",
+    "content writer", "content manager", "content creator", "content strategist",
+    "branding", "traffic manager", "sales", "comercial", "orçamentista", "videógrafo", "videografo",
+    "video editor", "video specialist", "editor de vídeo", "editor de video", "videomaker", "video producer",
+    "multimedia", "multimédia", "graphic designer", "motion designer", "ui designer", "ux designer", "web designer", "3d artist", "animador", "animadora",
     "instructional designer", "e-learning", "elearning",
     "fotógrafo", "podcast", "account executive", "business developer",
     "professor", "professora", "formador", "formadora", "instrutor", "instrutora",
@@ -83,14 +84,21 @@ TEXT_SENIORITY_DISQUALIFIERS = [
     "leadership experience", "experiência em liderança", "liderança técnica", "experiencia em liderança",
     "experiência profissional comprovada", "experiência comprovada", "experiencia profissional comprovada",
     "experiencia comprovada", "comprovada experiência", "comprovada experiencia",
-    "proven experience", "proven track record", "experiência sólida", "experiencia sólida", "solid experience"
+    "proven experience", "proven track record", "experiência sólida", "experiencia sólida", "solid experience",
+    "senior developer", "senior engineer", "senior backend", "senior software", "senior data scientist",
+    "senior data engineer", "sénior developer", "sénior engineer", "sénior backend", "sr developer", "sr engineer",
+    "7+ years", "7+ anos", "6+ years", "6+ anos", "5+ years", "5+ anos", "4+ years", "4+ anos", "3+ years", "3+ anos", "2+ years", "2+ anos"
 ]
 
 # Precompiled regexes for fast disqualifier matching
 IRRELEVANT_ROLE_PATTERNS = [(disq, re.compile(rf"\b{re.escape(disq)}\b", re.IGNORECASE)) for disq in IRRELEVANT_ROLE_DISQUALIFIERS]
 TITLE_SENIORITY_PATTERNS = [(disq, re.compile(rf"\b{re.escape(disq.strip())}\b", re.IGNORECASE)) for disq in TITLE_SENIORITY_DISQUALIFIERS]
 TEXT_SENIORITY_PATTERNS = [(disq, re.compile(rf"\b{re.escape(disq)}\b", re.IGNORECASE)) for disq in TEXT_SENIORITY_DISQUALIFIERS]
-BASIC_TITLE_PATTERN = re.compile(r"\b(?:ai|ia|data|python|ml|machine\s+learning|inteligência|inteligencia|dados)\b", re.IGNORECASE)
+BASIC_TITLE_PATTERN = re.compile(r"\b(?:ai|ia|data|ml|machine\s+learning|inteligência|inteligencia|dados)\b", re.IGNORECASE)
+
+# Titles with just 'python' need a secondary AI/Data context check in the description
+PYTHON_ONLY_TITLE_PATTERN = re.compile(r"\bpython\b", re.IGNORECASE)
+AI_DATA_CONTEXT_IN_DESC = re.compile(r"\b(?:data|ai|ia|machine\s*learning|ml|nlp|llm|deep\s*learning|analytics|dados|ciência\s*de\s*dados|inteligência\s*artificial|rag|embeddings|genai|generative)\b", re.IGNORECASE)
 
 # Disqualify jobs requiring PhD / Doctorate
 PHD_REQUIREMENT_PATTERN = re.compile(
@@ -179,8 +187,20 @@ class JobMatcher:
 
         # 0.0 Description Integrity & Completeness Check
         clean_desc = job.description.strip()
-        if len(clean_desc) < 120 or "join or sign in to find your next job" in clean_desc.lower():
-            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Descrição Incompleta", match_reason="Descrição indisponível no portal para verificação de requisitos")
+        clean_desc_lower = clean_desc.lower()
+        incomplete_indicators = [
+            "join or sign in to find your next job",
+            "sign in to view",
+            "sign in to apply",
+            "log in to view",
+            "faça login",
+            "entre para ver",
+            "registar para ver",
+            "crie uma conta",
+            "sign in to see more"
+        ]
+        if len(clean_desc) < 150 or any(ind in clean_desc_lower for ind in incomplete_indicators):
+            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Descrição Incompleta / Bloqueada", match_reason="Descrição indisponível ou bloqueada no portal para verificação de requisitos")
 
         # 0.0 Expired Job Check (Text level)
         clean_desc_lower = clean_desc.lower()
@@ -214,7 +234,16 @@ class JobMatcher:
         # 3. Mandatory AI & Data Science Core Domain Check
         has_core_title = any(ct in title_lower for ct in ALLOW_CORE_TITLE_TERMS)
         if not has_core_title:
-            if not BASIC_TITLE_PATTERN.search(title_lower):
+            has_basic_ai_data_title = BASIC_TITLE_PATTERN.search(title_lower)
+            has_python_title = PYTHON_ONLY_TITLE_PATTERN.search(title_lower)
+            
+            if has_basic_ai_data_title:
+                pass  # Title contains AI/Data/ML terms — proceed
+            elif has_python_title:
+                # 'Python' alone in title is too generic — only allow if description has AI/Data context
+                if not AI_DATA_CONTEXT_IN_DESC.search(text):
+                    return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Python Genérico (Sem Contexto AI/Data)", match_reason="Título 'Python Developer' sem contexto de AI, ML ou Data Science na descrição")
+            else:
                 return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Fora de AI/Data Science", match_reason="Título não se enquadra em AI, ML ou Data Science")
 
         # 4. PhD / Doctorate Degree Requirement Disqualification

@@ -50,8 +50,7 @@ jobs:
 
       - name: 🔍 Execute Daily Job Finder Pipeline
         env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
           ITJOBS_API_KEY: ${{ secrets.ITJOBS_API_KEY }}
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
@@ -62,13 +61,7 @@ jobs:
         run: |
           python main.py
 
-      - name: 📄 Upload Daily Markdown Report Artifact
-        uses: actions/upload-artifact@v4.3.6
-        with:
-          name: daily-job-reports
-          path: reports/*.md
-          retention-days: 30
-          if-no-files-found: ignore
+
 
       - name: 💾 Persist seen_jobs.json to data branch
         if: always()

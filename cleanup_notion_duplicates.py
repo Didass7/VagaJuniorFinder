@@ -66,7 +66,13 @@ def cleanup_empty_or_duplicate_notion_pages():
 
             # Check if empty row (no title, no link, no score), duplicate title/link, or disqualified role
             unique_key = link_url if link_url else title_text.lower()
-            disq_terms = ['2 anos', '3 anos', '4 anos', '5 anos', 'superior a 2', 'superior a 1', 'mais de 2', 'mais de 1-2', 'experiência superior', 'experiencia superior', 'experiência profissional comprovada', 'experiência comprovada', 'experiencia profissional comprovada', 'experiencia comprovada', 'proven experience', 'mid-senior', 'mid senior', 'data annotator', 'video specialist', 'generative ai video', 'editor de vídeo', 'editor de video', 'videógrafo', 'videografo']
+            disq_terms = [
+                '2 anos', '3 anos', '4 anos', '5 anos', '6 anos', '7 anos', '7+', '6+', '5+', '4+', '3+',
+                'superior a 2', 'superior a 1', 'mais de 2', 'mais de 1-2', 'experiência superior', 'experiencia superior',
+                'experiência profissional comprovada', 'experiência comprovada', 'experiencia profissional comprovada', 'experiencia comprovada',
+                'proven experience', 'mid-senior', 'mid senior', 'senior', 'sénior', 'backend developer',
+                'data annotator', 'video specialist', 'generative ai video', 'editor de vídeo', 'editor de video', 'videógrafo', 'videografo'
+            ]
             is_disqualified = any(term in title_text.lower() or term in analysis_text for term in disq_terms)
 
             if not title_text or not link_url or score_val is None or unique_key in seen_titles or "example.com" in link_url or is_disqualified:

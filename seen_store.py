@@ -9,6 +9,7 @@ MAX_AGE_DAYS are automatically pruned on each load.
 import json
 import logging
 import os
+import shutil
 import time
 from typing import List, Set
 
@@ -87,7 +88,13 @@ class SeenStore:
             with open(self.filepath, "r", encoding="utf-8") as f:
                 raw = json.load(f)
         except (json.JSONDecodeError, OSError) as e:
-            logger.warning(f"Could not load seen store ({e}) — starting fresh.")
+            # Backup corrupted file instead of silently wiping all seen data
+            backup_path = self.filepath + ".bak"
+            try:
+                shutil.copy2(self.filepath, backup_path)
+                logger.error(f"❌ Seen store corrupted ({e}). Backup saved to {backup_path}. Starting fresh.")
+            except OSError:
+                logger.error(f"❌ Seen store corrupted ({e}). Could not create backup. Starting fresh.")
             self._store = {}
             return
 

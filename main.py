@@ -1,17 +1,12 @@
 import argparse
 import logging
 import sys
-import os
 import io
 from config import config
 from scraper import JobIngestionPipeline
 from matcher import JobMatcher
-from report_builder import ReportBuilder
-from excel_builder import ExcelReportBuilder
-from telegram_notifier import TelegramNotifier
 from seen_store import SeenStore
 from notion_store import NotionStore
-from cleanup_notion_duplicates import cleanup_empty_or_duplicate_notion_pages
 
 # Ensure Windows terminal stdout handles UTF-8 emojis cleanly
 if sys.stdout.encoding != 'utf-8':
@@ -33,7 +28,7 @@ def run_pipeline(dry_run: bool = False):
     logger.info(f"Target Candidate: {config.candidate.name} ({config.candidate.email})")
     logger.info("==================================================")
 
-    # 1. Ingestion & Deduplication
+    # ── Step 1: Scrape ── Fetch jobs from all portals
     pipeline = JobIngestionPipeline(itjobs_api_key=config.itjobs_api_key)
     raw_jobs = pipeline.run()
 
@@ -41,70 +36,38 @@ def run_pipeline(dry_run: bool = False):
         logger.warning("⚠️ No jobs found across any sources today.")
         return
 
-    # 1b. Cross-run deduplication — split into new vs previously seen jobs
+    # ── Step 2: Deduplicate ── Keep only jobs we haven't seen before
     seen = SeenStore(filepath=config.cache_file)
     new_jobs = seen.filter_new(raw_jobs)
-    seen_jobs = [j for j in raw_jobs if seen.is_seen(j.job_id)]
-    
-    logger.info(f"🧠 Seen store: {seen.count} tracked | {len(raw_jobs)} ingested | {len(new_jobs)} new | {len(seen_jobs)} previously seen")
 
-    # 2. Matching & Scoring
+    logger.info(f"🧠 Seen store: {seen.count} tracked | {len(raw_jobs)} ingested | {len(new_jobs)} new")
+
+    if not new_jobs:
+        logger.info("ℹ️ No new jobs found today. All ingested jobs were already seen.")
+        return
+
+    # ── Step 3: Filter & Score ── Heuristic pre-filter + AI evaluation
     matcher = JobMatcher(profile=config.candidate)
-    scored_new_jobs = matcher.process_jobs(new_jobs) if new_jobs else []
-    scored_seen_jobs = matcher.process_jobs(seen_jobs) if seen_jobs else []
-    all_scored_jobs = scored_new_jobs + scored_seen_jobs
+    scored_jobs = matcher.process_jobs(new_jobs)
 
+    logger.info(f"✅ Evaluated: {len(scored_jobs)} qualified jobs out of {len(new_jobs)} new jobs.")
 
-    logger.info(f"✅ Evaluated: {len(scored_new_jobs)} new qualified jobs | {len(scored_seen_jobs)} active seen qualified jobs.")
-
-    # Mark all new jobs as seen (even low-scored ones, to avoid re-processing)
-    if new_jobs:
-        seen.mark_seen([j.job_id for j in new_jobs])
-        seen.save()
-
-    # 3. Report Building (Markdown & Excel)
-    report_builder = ReportBuilder(profile=config.candidate)
-    markdown_content = report_builder.build_markdown(scored_new_jobs, scored_seen_jobs)
-    telegram_html_content = report_builder.build_telegram_html(scored_new_jobs, scored_seen_jobs)
-    
-    saved_report_path = report_builder.save_report(markdown_content, output_dir=config.reports_dir)
-    logger.info(f"📄 Markdown report saved to: {saved_report_path}")
-
-    # Build Excel Daily Report and Update Master Database Excel
-    excel_builder = ExcelReportBuilder(profile=config.candidate)
-    daily_excel_path = excel_builder.build_daily_report(all_scored_jobs, output_dir=config.reports_dir)
-    master_excel_path = excel_builder.update_master_database(all_scored_jobs, master_filepath=os.path.join("data", "jobs_database.xlsx"))
-    
-    logger.info(f"📊 Daily Excel report saved to: {daily_excel_path}")
-    logger.info(f"🗃️ Master Excel database updated at: {master_excel_path}")
-
-    # 3b. Sync to Notion Database (if configured)
-    if config.enable_notion_sync:
-        notion_store = NotionStore()
-        notion_store.sync_jobs(all_scored_jobs)
-        cleanup_empty_or_duplicate_notion_pages()
-
-    # 4. Dispatch Notifications
     if dry_run:
-        logger.info("ℹ️ Dry-run mode active. Skipping notification dispatch.")
-        logger.info("---------------- REPORT PREVIEW ----------------")
-        try:
-            print(markdown_content[:1200] + "\n\n[... truncated preview ...]")
-        except Exception:
-            print(markdown_content[:1200].encode('ascii', errors='replace').decode('ascii') + "\n\n[... truncated preview ...]")
-        logger.info("------------------------------------------------")
+        logger.info("ℹ️ Dry-run mode active. Skipping Notion sync.")
+        for sj in scored_jobs[:10]:
+            logger.info(f"  → [{sj.score}%] {sj.job.title} @ {sj.job.company} ({sj.seniority_status})")
     else:
-        # Telegram Notification
-        if config.telegram_bot_token and config.telegram_chat_id:
-            telegram_bot = TelegramNotifier(
-                bot_token=config.telegram_bot_token,
-                chat_id=config.telegram_chat_id
-            )
-            telegram_bot.send_message(telegram_html_content, parse_mode="HTML")
-            telegram_bot.send_document(daily_excel_path, caption="📊 Relatório Diário em Excel (.xlsx)")
-            telegram_bot.send_document(saved_report_path, caption="📄 Relatório completo em Markdown")
+        # ── Step 4: Sync to Notion ── Send qualified new jobs to Notion database
+        if config.enable_notion_sync:
+            notion_store = NotionStore()
+            synced = notion_store.sync_jobs(scored_jobs)
+            logger.info(f"📝 Synced {synced} new jobs to Notion.")
         else:
-            logger.info("ℹ️ Telegram credentials not configured. Skipping Telegram dispatch.")
+            logger.info("ℹ️ Notion sync disabled.")
+
+    # Mark all new jobs as seen AFTER successful sync (prevents losing jobs if Notion fails)
+    seen.mark_seen([j.job_id for j in new_jobs])
+    seen.save()
 
     logger.info("==================================================")
     logger.info("✅ VagaJuniorFinder Pipeline Finished Successfully")
@@ -112,7 +75,7 @@ def run_pipeline(dry_run: bool = False):
 
 def main():
     parser = argparse.ArgumentParser(description="VagaJuniorFinder — Daily Junior AI & Data Science Job Finder")
-    parser.add_argument("--dry-run", action="store_true", help="Run ingestion and report generation without sending notifications")
+    parser.add_argument("--dry-run", action="store_true", help="Run ingestion and scoring without syncing to Notion")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose log level")
 
     args = parser.parse_args()

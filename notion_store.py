@@ -292,8 +292,19 @@ class NotionStore:
                 resp = requests.post(url, headers=self.headers, json=payload, timeout=15)
                 if resp.status_code in [200, 201]:
                     return True
+                elif resp.status_code == 429 or resp.status_code >= 500:
+                    # Rate limit or server error — retry with backoff
+                    if attempt < max_retries:
+                        wait = attempt * 3
+                        logger.warning(f"⚠️ Notion API {resp.status_code} for '{job.title}' (attempt {attempt}/{max_retries}). Retrying in {wait}s...")
+                        time.sleep(wait)
+                        continue
+                    else:
+                        logger.error(f"❌ Notion API {resp.status_code} for '{job.title}' after {max_retries} attempts: {resp.text[:200]}")
+                        return False
                 else:
-                    logger.error(f"❌ Failed to create Notion page for '{job.title}' ({resp.status_code}): {resp.text}")
+                    # 400 Bad Request or other client error — log details and don't retry
+                    logger.error(f"❌ Notion API {resp.status_code} for '{job.title}': {resp.text[:300]}")
                     return False
             except Exception as e:
                 if attempt < max_retries:

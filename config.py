@@ -53,9 +53,7 @@ class CandidateProfile:
 class AppConfig:
     candidate: CandidateProfile = field(default_factory=CandidateProfile)
     
-    # Telegram Configuration
-    telegram_bot_token: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
-    telegram_chat_id: str = os.getenv("TELEGRAM_CHAT_ID", "")
+
     
     # API Keys / Feeds
     itjobs_api_key: str = os.getenv("ITJOBS_API_KEY", "")
@@ -72,7 +70,6 @@ class AppConfig:
     enable_notion_sync: bool = os.getenv("ENABLE_NOTION_SYNC", "true").lower() == "true"
     
     # Data Storage Paths
-    reports_dir: str = os.getenv("REPORTS_DIR", "reports")
     cache_file: str = os.getenv("CACHE_FILE", os.path.join("data", "jobs_cache.json"))
     
     # Scoring Thresholds
