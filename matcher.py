@@ -103,6 +103,7 @@ def build_strict_pattern(word: str) -> re.Pattern:
 IRRELEVANT_ROLE_PATTERNS = [(disq, build_strict_pattern(disq)) for disq in IRRELEVANT_ROLE_DISQUALIFIERS]
 TITLE_SENIORITY_PATTERNS = [(disq, build_strict_pattern(disq)) for disq in TITLE_SENIORITY_DISQUALIFIERS]
 TEXT_SENIORITY_PATTERNS = [(disq, build_strict_pattern(disq)) for disq in TEXT_SENIORITY_DISQUALIFIERS]
+YEARS_OF_EXP_PATTERN = re.compile(r"\b(?:[2-9]|1[0-9])\+?\s*(?:(?:years?|anos?)\s*)?(?:of\s+)?(?:de\s+)?experi(?:ence|ência|encia)\b", re.IGNORECASE)
 BASIC_TITLE_PATTERN = re.compile(r"(?<![a-zA-Z0-9_])(?:ai|ia|data|ml|machine\s+learning|inteligência|inteligencia|dados)(?![a-zA-Z0-9_])", re.IGNORECASE)
 
 # Titles with just 'python' need a secondary AI/Data context check in the description
@@ -265,6 +266,11 @@ class JobMatcher:
         for disq, pattern in TEXT_SENIORITY_PATTERNS:
             if pattern.search(text):
                 return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Nível Mid-Senior / Liderança", match_reason=f"Descrição ou tag exige nível avançado ({disq})")
+                
+        # Regex for generic X+ years of experience
+        exp_match = YEARS_OF_EXP_PATTERN.search(text)
+        if exp_match:
+            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Requer Experiência", match_reason=f"Requer experiência ({exp_match.group(0).strip()})")
 
 
         # -------------------------------------------------------------
