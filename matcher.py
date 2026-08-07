@@ -105,7 +105,7 @@ def build_strict_pattern(word: str) -> re.Pattern:
 IRRELEVANT_ROLE_PATTERNS = [(disq, build_strict_pattern(disq)) for disq in IRRELEVANT_ROLE_DISQUALIFIERS]
 TITLE_SENIORITY_PATTERNS = [(disq, build_strict_pattern(disq)) for disq in TITLE_SENIORITY_DISQUALIFIERS]
 TEXT_SENIORITY_PATTERNS = [(disq, build_strict_pattern(disq)) for disq in TEXT_SENIORITY_DISQUALIFIERS]
-YEARS_OF_EXP_PATTERN = re.compile(r"\b(?:[2-9]|1[0-9])\s*(?:to|-|a)?\s*(?:[2-9]|1[0-9])?\s*\+?\s*(?:(?:years?|anos?)\b(?:\s*(?:of|de)\s+)?(?:[\s\S]{0,60})experi(?:ence|ência|encia)\b|(?:\s*(?:of|de)\s+)?experi(?:ence|ência|encia)\b)|(?:\bexperi(?:ence|ência|encia)\b[\s\S]{0,40}\b(?:[2-9]|1[0-9])\s*\+?\s*(?:years?|anos?)\b)", re.IGNORECASE)
+YEARS_OF_EXP_PATTERN = re.compile(r"\b(?:[2-9]|1[0-9]|two|three|four|five|six|seven|eight|nine|ten|dois|três|tres|quatro|cinco|seis|sete|oito|nove|dez)\s*(?:to|-|a)?\s*(?:[2-9]|1[0-9]|two|three|four|five|six|seven|eight|nine|ten|dois|três|tres|quatro|cinco|seis|sete|oito|nove|dez)?\s*\+?\s*(?:(?:years?|anos?)\b(?:\s*(?:of|de)\s+)?(?:[\s\S]{0,60})experi(?:ence|ência|encia)\b|(?:\s*(?:of|de)\s+)?experi(?:ence|ência|encia)\b)|(?:\bexperi(?:ence|ência|encia)\b[\s\S]{0,40}\b(?:[2-9]|1[0-9]|two|three|four|five|six|seven|eight|nine|ten|dois|três|tres|quatro|cinco|seis|sete|oito|nove|dez)\s*\+?\s*(?:years?|anos?)\b)", re.IGNORECASE)
 BASIC_TITLE_PATTERN = re.compile(r"(?<![a-zA-Z0-9_])(?:ai|ia|data|ml|machine\s+learning|inteligência|inteligencia|dados)(?![a-zA-Z0-9_])", re.IGNORECASE)
 
 # Titles with just 'python' need a secondary AI/Data context check in the description
