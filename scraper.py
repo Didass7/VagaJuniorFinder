@@ -194,11 +194,11 @@ class LinkedInScraper:
                     if not title_elem or not link_elem or not link_elem.get("href"):
                         continue
                         
-                    title = title_elem.get_text(strip=True)
+                    title = title_elem.get_text(separator=' ', strip=True)
                     raw_link = link_elem.get("href", "")
                     clean_link = raw_link.split("?")[0].rstrip("/")
-                    company = company_elem.get_text(strip=True) if company_elem else "Empresa no LinkedIn"
-                    location = loc_elem.get_text(strip=True) if loc_elem else "Portugal"
+                    company = company_elem.get_text(separator=' ', strip=True) if company_elem else "Empresa no LinkedIn"
+                    location = loc_elem.get_text(separator=' ', strip=True) if loc_elem else "Portugal"
                     
                     pub_date = datetime.date.today().isoformat()
                     if time_elem and time_elem.get("datetime"):
@@ -294,7 +294,7 @@ class ITJobsScraper:
                     href = a.get("href", "")
                     if href and "/oferta/" in href:
                         full_link = f"https://www.itjobs.pt{href}" if href.startswith("/") else href
-                        title = a.get_text(strip=True)
+                        title = a.get_text(separator=' ', strip=True)
                         if is_valid_job_offer(full_link, title):
                             parent = a.find_parent("div", class_="info") or a.find_parent("div")
                             company = "Empresa via ITJobs"
@@ -302,10 +302,10 @@ class ITJobsScraper:
                             if parent:
                                 company_elem = parent.find("a", class_="company") or parent.find("span", class_="company")
                                 if company_elem:
-                                    company = company_elem.get_text(strip=True)
+                                    company = company_elem.get_text(separator=' ', strip=True)
                                 location_elem = parent.find("span", class_="location") or parent.find("div", class_="location")
                                 if location_elem:
-                                    location = location_elem.get_text(strip=True)
+                                    location = location_elem.get_text(separator=' ', strip=True)
                             cards.append({
                                 "title": title, "link": full_link,
                                 "company": company, "location": location
@@ -327,7 +327,7 @@ class ITJobsScraper:
                 logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {detail_resp.status_code} for {detail_resp.url}")
             if detail_resp.status_code == 200:
                 detail_soup = BeautifulSoup(detail_resp.text, "html.parser")
-                text_blocks = [elem.get_text(strip=True) for elem in detail_soup.find_all(["p", "li"])]
+                text_blocks = [elem.get_text(separator=' ', strip=True) for elem in detail_soup.find_all(["p", "li"])]
                 desc = f"{title} " + " ".join(text_blocks)
 
                 # Extract real company name from ITJobs title or link
@@ -341,7 +341,7 @@ class ITJobsScraper:
                 if not company or "empresa via" in company.lower() or company == "Empresa Confidencial":
                     for a in detail_soup.find_all("a", href=True):
                         if "/empresa/" in a["href"] or "/company/" in a["href"]:
-                            txt = a.get_text(strip=True)
+                            txt = a.get_text(separator=' ', strip=True)
                             if len(txt) > 2 and txt.lower() not in ["empresas", "empresa", "login"]:
                                 company = txt
                                 break
@@ -488,7 +488,7 @@ class RemotiveScraper:
 
                     company = item.get("company_name", "Remotive Company")
                     location = item.get("candidate_required_location", "Worldwide Remote")
-                    desc = BeautifulSoup(item.get("description", ""), "html.parser").get_text(strip=True)
+                    desc = BeautifulSoup(item.get("description", ""), "html.parser").get_text(separator=' ', strip=True)
                     pub_date = item.get("publication_date", datetime.date.today().isoformat())[:10]
                     
                     jobs.append(Job(
@@ -528,7 +528,7 @@ class ArbeitnowScraper:
                     location = item.get("location", "Europe / Remote")
                     remote = item.get("remote", False)
                     work_mode = "Remoto" if remote else "Presencial / Híbrido"
-                    desc = BeautifulSoup(item.get("description", ""), "html.parser").get_text(strip=True)
+                    desc = BeautifulSoup(item.get("description", ""), "html.parser").get_text(separator=' ', strip=True)
                     pub_date = datetime.date.fromtimestamp(item.get("created_at", int(datetime.datetime.now().timestamp()))).isoformat()
                     
                     jobs.append(Job(
@@ -558,7 +558,7 @@ class WeWorkRemotelyScraper:
                 if not is_valid_job_offer(link, title):
                     continue
 
-                desc = BeautifulSoup(entry.get("summary", ""), "html.parser").get_text(strip=True)
+                desc = BeautifulSoup(entry.get("summary", ""), "html.parser").get_text(separator=' ', strip=True)
                 pub_date = entry.get("published", datetime.date.today().isoformat())
                 
                 company = "WeWorkRemotely Company"
@@ -604,7 +604,7 @@ class RemoteOKScraper:
 
                             company = item.get("company", "RemoteOK Company")
                             location = item.get("location", "Worldwide Remote")
-                            desc = BeautifulSoup(item.get("description", ""), "html.parser").get_text(strip=True)
+                            desc = BeautifulSoup(item.get("description", ""), "html.parser").get_text(separator=' ', strip=True)
                             pub_date = item.get("date", datetime.date.today().isoformat())[:10]
                             
                             jobs.append(Job(
@@ -640,7 +640,7 @@ class CargaDeTrabalhosScraper:
                     if "/ofertas/" not in link:
                         continue
                     
-                    title = a_tag.get_text(strip=True)
+                    title = a_tag.get_text(separator=' ', strip=True)
                     if not title or not is_valid_job_offer(link, title):
                         continue
                     
@@ -798,7 +798,7 @@ class NetEmpregosScraper:
                 for a in links:
                     raw_href = a.get("href", "")
                     clean_link = f"https://www.net-empregos.com{raw_href}" if not raw_href.startswith("http") else raw_href
-                    title = a.get_text(strip=True)
+                    title = a.get_text(separator=' ', strip=True)
                     if title and len(title) >= 5 and is_valid_job_offer(clean_link, title):
                         cards.append({"title": title, "link": clean_link})
         except Exception as e:
@@ -831,7 +831,7 @@ class NetEmpregosScraper:
                 
                 for a in det_soup.find_all("a", href=True):
                     if "/emprego-empresa-id/" in a["href"]:
-                        txt = a.get_text(strip=True)
+                        txt = a.get_text(separator=' ', strip=True)
                         if len(txt) > 1:
                             company = txt
                             break
@@ -900,7 +900,7 @@ class TeamlyzerScraper:
                 soup = BeautifulSoup(r.text, "html.parser")
                 h1_tag = soup.find("h1")
                 if h1_tag:
-                    full_h1 = h1_tag.get_text(strip=True)
+                    full_h1 = h1_tag.get_text(separator=' ', strip=True)
                     if len(full_h1) > len(title):
                         title = full_h1
 
@@ -942,7 +942,7 @@ class TeamlyzerScraper:
                     link = f"https://pt.teamlyzer.com{href}" if href.startswith("/") else href
                     seen_links.add(clean_href)
                     
-                    title = a_tag.get_text(strip=True)
+                    title = a_tag.get_text(separator=' ', strip=True)
                     if not title or not is_valid_job_offer(link, title):
                         continue
                     
@@ -951,7 +951,7 @@ class TeamlyzerScraper:
                     if not company:
                         comp_a = card.find("a", href=lambda h: h and "/companies/" in h and "/get-job/" not in h)
                         if comp_a:
-                            company = comp_a.get_text(strip=True) or comp_a.get("href", "").split("/")[-1]
+                            company = comp_a.get_text(separator=' ', strip=True) or comp_a.get("href", "").split("/")[-1]
                     if not company:
                         company = "Empresa no Teamlyzer"
                         
@@ -1008,7 +1008,7 @@ class JobspressoScraper:
                         
                         seen_links.add(href)
                         title_elem = parent.find(class_=lambda c: c and "title" in str(c).lower()) or a
-                        title = title_elem.get_text(strip=True) if title_elem else a.get_text(strip=True)
+                        title = title_elem.get_text(separator=' ', strip=True) if title_elem else a.get_text(separator=' ', strip=True)
                         if not title:
                             continue
                         
@@ -1016,10 +1016,10 @@ class JobspressoScraper:
                             continue
                         
                         comp_elem = parent.find(class_=lambda c: c and "company" in str(c).lower())
-                        company = comp_elem.get_text(strip=True) if comp_elem else "Jobspresso Company"
+                        company = comp_elem.get_text(separator=' ', strip=True) if comp_elem else "Jobspresso Company"
                         
                         loc_elem = parent.find(class_=lambda c: c and "location" in str(c).lower())
-                        location = loc_elem.get_text(strip=True) if loc_elem else "Worldwide Remote"
+                        location = loc_elem.get_text(separator=' ', strip=True) if loc_elem else "Worldwide Remote"
                         
                         desc = parent.get_text(separator=" ", strip=True)
                         
@@ -1059,7 +1059,7 @@ class EuraxessScraper:
                             continue
                         seen_links.add(link)
                         
-                        title = a.get_text(strip=True)
+                        title = a.get_text(separator=' ', strip=True)
                         if not title or not is_valid_job_offer(link, title):
                             continue
                         
