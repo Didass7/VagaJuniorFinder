@@ -829,12 +829,20 @@ class NetEmpregosScraper:
                 else:
                     desc = f"{title} - " + det_soup.get_text(separator=" ", strip=True)
                 
-                for a in det_soup.find_all("a", href=True):
-                    if "/emprego-empresa-id/" in a["href"]:
-                        txt = a.get_text(separator=' ', strip=True)
-                        if len(txt) > 1:
-                            company = txt
-                            break
+                # Parse company name securely from the page title
+                # Format is usually: "Title - Company - Ref.ID"
+                page_title = det_soup.title.text if det_soup.title else ""
+                title_parts = page_title.split(" - ")
+                if len(title_parts) >= 3 and not title_parts[1].strip().startswith("Ref."):
+                    company = title_parts[1].strip()
+                else:
+                    # Fallback to the old method if title is weird
+                    for a in det_soup.find_all("a", href=True):
+                        if "/emprego-empresa-id/" in a["href"]:
+                            txt = a.get_text(separator=' ', strip=True)
+                            if len(txt) > 1:
+                                company = txt
+                                break
 
                 if not company or "empresa via" in company.lower() or company.strip().lower() in ["detalhe da oferta:", "detalhe da oferta", "empresa"]:
                     company = "Empresa Confidencial"
