@@ -1,0 +1,92 @@
+{
+  "candidate": {
+    "name": "Rafael Cruz",
+    "email": "rafael.lourenco.cruz20@gmail.com",
+    "degree": "Finalista de Engenharia Informática (IPCB) | Mestrado em Cibersegurança (IPLeiria)",
+    "iefp_eligible": true,
+    "languages": [
+      "Português (Nativo)",
+      "Inglês (Fluente)",
+      "Espanhol (Fluente)"
+    ],
+    "search_queries": [
+      "ciberseguranca",
+      "redes",
+      "firewall",
+      "secops",
+      "soc",
+      "security",
+      "seguranca informatica",
+      "junior devops",
+      "estagio devops"
+    ],
+    "target_titles": [
+      "Junior Cybersecurity Analyst",
+      "Cybersecurity Engineer",
+      "Junior DevOps Engineer",
+      "SecOps Engineer",
+      "Junior Network Engineer",
+      "Security Analyst",
+      "Estágio DevOps",
+      "Estágio Cibersegurança",
+      "Junior Cloud Engineer",
+      "Estágio ATIVAR.pt"
+    ],
+    "tech_stack": [
+      "cibersegurança",
+      "redes",
+      "firewall",
+      "fortinet",
+      "siem",
+      "wazuh",
+      "splunk",
+      "wireshark",
+      "automação",
+      "secdevops",
+      "devops",
+      "ansible",
+      "terraform",
+      "github actions",
+      "ci/cd",
+      "linux",
+      "ubuntu",
+      "windows server",
+      "azure",
+      "gcp",
+      "docker",
+      "python",
+      "bash",
+      "powershell",
+      "sql"
+    ],
+    "junior_boosters": [
+      "junior",
+      "jr",
+      "entry level",
+      "graduate",
+      "trainee",
+      "estágio",
+      "estagio",
+      "iefp",
+      "ativar.pt",
+      "ativar",
+      "recém-licenciado",
+      "intern",
+      "internship"
+    ],
+    "locations": [
+      "portugal",
+      "louriçal",
+      "pombal",
+      "leiria",
+      "coimbra",
+      "lisboa",
+      "porto",
+      "remoto",
+      "remote",
+      "hybrid",
+      "híbrido"
+    ]
+  },
+  "notion_database_id": "3b54e649adbe80e2b707db08342758c4"
+}

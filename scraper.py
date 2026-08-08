@@ -13,6 +13,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 from bs4 import BeautifulSoup
 import feedparser
+from config import config
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("Scraper")
@@ -257,7 +258,7 @@ class LinkedInScraper:
         )
 
     def fetch(self) -> List[Job]:
-        queries = ["Junior AI", "Junior Data Scientist", "Machine Learning Trainee", "Data Engineer Trainee", "Entry level AI", "Entry level Data"]
+        queries = config.candidate.search_queries or ["Junior AI", "Junior Data Scientist", "Machine Learning Trainee", "Data Engineer Trainee", "Entry level AI", "Entry level Data"]
         all_cards: List[Dict] = []
         seen_links: Set[str] = set()
         
@@ -678,7 +679,7 @@ class CargaDeTrabalhosScraper:
         )
 
     def fetch(self) -> List[Job]:
-        queries = ["data", "python", "inteligencia", "machine learning", "ai"]
+        queries = config.candidate.search_queries or ["data", "python", "inteligencia", "machine learning", "ai"]
         cards_to_fetch = []
         seen_links = set()
 
@@ -861,7 +862,7 @@ class NetEmpregosScraper:
         )
 
     def fetch(self) -> List[Job]:
-        queries = ["python", "data", "inteligencia artificial", "machine learning", "estagio iefp"]
+        queries = config.candidate.search_queries or ["python", "data", "inteligencia artificial", "machine learning", "estagio iefp"]
         cards_to_fetch = []
         seen_links = set()
 
@@ -1048,7 +1049,7 @@ class EuraxessScraper:
 
     def fetch(self) -> List[Job]:
         jobs = []
-        queries = ["Portugal", "AI", "Data"]
+        queries = config.candidate.search_queries or ["Portugal", "AI", "Data"]
         seen_links = set()
         
         for q in queries:

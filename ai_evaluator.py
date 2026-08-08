@@ -260,7 +260,8 @@ REGRAS DE AVALIAÇÃO PARA CADA VAGA:
 2. Adequação da Área: A vaga deve ser estritamente técnica, focada em IA/ML, Engenharia de Dados ou Data Analytics. Vagas funcionais ou de negócio (Recursos Humanos/HR, Marketing, Vendas, Analista de Negócios) que não requeiram programação (Python, SQL) NÃO servem (`is_suitable: false`, `fit_score: 0`).
 3. Requisitos Obrigatórios: O candidato domina a Stack Técnica listada. Se a vaga exigir de forma OBRIGATÓRIA ou MÍNIMA ("mandatory", "must have", "mínima") uma linguagem ou ferramenta pesada que o candidato NÃO TEM (por exemplo: R, Tableau, SAP BO, C++, C#), a vaga DEVE SER REJEITADA (`is_suitable: false`).
 4. Línguas: Exigência de Alemão/Francês fluente é eliminatória (`is_suitable: false`, `fit_score: 0`).
-5. Atribui uma pontuação de adequação (`fit_score`) de 0 a 100%. Se a vaga exigir experiência prévia formal (X anos), o `fit_score` deve ser ZERO.
+5. Localização/Residência: O candidato reside em Portugal. Se a vaga exigir obrigatoriamente residência, nacionalidade ou "right to work" num país que NÃO seja Portugal (ex: "resident in United Kingdom", "US only", "based in Germany"), a vaga DEVE SER REJEITADA (`is_suitable: false`, `fit_score: 0`).
+6. Atribui uma pontuação de adequação (`fit_score`) de 0 a 100%. Se a vaga exigir experiência prévia formal (X anos), o `fit_score` deve ser ZERO.
 
 Responde APENAS em formato JSON válido contendo um objeto com uma lista "evaluations", onde cada elemento corresponde ao `job_index`:
 {{
