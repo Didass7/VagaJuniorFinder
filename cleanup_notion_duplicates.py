@@ -95,6 +95,15 @@ def cleanup_database(database_id: str, is_rafael: bool = False):
                 if any(term in title_text.lower() for term in rafael_alien_terms):
                     is_disqualified = True
 
+            status_prop = props.get("Status", {}).get("select", {}) or props.get("Status", {}).get("status", {})
+            status_val = status_prop.get("name", "").strip() if status_prop else ""
+
+            # ABSOLUTE SAFETY RULE: NEVER TOUCH OR ARCHIVE JOBS THE USER HAS ALREADY APPLIED TO OR SAVED!
+            if status_val and status_val.lower() != "por candidatar":
+                if unique_key:
+                    seen_titles.add(unique_key)
+                continue
+
             if not title_text or not link_url or score_val is None or unique_key in seen_titles or "example.com" in link_url or is_disqualified:
                 archive_url = f"{NOTION_API_URL}/pages/{page_id}"
                 p_resp = requests.patch(archive_url, headers=headers, json={"archived": True}, timeout=15)
