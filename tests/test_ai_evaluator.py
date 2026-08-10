@@ -6,7 +6,7 @@ from matcher import JobMatcher, ScoredJob
 
 class TestAIEvaluator(unittest.TestCase):
     def setUp(self):
-        self.profile = CandidateProfile()
+        self.profile = config.candidate
         self.matcher = JobMatcher(self.profile)
 
     def test_mock_job_evaluation(self):

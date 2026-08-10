@@ -42,24 +42,22 @@ TITLE_SENIORITY_DISQUALIFIERS = [
     " iii", " ii", " level 3", " level 2", " level iii", " level ii", " 3", " 2"
 ]
 
-# Text-level Seniority Disqualifiers (Catches LinkedIn tags & description requirements)
+# Text-level Seniority Disqualifiers (Catches explicit Mid/Senior leadership levels and >= 2 years requirement)
 TEXT_SENIORITY_DISQUALIFIERS = [
     "mid-senior", "mid senior", "mid-to-senior", "mid to senior", "mid-to-senior-level", "mid to senior level",
     "mid-level to senior", "mid level to senior", "seniority level mid-senior", "seniority level senior",
     "seniority level director", "seniority level executive", "technical leadership",
     "leadership experience", "experiência em liderança", "liderança técnica", "experiencia em liderança",
-    "experiência profissional comprovada", "experiência comprovada", "experiencia profissional comprovada",
-    "experiencia comprovada", "comprovada experiência", "comprovada experiencia",
-    "proven experience", "proven track record", "experiência sólida", "experiencia sólida", "solid experience",
-    "significant professional experience", "significant experience", "senior-level", "senior level",
-    "senior developer", "senior engineer", "senior backend", "senior software", "senior data scientist",
-    "senior data engineer", "sénior developer", "sénior engineer", "sénior backend", "sr developer", "sr engineer",
+    "senior-level", "senior level", "senior developer", "senior engineer", "senior backend", "senior software",
+    "senior data scientist", "senior data engineer", "sénior developer", "sénior engineer", "sénior backend",
+    "sr developer", "sr engineer",
     "2+ years", "3+ years", "4+ years", "5+ years", "6+ years", "7+ years", "8+ years", "9+ years", "10+ years",
     "+2 years", "+3 years", "+4 years", "+5 years", "+6 years", "+7 years", "+8 years", "+9 years", "+10 years",
     "2+ anos", "3+ anos", "4+ anos", "5+ anos", "6+ anos", "7+ anos", "8+ anos", "9+ anos", "10+ anos",
     "+2 anos", "+3 anos", "+4 anos", "+5 anos", "+6 anos", "+7 anos", "+8+ anos", "+9 anos", "+10 anos",
-    "2 anos de experiência", "3 anos de experiência", "4 anos de experiência", "5 anos de experiência", "6 anos de experiência", "7 anos de experiência",
-    "2 years of experience", "3 years of experience", "4 years of experience", "5 years of experience", "6 years of experience", "7 years of experience"
+    "2 anos de experiência", "3 anos de experiência", "4 anos de experiência", "5 anos de experiência",
+    "2 years of experience", "3 years of experience", "4 years of experience", "5 years of experience",
+    "2 to 5 years", "2 a 5 anos", "2 a 3 anos", "2 to 3 years", "2 to 4 years", "2 a 4 anos"
 ]
 
 # Precompiled regexes for fast disqualifier matching
@@ -265,7 +263,7 @@ class JobMatcher:
 
         tech_score = min(15.0, len(matched_skills) * 3.0)
         if len(matched_skills) == 0:
-            tech_score = -15.0  # Heavy penalty for roles that lack any of the candidate's skills
+            tech_score = 0.0 if (has_target_title or has_tech_in_title) else -10.0
 
         # Final Combined Score Calculation
         raw_score = title_score + booster_score + location_score + tech_score

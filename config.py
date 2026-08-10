@@ -30,7 +30,7 @@ class AppConfig:
     groq_model_name: str = os.getenv("GROQ_MODEL_NAME", "llama-3.1-8b-instant")
     enable_ai_evaluation: bool = os.getenv("ENABLE_AI_EVALUATION", "true").lower() == "true"
 
-    ai_model_name: str = os.getenv("AI_MODEL_NAME", "gemini-2.5-flash")
+    ai_model_name: str = os.getenv("AI_MODEL_NAME", "gemini-2.0-flash")
     
     # Notion Integration Configuration
     notion_token: str = os.getenv("NOTION_TOKEN", os.getenv("NOTION_API_KEY", ""))

@@ -26,7 +26,7 @@ class AIEvaluator:
         self.groq_model_name = config.groq_model_name or "llama-3.1-8b-instant"
         
         self.gemini_api_key = gemini_api_key if gemini_api_key is not None else config.gemini_api_key
-        self.gemini_model_name = config.ai_model_name or "gemini-2.5-flash"
+        self.gemini_model_name = config.ai_model_name or "gemini-2.0-flash"
         
         self._groq_client = None
         self._gemini_client = None
@@ -39,7 +39,7 @@ class AIEvaluator:
             except Exception as e:
                 logger.warning(f"Failed to initialize Groq Client: {e}")
 
-        if not self._groq_client and self.gemini_api_key:
+        if self.gemini_api_key:
             try:
                 from google import genai
                 self._gemini_client = genai.Client(api_key=self.gemini_api_key)
@@ -132,23 +132,27 @@ class AIEvaluator:
                     ],
                     response_format={"type": "json_object"},
                     temperature=0.2,
-                    max_completion_tokens=2000
+                    max_completion_tokens=3500
                 )
 
                 content = response.choices[0].message.content
                 if not content:
                     return {}
 
-                return self._parse_batch_json_response(content, batch)
+                parsed = self._parse_batch_json_response(content, batch)
+                if not parsed and self._gemini_client:
+                    logger.warning("⚠️ Groq response parsing failed or empty. Falling back to Gemini API...")
+                    return self._evaluate_batch_with_gemini(batch, profile)
+                return parsed
 
             except Exception as e:
                 err_str = str(e).lower()
-                if "rate_limit" in err_str or "429" in err_str:
+                if "rate_limit" in err_str or "429" in err_str or "400" in err_str or "json_validate_failed" in err_str:
                     if self._gemini_client:
-                        logger.warning("⏳ Groq 429 rate limit hit. Falling back immediately to Gemini API...")
+                        logger.warning(f"⏳ Groq error ({e}). Falling back immediately to Gemini API...")
                         return self._evaluate_batch_with_gemini(batch, profile)
-                    backoff = 20 * attempt  # Waits 20s, 40s, 60s, 80s to allow TPM limits to reset (1 minute rolling window)
-                    logger.warning(f"⏳ Groq rate limit hit (attempt {attempt}/{max_attempts}). Waiting {backoff}s before retry...")
+                    backoff = 15 * attempt
+                    logger.warning(f"⏳ Groq rate limit/error (attempt {attempt}/{max_attempts}). Waiting {backoff}s before retry...")
                     time.sleep(backoff)
                     continue
 
@@ -233,7 +237,7 @@ class AIEvaluator:
 - Fonte: {job.source}
 - Descrição:
 \"\"\"
-{job.description[:4000]}
+{job.description[:2500]}
 \"\"\"
 """)
 
@@ -256,12 +260,12 @@ VAGAS NO LOTE A AVALIAR:
 {all_jobs_str}
 
 REGRAS DE AVALIAÇÃO PARA CADA VAGA:
-1. Nível de Senioridade: O candidato tem 0 anos de experiência empresarial formal, MAS possui 1 ano de experiência prática muito forte através de projetos de engenharia complexos (IA Generativa, LLMs, RAG, FastAPI, DuckDB, Python). Se a vaga exigir "Experiência com [Tecnologia]" (ex: "Experiência com IA Generativa, LLMs", "Familiarity with Python") SEM exigir especificamente anos de experiência no mercado de trabalho (como "3+ years of professional experience"), a vaga É ADEQUADA e deve ser aceite. A vaga SÓ DEVE SER REJEITADA se exigir explicitamente X anos de experiência profissional (ex: "Requires 2+ years of experience in a similar role") ou se mencionar explicitamente posições Mid-Level/Senior.
+1. Nível de Senioridade: O candidato é Júnior / Recém-licenciado (0 a 1 ano de experiência). Se a vaga exigir explicitamente 2 ou mais anos de experiência profissional formal (ex: "2+ years", "2 a 5 anos", "at least 2 years", "mínimo de 2 anos de experiência"), a vaga NÃO É ADEQUADA e DEVE SER REJEITADA (`is_suitable: false`, `fit_score: 0`). A vaga só é adequada se for para Júnior, Entry-Level, Recém-licenciado, Estágio, Trainee ou se exigir de 0 a 1 ano de experiência.
 2. Adequação da Área: A vaga deve ser estritamente técnica, focada em IA/ML, Engenharia de Dados ou Data Analytics. Vagas funcionais ou de negócio (Recursos Humanos/HR, Marketing, Vendas, Analista de Negócios) que não requeiram programação (Python, SQL) NÃO servem (`is_suitable: false`, `fit_score: 0`).
 3. Requisitos Obrigatórios: O candidato domina a Stack Técnica listada. Se a vaga exigir de forma OBRIGATÓRIA ou MÍNIMA ("mandatory", "must have", "mínima") uma linguagem ou ferramenta pesada que o candidato NÃO TEM (por exemplo: R, Tableau, SAP BO, C++, C#), a vaga DEVE SER REJEITADA (`is_suitable: false`).
 4. Línguas: Exigência de Alemão/Francês fluente é eliminatória (`is_suitable: false`, `fit_score: 0`).
 5. Localização/Residência: O candidato reside em Portugal. Se a vaga exigir obrigatoriamente residência, nacionalidade ou "right to work" num país que NÃO seja Portugal (ex: "resident in United Kingdom", "US only", "based in Germany"), a vaga DEVE SER REJEITADA (`is_suitable: false`, `fit_score: 0`).
-6. Atribui uma pontuação de adequação (`fit_score`) de 0 a 100%. Se a vaga exigir experiência prévia formal (X anos), o `fit_score` deve ser ZERO.
+6. Atribui uma pontuação de adequação (`fit_score`) de 0 a 100%. Se a vaga exigir 2 ou mais anos de experiência profissional formal, o `fit_score` deve ser ZERO.
 
 Responde APENAS em formato JSON válido contendo um objeto com uma lista "evaluations", onde cada elemento corresponde ao `job_index`:
 {{
