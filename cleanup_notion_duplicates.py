@@ -16,12 +16,9 @@ if sys.stdout.encoding != 'utf-8':
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("NotionCleanup")
 
-def cleanup_empty_or_duplicate_notion_pages():
+def cleanup_database(database_id: str, is_rafael: bool = False):
     token = config.notion_token
-    database_id = config.notion_database_id
-
     if not token or not database_id:
-        print("❌ NOTION_TOKEN or NOTION_DATABASE_ID not configured in .env!")
         return
 
     url_query = f"{NOTION_API_URL}/databases/{database_id}/query"
@@ -49,7 +46,8 @@ def cleanup_empty_or_duplicate_notion_pages():
             has_more = res_data.get("has_more", False)
             start_cursor = res_data.get("next_cursor")
 
-        print(f"📋 Querying {len(pages)} total pages in Notion to clean up duplicates and empty rows...")
+        target_name = "Rafael" if is_rafael else "Diogo"
+        print(f"📋 Querying {len(pages)} total pages in Notion ({target_name}'s database) to clean up...")
 
         seen_titles = set()
         archived_count = 0
@@ -58,25 +56,17 @@ def cleanup_empty_or_duplicate_notion_pages():
             page_id = page.get("id")
             props = page.get("properties", {})
             
-            # Extract title and link
-            title_text = ""
-            link_url = ""
-
-            for p_name, p_data in props.items():
-                p_type = p_data.get("type")
-                if p_type == "title":
-                    title_list = p_data.get("title", [])
-                    if title_list:
-                        title_text = title_list[0].get("text", {}).get("content", "").strip()
-                elif p_type == "url" and p_data.get("url"):
-                    link_url = p_data.get("url").strip()
-
+            title_prop = props.get("Título da Vaga", {}).get("title", [])
+            title_text = title_prop[0].get("text", {}).get("content", "").strip() if title_prop else ""
+            
             empresa_prop = props.get("Empresa", {}).get("rich_text", [])
-            empresa_text = ""
-            if empresa_prop:
-                empresa_text = empresa_prop[0].get("text", {}).get("content", "").strip()
+            empresa_text = empresa_prop[0].get("text", {}).get("content", "").strip() if empresa_prop else ""
+
+            link_prop = props.get("Link", {}).get("url")
+            link_url = link_prop.strip() if link_prop else ""
 
             def _clean(s: str) -> str:
+                if not s: return ""
                 s_clean = re.sub(r"\b(remote|remoto|teletrabalho|híbrido|hibrido|hybrid|presencial|lisboa|lisbon|portugal|modelo)\b.*$", "", s, flags=re.IGNORECASE)
                 return " ".join(s_clean.lower().translate(str.maketrans('', '', string.punctuation)).split())
 
@@ -96,25 +86,38 @@ def cleanup_empty_or_duplicate_notion_pages():
                 'proven experience', 'mid-senior', 'mid senior', 'senior', 'sénior', 'backend developer',
                 'data annotator', 'video specialist', 'generative ai video', 'editor de vídeo', 'editor de video', 'videógrafo', 'videografo'
             ]
+            
             is_disqualified = any(term in title_text.lower() or term in analysis_text for term in disq_terms) or ("081f8b24fdc9370c" in link_url) or ("a97995c0ea22a779" in link_url)
+            
+            if is_rafael:
+                # Disqualify Data Science / Data Engineering jobs for Rafael
+                rafael_alien_terms = ["data engineer", "data scientist", "cientista de dados", "bi analyst", "analista de bi"]
+                if any(term in title_text.lower() for term in rafael_alien_terms):
+                    is_disqualified = True
 
             if not title_text or not link_url or score_val is None or unique_key in seen_titles or "example.com" in link_url or is_disqualified:
-                # Archive dummy test / duplicate / incomplete / disqualified row
                 archive_url = f"{NOTION_API_URL}/pages/{page_id}"
                 p_resp = requests.patch(archive_url, headers=headers, json={"archived": True}, timeout=15)
                 if p_resp.status_code == 200:
                     archived_count += 1
-                    print(f"  🗑️ Archived test/incomplete/disqualified row: '{title_text or 'Sem Título'}' @ '{empresa_text}' ({link_url})")
+                    print(f"  🗑️ Archived row: '{title_text or 'Sem Título'}' @ '{empresa_text}' ({link_url})")
 
             else:
                 if unique_key:
                     seen_titles.add(unique_key)
 
-
-        print(f"\n🎉 SUCCESS! Cleaned up {archived_count} empty/duplicate rows from Notion!")
+        print(f"🎉 Cleaned up {archived_count} rows from {target_name}'s Notion database!\n")
 
     except Exception as e:
-        print(f"❌ Error during Notion cleanup: {e}")
+        print(f"❌ Error during Notion cleanup for {database_id}: {e}")
+
+def cleanup_empty_or_duplicate_notion_pages():
+    # Clean Diogo database
+    if config.notion_database_id:
+        cleanup_database(config.notion_database_id, is_rafael=False)
+    # Clean Rafael database
+    rafael_db_id = "3b54e649adbe80e2b707db08342758c4"
+    cleanup_database(rafael_db_id, is_rafael=True)
 
 if __name__ == "__main__":
     cleanup_empty_or_duplicate_notion_pages()

@@ -182,11 +182,25 @@ class JobMatcher:
         target_titles_lower = [t.lower() for t in self.profile.target_titles]
         tech_stack_lower = [t.lower() for t in self.profile.tech_stack]
         
-        # We consider a job relevant if the title contains ANY of the target titles,
-        # OR if it contains ANY of the tech stack keywords.
         has_target_title = any(tt in title_lower for tt in target_titles_lower)
         has_tech_in_title = any(ts in title_lower for ts in tech_stack_lower)
-        
+
+        # Protect against cross-profile leaks (e.g. Data Engineer job slipping into Cybersecurity/DevOps profile)
+        data_domain_terms = ["data engineer", "data scientist", "cientista de dados", "bi analyst", "analista de bi", "data architect"]
+        security_net_terms = ["cybersecurity", "cibersegurança", "network engineer", "soc analyst", "sysadmin"]
+
+        target_titles_str = " ".join(target_titles_lower)
+        is_security_profile = any(s in target_titles_str for s in ["cybersecurity", "cibersegurança", "devops", "network", "redes", "soc"])
+        is_data_profile = any(d in target_titles_str for d in ["data", "dados", "ai ", "ia ", "machine learning", "inteligência artificial", "inteligencia artificial"])
+
+        if is_security_profile and not is_data_profile and not has_target_title:
+            if any(dt in title_lower for dt in data_domain_terms):
+                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Fora do Perfil", match_reason="Vaga de Engenharia/Ciência de Dados fora do perfil de Cibersegurança/DevOps")
+
+        if is_data_profile and not is_security_profile and not has_target_title:
+            if any(st in title_lower for st in security_net_terms):
+                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Fora do Perfil", match_reason="Vaga de Cibersegurança/Redes fora do perfil de IA/Data")
+
         if not has_target_title and not has_tech_in_title:
             return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Fora do Perfil", match_reason="Título não corresponde às funções ou tecnologias alvo do candidato")
 

@@ -71,7 +71,7 @@ NON_JOB_DOMAINS = [
 PRE_FILTER_DISQUALIFIERS = [
     "ui engineer", "ux engineer", "front-end", "frontend", "react", "vue", "angular",
     "electronics engineer", "rf engineer", "hardware", "embedded", "qa tester", "qa engineer",
-    "sysadmin", "network engineer", "cybersecurity", "cibersegurança", "salesforce", "sap ",
+    "salesforce", "sap ",
     "scrum master", "helpdesk", "support technician", "webmaster", "marketing", "social media",
     "growth", "sales", "comercial", "branding", "copywriter", "videógrafo", "data annotator", "anotador de dados", "annotator",
     "administrativo", "administrativa", "contabilidade", "contabilista", "accounting", "accountant", "recursos humanos", "recruiter", "secretariado", "financeiro",
