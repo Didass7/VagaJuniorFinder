@@ -333,6 +333,11 @@ class JobMatcher:
                         sj.seniority_status = ai_res.seniority_detected
                     sj.ai_pros = ai_res.pros
                     sj.ai_cons = ai_res.cons
+                    
+                    if "[TRUNCADO]" in sj.job.title:
+                        sj.seniority_status = "Requer Verificação (Truncado)"
+                        sj.score = min(sj.score, 50.0)
+                        
                     final_scored_jobs.append(sj)
                 else:
                     text_c = f"{sj.job.title} {sj.job.description}".lower()
@@ -344,6 +349,10 @@ class JobMatcher:
                         sj.seniority_status = "Recém-Licenciado (Avaliado s/ IA)"
                     else:
                         sj.seniority_status = "Júnior Potencial (Avaliado s/ IA)"
+                        
+                    if "[TRUNCADO]" in sj.job.title:
+                        sj.seniority_status = "Requer Verificação (Truncado)"
+                        sj.score = min(sj.score, 50.0)
 
                     if not sj.ai_reasoning:
                         sj.ai_reasoning = f"⚠️ [Falha IA] Avaliada por heurística: Vaga adequada para perfil Júnior"
