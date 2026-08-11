@@ -180,7 +180,7 @@ class NotionStore:
         company_name = extract_company_from_link(job.link, job.title, job.company)
 
         # Map properties dynamically if present in user's database schema
-        raw_reason_text = (sj.ai_reasoning if sj.ai_evaluated else sj.match_reason) or ""
+        raw_reason_text = sj.ai_reasoning if sj.ai_reasoning else sj.match_reason
         # Normalize values to match exact Notion schema options
         modo_clean = "Remoto" if "remoto" in job.work_mode.lower() else "Presencial / Híbrido"
         seniority_clean = "Recém-licenciado" if any(t in sj.seniority_status.lower() for t in ["recém", "recem", "0-1", "estágio", "estagio", "iefp", "ativar"]) else "Júnior"
@@ -228,7 +228,7 @@ class NotionStore:
 
 
         # Children page content blocks (ensures all job info & AI breakdown is accessible inside the page)
-        reason_text = sj.ai_reasoning if sj.ai_evaluated else sj.match_reason
+        reason_text = sj.ai_reasoning if sj.ai_reasoning else sj.match_reason
         children = [
             {
                 "object": "block",

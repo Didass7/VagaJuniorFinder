@@ -293,7 +293,7 @@ class JobMatcher:
             matched_skills=matched_skills,
             missing_skills=[],
             seniority_status=seniority_status,
-            match_reason=f"Vaga avaliada com base nas preferências dinâmicas do perfil"
+            match_reason=f"Avaliação Heurística. Skills: {', '.join(matched_skills) if matched_skills else 'Nenhuma'}."
         )
 
     def process_jobs(self, jobs: List[Job]) -> List[ScoredJob]:
