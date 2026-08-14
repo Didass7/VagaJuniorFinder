@@ -275,25 +275,29 @@ class LinkedInScraper:
                 break
         return cards_data
 
-    def _fetch_detail_job(self, card_info: Dict, fetch_html: bool = True) -> Job:
+    def _fetch_detail_job(self, card_info: Dict) -> Job:
         title = card_info["title"]
         clean_link = card_info["clean_link"]
         company = card_info["company"]
         location = card_info["location"]
         pub_date = card_info["pub_date"]
         
-        desc = f"Vaga de {title} na empresa {company} ({location}). Oferta publicada em {pub_date}. Consulte os detalhes completos no link da candidatura."
-        if fetch_html:
-            try:
+        desc = ""
+        try:
+            # Extract numeric job ID from LinkedIn URL
+            id_match = re.search(r"(\d{8,12})", clean_link)
+            if id_match:
+                job_posting_id = id_match.group(1)
+                guest_api_url = f"https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/{job_posting_id}"
                 headers = get_random_headers()
                 headers.update({
                     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-                    "Sec-Fetch-Dest": "document",
-                    "Sec-Fetch-Mode": "navigate"
+                    "Accept-Language": "pt-PT,pt;q=0.9,en-US;q=0.8,en;q=0.7",
                 })
-                detail_resp = self.session.get(clean_link, headers=headers, timeout=8)
-                if detail_resp.status_code == 200:
-                    detail_soup = BeautifulSoup(detail_resp.text, "html.parser")
+                time.sleep(random.uniform(0.3, 0.7))
+                resp = self.session.get(guest_api_url, headers=headers, timeout=10)
+                if resp.status_code == 200:
+                    detail_soup = BeautifulSoup(resp.text, "html.parser")
                     markup = (
                         detail_soup.find("div", class_=lambda c: c and "show-more-less-html__markup" in str(c)) or
                         detail_soup.find("section", class_=lambda c: c and "description" in str(c)) or
@@ -304,10 +308,10 @@ class LinkedInScraper:
                     else:
                         text_content = detail_soup.get_text(separator=" ", strip=True)
                     
-                    if len(text_content) > 50:
-                        desc = f"{title} - " + text_content
-            except Exception as d_err:
-                logger.debug(f"LinkedIn detail fetch failed for {clean_link}: {d_err}")
+                    if len(text_content) > 100:
+                        desc = f"{title} - " + clean_job_description(text_content)
+        except Exception as d_err:
+            logger.debug(f"LinkedIn detail fetch failed for {clean_link}: {d_err}")
 
         return Job(
             title=title, company=company, location=location,
@@ -329,23 +333,20 @@ class LinkedInScraper:
                     all_cards.append(card)
             time.sleep(random.uniform(0.4, 0.8))
 
-        # 2. Fetch detail bodies concurrently with controlled batch limit
+        # 2. Fetch full detail bodies concurrently
         jobs: List[Job] = []
         if all_cards:
-            cards_to_detail = all_cards[:35]
-            cards_without_detail = all_cards[35:]
-            with ThreadPoolExecutor(max_workers=5) as executor:
-                future_to_detail = {executor.submit(self._fetch_detail_job, card, True): card for card in cards_to_detail}
+            with ThreadPoolExecutor(max_workers=6) as executor:
+                future_to_detail = {executor.submit(self._fetch_detail_job, card): card for card in all_cards}
                 for future in as_completed(future_to_detail):
                     try:
-                        jobs.append(future.result())
+                        job = future.result()
+                        if job.description and len(job.description) >= 100:
+                            jobs.append(job)
                     except Exception as e:
                         logger.debug(f"[LinkedIn Portal] Error fetching job detail: {e}")
 
-            for card in cards_without_detail:
-                jobs.append(self._fetch_detail_job(card, fetch_html=False))
-
-        logger.info(f"[LinkedIn Portal] Safely fetched {len(jobs)} fresh jobs.")
+        logger.info(f"[LinkedIn Portal] Safely fetched {len(jobs)} fresh jobs with full detail body parsing.")
         return jobs
 
 
