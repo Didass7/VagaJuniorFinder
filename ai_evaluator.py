@@ -72,12 +72,15 @@ class AIEvaluator:
             return {}
 
         results: Dict[str, AIEvaluationResult] = {}
+        total_batches = (len(jobs) + batch_size - 1) // batch_size
+        logger.info(f"🤖 Starting AI batch evaluation: {len(jobs)} jobs across {total_batches} batches via {self.active_provider}...")
         
         # Split jobs into chunks of batch_size
-        for i in range(0, len(jobs), batch_size):
+        for batch_num, i in enumerate(range(0, len(jobs), batch_size), 1):
             chunk = jobs[i : i + batch_size]
             chunk_results = self._process_single_batch(chunk, profile)
             results.update(chunk_results)
+            logger.info(f"🤖 Evaluated batch {batch_num}/{total_batches} ({len(chunk_results)}/{len(chunk)} jobs processed).")
 
         return results
 
@@ -114,9 +117,9 @@ class AIEvaluator:
     def _evaluate_batch_with_groq(self, batch: List[Job], profile: CandidateProfile) -> Dict[str, AIEvaluationResult]:
         prompt = self._build_batch_prompt(batch, profile)
 
-        max_attempts = 4
+        max_attempts = 3
         for attempt in range(1, max_attempts + 1):
-            time.sleep(6.0)  # Pacing delay between batch calls to stay strictly below 6000 TPM limit
+            time.sleep(1.5)  # Polite delay between batch calls
             try:
                 response = self._groq_client.chat.completions.create(
                     model=self.groq_model_name,
@@ -132,7 +135,7 @@ class AIEvaluator:
                     ],
                     response_format={"type": "json_object"},
                     temperature=0.2,
-                    max_completion_tokens=3500
+                    max_completion_tokens=2500
                 )
 
                 content = response.choices[0].message.content
@@ -264,7 +267,7 @@ class AIEvaluator:
 - Fonte: {job.source}
 - Descrição:
 \"\"\"
-{job.description[:2500]}
+{job.description[:1200]}
 \"\"\"
 """)
 

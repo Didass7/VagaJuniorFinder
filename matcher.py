@@ -2,11 +2,14 @@ from __future__ import annotations
 import re
 import datetime
 import email.utils
+import logging
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Any, Set
 from config import CandidateProfile, config
 from scraper import Job
 from ai_evaluator import AIEvaluator, AIEvaluationResult
+
+logger = logging.getLogger("Matcher")
 
 # Irrelevant Non-Target Roles Disqualifiers (Hard Disqualification if present in title)
 # Removed: "network", "cybersecurity", "cibersegurança", "devops engineer", "sysadmin"
@@ -328,10 +331,14 @@ class JobMatcher:
 
         # Stage 2: Batch AI Evaluation
         if self.ai_evaluator and self.ai_evaluator.is_available:
+            logger.info(f"🤖 Stage 2: AI Evaluator ACTIVE ({self.ai_evaluator.active_provider}). Evaluating {len(heuristic_candidates)} candidate jobs...")
             candidate_jobs = [sj.job for sj in heuristic_candidates]
-            ai_results = self.ai_evaluator.evaluate_jobs_batch(candidate_jobs, self.profile, batch_size=2)
+            ai_results = self.ai_evaluator.evaluate_jobs_batch(candidate_jobs, self.profile, batch_size=4)
 
             final_scored_jobs: List[ScoredJob] = []
+            ai_accepted = 0
+            ai_rejected = 0
+
             for sj in heuristic_candidates:
                 ai_res = ai_results.get(sj.job.job_id)
                 if ai_res:
@@ -342,6 +349,7 @@ class JobMatcher:
                         sj.score = 0.0
                         sj.seniority_status = f"Rejeitada por IA ({ai_res.seniority_detected})"
                         sj.match_reason = ai_res.reasoning
+                        ai_rejected += 1
                         continue
 
                     blended_score = round(0.5 * sj.score + 0.5 * ai_res.fit_score, 1)
@@ -358,27 +366,33 @@ class JobMatcher:
                         sj.score = min(sj.score, 50.0)
                         
                     final_scored_jobs.append(sj)
+                    ai_accepted += 1
                 else:
                     text_c = f"{sj.job.title} {sj.job.description}".lower()
                     if "iefp" in text_c or "ativar.pt" in text_c:
-                        sj.seniority_status = "Elegível IEFP (Avaliado s/ IA)"
+                        sj.seniority_status = "Elegível IEFP"
                     elif "estágio" in text_c or "estagio" in text_c or "trainee" in text_c:
-                        sj.seniority_status = "Estágio (Avaliado s/ IA)"
+                        sj.seniority_status = "Estágio"
                     elif "recém-licenciado" in text_c or "recem-licenciado" in text_c or "0-1" in text_c:
-                        sj.seniority_status = "Recém-Licenciado (Avaliado s/ IA)"
+                        sj.seniority_status = "Recém-Licenciado"
                     else:
-                        sj.seniority_status = "Júnior Potencial (Avaliado s/ IA)"
+                        sj.seniority_status = "Júnior Potencial"
                         
                     if "[TRUNCADO]" in sj.job.title:
                         sj.seniority_status = "Requer Verificação (Truncado)"
                         sj.score = min(sj.score, 50.0)
 
                     if not sj.ai_reasoning:
-                        sj.ai_reasoning = f"⚠️ [Falha IA] Avaliada por heurística: Vaga adequada para perfil Júnior"
+                        sj.ai_reasoning = f"Avaliação Heurística: Vaga adequada para perfil Júnior ({', '.join(sj.matched_skills[:3]) if sj.matched_skills else 'Target Role'})"
                     final_scored_jobs.append(sj)
 
+            logger.info(f"🤖 Stage 2 AI Summary: {ai_accepted} accepted, {ai_rejected} rejected as non-junior/unsuitable.")
             final_scored_jobs.sort(key=lambda x: x.score, reverse=True)
             return final_scored_jobs
-
-        heuristic_candidates.sort(key=lambda x: x.score, reverse=True)
-        return heuristic_candidates
+        else:
+            logger.info("ℹ️ Stage 2: AI Evaluator NOT ACTIVE — Neither GROQ_API_KEY nor GEMINI_API_KEY was found in environment. Using Stage 1 Heuristic Scoring.")
+            for sj in heuristic_candidates:
+                if not sj.ai_reasoning:
+                    sj.ai_reasoning = f"Avaliação Heurística: Vaga adequada para perfil Júnior ({', '.join(sj.matched_skills[:3]) if sj.matched_skills else 'Target Role'})"
+            heuristic_candidates.sort(key=lambda x: x.score, reverse=True)
+            return heuristic_candidates
