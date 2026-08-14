@@ -6,12 +6,13 @@ notifications across GitHub Actions runs. Entries older than
 MAX_AGE_DAYS are automatically pruned on each load.
 """
 
+from __future__ import annotations
 import json
 import logging
 import os
 import shutil
 import time
-from typing import List, Set
+from typing import List, Set, Optional, Dict, Any
 
 logger = logging.getLogger("SeenStore")
 

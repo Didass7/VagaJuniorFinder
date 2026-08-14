@@ -1,3 +1,4 @@
+from __future__ import annotations
 import hashlib
 import logging
 import re
@@ -6,7 +7,7 @@ import random
 import time
 import string
 from dataclasses import dataclass
-from typing import List, Dict, Set, Optional
+from typing import List, Dict, Set, Optional, Any, Callable, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 from requests.adapters import HTTPAdapter

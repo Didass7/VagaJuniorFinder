@@ -1,8 +1,9 @@
+from __future__ import annotations
 import re
 import datetime
 import email.utils
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any, Set
 from config import CandidateProfile, config
 from scraper import Job
 from ai_evaluator import AIEvaluator, AIEvaluationResult
