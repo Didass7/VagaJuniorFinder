@@ -42,6 +42,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: 🧪 Run Automated Test Suite
+        run: |
+          python -m unittest discover tests
+
       - name: 🔍 Execute Daily Job Finder Pipeline
         env:
           ITJOBS_API_KEY: ${{ secrets.ITJOBS_API_KEY }}

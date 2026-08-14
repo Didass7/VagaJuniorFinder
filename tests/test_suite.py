@@ -1,9 +1,9 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+import datetime
 import tempfile
 import unittest
-import openpyxl
 from config import config, CandidateProfile
 from scraper import (
     Job, is_valid_job_offer,
@@ -11,8 +11,7 @@ from scraper import (
     ArbeitnowScraper, WeWorkRemotelyScraper, RemoteOKScraper, CargaDeTrabalhosScraper,
     JobicyScraper, HimalayasScraper, NetEmpregosScraper, TeamlyzerScraper,
     JobspressoScraper, EuraxessScraper, IndeedScraper, GlassdoorScraper,
-    SapoEmpregosScraper, TuringScraper, WellfoundScraper, HackerNewsScraper,
-    IEFPScraper, JobIngestionPipeline
+    WellfoundScraper, HackerNewsScraper, IEFPScraper, JobIngestionPipeline
 )
 from matcher import JobMatcher
 from seen_store import SeenStore
@@ -65,17 +64,16 @@ class TestScraperModule(unittest.TestCase):
         self.assertEqual(job2.work_mode, "Remoto")
 
     def test_scrapers_instantiation(self):
-        """Verifies that all 21 scrapers can be instantiated without errors."""
+        """Verifies that all 19 active scrapers can be instantiated without errors."""
         scrapers = [
             LinkedInScraper(), ITJobsScraper(), LandingJobsScraper(),
             RemotiveScraper(), ArbeitnowScraper(), WeWorkRemotelyScraper(),
             RemoteOKScraper(), CargaDeTrabalhosScraper(), JobicyScraper(),
             HimalayasScraper(), NetEmpregosScraper(), TeamlyzerScraper(),
             JobspressoScraper(), EuraxessScraper(), IndeedScraper(),
-            GlassdoorScraper(), SapoEmpregosScraper(), TuringScraper(),
-            WellfoundScraper(), HackerNewsScraper(), IEFPScraper()
+            GlassdoorScraper(), WellfoundScraper(), HackerNewsScraper(), IEFPScraper()
         ]
-        self.assertEqual(len(scrapers), 21)
+        self.assertEqual(len(scrapers), 19)
         for s in scrapers:
             self.assertTrue(hasattr(s, "fetch"))
 
@@ -163,6 +161,9 @@ class TestMatcherModule(unittest.TestCase):
             source="Net-Empregos",
             pub_date="2026-08-05"
         )
+        scored_jobs = self.matcher.process_jobs([job])
+        self.assertEqual(len(scored_jobs), 0)
+
     def test_generative_ai_video_specialist_disqualification(self):
         """Verifies that Generative AI Video Specialist / Multimedia roles are strictly disqualified."""
         job = Job(
@@ -241,6 +242,20 @@ from scraper import clean_job_description
 class TestRobustnessImprovements(unittest.TestCase):
     """Unit tests for robust JSON parsing, text truncation, and HTML cleaning."""
 
+    def setUp(self):
+        self.profile = CandidateProfile(
+            name="Diogo Oliveira",
+            email="diogo@example.com",
+            degree="Mestrado em Engenharia Informática",
+            iefp_eligible=True,
+            languages=["português", "inglês"],
+            search_queries=["Junior AI", "Data Science"],
+            target_titles=["Junior Data Scientist", "AI Engineer"],
+            tech_stack=["python", "pytorch", "scikit-learn", "sql"],
+            junior_boosters=["estágio", "junior", "trainee"],
+            locations=["Lisboa", "Porto", "Coimbra", "Leiria", "Pombal", "Remoto"]
+        )
+
     def test_clean_job_description(self):
         html_input = "<div><h1>Title</h1><script>var x=1;</script><p>Text with <b>HTML</b> tags.</p></div>"
         cleaned = clean_job_description(html_input)
@@ -255,11 +270,73 @@ class TestRobustnessImprovements(unittest.TestCase):
         self.assertTrue(cleaned.startswith("{"))
         self.assertTrue(cleaned.endswith("}"))
 
-    def test_notion_truncate_text(self):
-        long_str = "a" * 2500
-        truncated = NotionStore._truncate_text(long_str, 1990)
-        self.assertEqual(len(truncated), 1990)
-        self.assertTrue(truncated.endswith("..."))
+    def test_is_seen_candidate_hash(self):
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tf:
+            temp_path = tf.name
+
+        try:
+            store = SeenStore(filepath=temp_path)
+            title = "Junior Data Scientist"
+            company = "Tech Corp"
+            # Not seen yet
+            self.assertFalse(store.is_seen_candidate(title, company))
+            
+            # Create job and mark as seen
+            j = Job(
+                title=title, company=company, location="Lisboa",
+                work_mode="Presencial", link="https://example.com/job1",
+                description="Python, Machine Learning", source="Test",
+                pub_date=datetime.date.today().isoformat()
+            )
+            store.mark_seen([j.job_id])
+            self.assertTrue(store.is_seen_candidate(title, company))
+        finally:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+
+    def test_dynamic_location_matching(self):
+        matcher = JobMatcher(profile=self.profile)
+        # Test Portuguese municipality that is not in the old hardcoded 8 cities (e.g. Pombal, Cascais, Guimarães)
+        job_pombal = Job(
+            title="Junior Data Scientist", company="Tech SA", location="Pombal, Portugal",
+            work_mode="Presencial", link="https://example.com/p1",
+            description="Requisitos: Licenciatura em Engenharia Informática, conhecimentos de Python, SQL e Machine Learning.",
+            source="Test", pub_date=datetime.date.today().isoformat()
+        )
+        scored = matcher.evaluate_job(job_pombal)
+        self.assertNotEqual(scored.seniority_status, "Fora do Âmbito Geográfico")
+        self.assertGreater(scored.score, 0)
+
+        # Foreign location presencial should be rejected
+        job_madrid = Job(
+            title="Junior Data Scientist", company="Tech SA", location="Madrid, Spain",
+            work_mode="Presencial", link="https://example.com/m1",
+            description="Requisitos: Licenciatura em Engenharia Informática, conhecimentos de Python, SQL e Machine Learning.",
+            source="Test", pub_date=datetime.date.today().isoformat()
+        )
+        scored_madrid = matcher.evaluate_job(job_madrid)
+        self.assertEqual(scored_madrid.seniority_status, "Fora do Âmbito Geográfico")
+
+    def test_ai_evaluator_resilience_partial_json(self):
+        evaluator = AIEvaluator()
+        dummy_job = Job(
+            title="Junior Python", company="AI Corp", location="Lisboa",
+            work_mode="Presencial", link="https://example.com/1",
+            description="Python & ML", source="Test", pub_date=datetime.date.today().isoformat()
+        )
+        # Unclosed JSON (e.g. truncated)
+        partial_json = '{"evaluations": [{"job_index": 0, "is_suitable": true, "fit_score": 90, "seniority_detected": "Junior", "reasoning": "Ótimo fit", "pros": ["Python"], "cons": []}'
+        res = evaluator._parse_batch_json_response(partial_json, [dummy_job])
+        self.assertIn(dummy_job.job_id, res)
+        self.assertEqual(res[dummy_job.job_id].fit_score, 90)
+
+    def test_company_extractor_caching(self):
+        from company_extractor import extract_company_from_link, _COMPANY_CACHE
+        test_url = "https://www.linkedin.com/jobs/view/data-scientist-at-super-ai-labs-12345678"
+        comp = extract_company_from_link(test_url)
+        self.assertEqual(comp, "Super Ai Labs")
+        self.assertIn(test_url, _COMPANY_CACHE)
+        self.assertEqual(_COMPANY_CACHE[test_url], "Super Ai Labs")
 
 
 if __name__ == "__main__":

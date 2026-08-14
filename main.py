@@ -28,8 +28,13 @@ def run_pipeline(dry_run: bool = False):
     logger.info(f"Target Candidate: {config.candidate.name} ({config.candidate.email})")
     logger.info("==================================================")
 
-    # ── Step 1: Scrape ── Fetch jobs from all portals
-    pipeline = JobIngestionPipeline(itjobs_api_key=config.itjobs_api_key)
+    # ── Step 1: Scrape ── Fetch jobs from all portals (with early SeenStore check)
+    seen = SeenStore(filepath=config.cache_file)
+    pipeline = JobIngestionPipeline(
+        itjobs_api_key=config.itjobs_api_key,
+        seen_store=seen,
+        search_queries=config.candidate.search_queries
+    )
     raw_jobs = pipeline.run()
 
     if not raw_jobs:
@@ -37,7 +42,6 @@ def run_pipeline(dry_run: bool = False):
         return
 
     # ── Step 2: Deduplicate ── Keep only jobs we haven't seen before
-    seen = SeenStore(filepath=config.cache_file)
     new_jobs = seen.filter_new(raw_jobs)
 
     logger.info(f"🧠 Seen store: {seen.count} tracked | {len(raw_jobs)} ingested | {len(new_jobs)} new")

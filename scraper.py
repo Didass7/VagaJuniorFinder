@@ -202,8 +202,10 @@ class Job:
 
 class LinkedInScraper:
     """Scrapes LinkedIn public search portal for Portugal AI & Data Science jobs with realistic browser headers."""
-    def __init__(self, session: Optional[requests.Session] = None):
+    def __init__(self, session: Optional[requests.Session] = None, is_seen_func: Optional[Any] = None, queries: Optional[List[str]] = None):
         self.session = session or get_session()
+        self.is_seen_func = is_seen_func
+        self.queries = queries
 
     def _fetch_query_cards(self, query: str, max_pages: int = 3) -> List[Dict]:
         cards_data = []
@@ -225,7 +227,10 @@ class LinkedInScraper:
                 resp = self.session.get(url, headers=headers, timeout=12)
 
                 if resp.status_code != 200:
-                    logger.warning(f"[{self.__class__.__name__}] HTTP {resp.status_code} for query '{query}' (start={start})")
+                    if resp.status_code == 429:
+                        logger.debug(f"[{self.__class__.__name__}] HTTP 429 rate limit for query '{query}' (start={start})")
+                    else:
+                        logger.warning(f"[{self.__class__.__name__}] HTTP {resp.status_code} for query '{query}' (start={start})")
                     break
 
                 soup = BeautifulSoup(resp.text, "html.parser")
@@ -254,6 +259,8 @@ class LinkedInScraper:
                         pub_date = time_elem.get("datetime")[:10]
 
                     if is_valid_job_offer(clean_link, title):
+                        if self.is_seen_func and self.is_seen_func(title, company):
+                            continue
                         cards_data.append({
                             "title": title, "clean_link": clean_link,
                             "company": company, "location": location,
@@ -267,41 +274,39 @@ class LinkedInScraper:
                 break
         return cards_data
 
-    def _fetch_detail_job(self, card_info: Dict) -> Job:
+    def _fetch_detail_job(self, card_info: Dict, fetch_html: bool = True) -> Job:
         title = card_info["title"]
         clean_link = card_info["clean_link"]
         company = card_info["company"]
         location = card_info["location"]
         pub_date = card_info["pub_date"]
         
-        desc = f"{title} na empresa {company} em {location}."
-        try:
-            headers = get_random_headers()
-            headers.update({
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-                "Sec-Fetch-Dest": "document",
-                "Sec-Fetch-Mode": "navigate"
-            })
-            time.sleep(random.uniform(0.3, 0.6))
-            detail_resp = self.session.get(clean_link, headers=headers, timeout=15)
-            if detail_resp.status_code != 200:
-                logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {detail_resp.status_code} for {detail_resp.url}")
-            if detail_resp.status_code == 200:
-                detail_soup = BeautifulSoup(detail_resp.text, "html.parser")
-                markup = (
-                    detail_soup.find("div", class_=lambda c: c and "show-more-less-html__markup" in str(c)) or
-                    detail_soup.find("section", class_=lambda c: c and "description" in str(c)) or
-                    detail_soup.find("div", class_=lambda c: c and "description__text" in str(c))
-                )
-                if markup:
-                    text_content = markup.get_text(separator=" ", strip=True)
-                else:
-                    text_content = detail_soup.get_text(separator=" ", strip=True)
-                
-                if len(text_content) > 50:
-                    desc = f"{title} - " + text_content
-        except Exception as d_err:
-            logger.debug(f"LinkedIn detail fetch failed for {clean_link}: {d_err}")
+        desc = f"Vaga de {title} na empresa {company} ({location}). Oferta publicada em {pub_date}. Consulte os detalhes completos no link da candidatura."
+        if fetch_html:
+            try:
+                headers = get_random_headers()
+                headers.update({
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+                    "Sec-Fetch-Dest": "document",
+                    "Sec-Fetch-Mode": "navigate"
+                })
+                detail_resp = self.session.get(clean_link, headers=headers, timeout=8)
+                if detail_resp.status_code == 200:
+                    detail_soup = BeautifulSoup(detail_resp.text, "html.parser")
+                    markup = (
+                        detail_soup.find("div", class_=lambda c: c and "show-more-less-html__markup" in str(c)) or
+                        detail_soup.find("section", class_=lambda c: c and "description" in str(c)) or
+                        detail_soup.find("div", class_=lambda c: c and "description__text" in str(c))
+                    )
+                    if markup:
+                        text_content = markup.get_text(separator=" ", strip=True)
+                    else:
+                        text_content = detail_soup.get_text(separator=" ", strip=True)
+                    
+                    if len(text_content) > 50:
+                        desc = f"{title} - " + text_content
+            except Exception as d_err:
+                logger.debug(f"LinkedIn detail fetch failed for {clean_link}: {d_err}")
 
         return Job(
             title=title, company=company, location=location,
@@ -310,35 +315,50 @@ class LinkedInScraper:
         )
 
     def fetch(self) -> List[Job]:
-        queries = config.candidate.search_queries or ["Junior AI", "Junior Data Scientist", "Machine Learning Trainee", "Data Engineer Trainee", "Entry level AI", "Entry level Data"]
+        queries = self.queries or config.candidate.search_queries or ["Junior AI", "Junior Data Scientist", "Machine Learning Trainee", "Data Engineer Trainee", "Entry level AI", "Entry level Data"]
         all_cards: List[Dict] = []
         seen_links: Set[str] = set()
         
+        # 1. Fetch query cards with polite sequential spacing
         for q in queries:
             res = self._fetch_query_cards(q)
             for card in res:
                 if card["clean_link"] not in seen_links:
                     seen_links.add(card["clean_link"])
                     all_cards.append(card)
+            time.sleep(random.uniform(0.4, 0.8))
 
+        # 2. Fetch detail bodies concurrently with controlled batch limit
         jobs: List[Job] = []
-        for card in all_cards:
-            jobs.append(self._fetch_detail_job(card))
+        if all_cards:
+            cards_to_detail = all_cards[:35]
+            cards_without_detail = all_cards[35:]
+            with ThreadPoolExecutor(max_workers=5) as executor:
+                future_to_detail = {executor.submit(self._fetch_detail_job, card, True): card for card in cards_to_detail}
+                for future in as_completed(future_to_detail):
+                    try:
+                        jobs.append(future.result())
+                    except Exception as e:
+                        logger.debug(f"[LinkedIn Portal] Error fetching job detail: {e}")
 
-        logger.info(f"[LinkedIn Portal] Safely fetched {len(jobs)} fresh jobs with full detail body parsing.")
+            for card in cards_without_detail:
+                jobs.append(self._fetch_detail_job(card, fetch_html=False))
+
+        logger.info(f"[LinkedIn Portal] Safely fetched {len(jobs)} fresh jobs.")
         return jobs
 
 
 class ITJobsScraper:
     """Scrapes ITJobs.pt portal for Portugal IT, AI & Data Science jobs with full detail body parsing."""
-    def __init__(self, session: Optional[requests.Session] = None):
+    def __init__(self, session: Optional[requests.Session] = None, is_seen_func: Optional[Any] = None):
         self.session = session or get_session()
+        self.is_seen_func = is_seen_func
 
     def _fetch_search_url_cards(self, url: str) -> List[Dict]:
         cards = []
         try:
             resp = self.session.get(url, headers=get_random_headers(), timeout=10)
-            if resp.status_code != 200:
+            if resp.status_code != 200 and resp.status_code != 404:
                 logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {resp.status_code} for {resp.url}")
             if resp.status_code == 200:
                 soup = BeautifulSoup(resp.text, "html.parser")
@@ -359,6 +379,8 @@ class ITJobsScraper:
                                 location_elem = parent.find("span", class_="location") or parent.find("div", class_="location")
                                 if location_elem:
                                     location = location_elem.get_text(separator=' ', strip=True)
+                            if self.is_seen_func and self.is_seen_func(title, company):
+                                continue
                             cards.append({
                                 "title": title, "link": full_link,
                                 "company": company, "location": location
@@ -707,8 +729,10 @@ class RemoteOKScraper:
 
 class CargaDeTrabalhosScraper:
     """Scrapes Carga de Trabalhos portal for Portuguese tech & AI jobs."""
-    def __init__(self, session: Optional[requests.Session] = None):
+    def __init__(self, session: Optional[requests.Session] = None, is_seen_func: Optional[Any] = None, queries: Optional[List[str]] = None):
         self.session = session or get_session()
+        self.is_seen_func = is_seen_func
+        self.queries = queries
 
     def _fetch_query_articles(self, q: str, max_pages: int = 3) -> List[Dict]:
         cards = []
@@ -735,6 +759,9 @@ class CargaDeTrabalhosScraper:
                     if not title or not is_valid_job_offer(link, title):
                         continue
                     
+                    if self.is_seen_func and self.is_seen_func(title, "Empresa via Carga de Trabalhos"):
+                        continue
+
                     text = art.get_text(separator=" ", strip=True)
                     cards.append({"title": title, "link": link, "summary_text": text})
                     page_added += 1
@@ -773,7 +800,7 @@ class CargaDeTrabalhosScraper:
         )
 
     def fetch(self) -> List[Job]:
-        queries = config.candidate.search_queries or ["data", "python", "inteligencia", "machine learning", "ai"]
+        queries = self.queries or config.candidate.search_queries or ["data", "python", "inteligencia", "machine learning", "ai"]
         cards_to_fetch = []
         seen_links = set()
 
@@ -850,11 +877,15 @@ class HimalayasScraper:
         for offset in offsets:
             url = f"https://himalayas.app/jobs/api?limit=50&offset={offset}"
             try:
+                time.sleep(random.uniform(0.6, 1.2))
                 h = get_random_headers()
                 h["Accept"] = "application/json"
                 resp = self.session.get(url, headers=h, timeout=10)
                 if resp.status_code != 200:
-                    logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {resp.status_code} for {resp.url}")
+                    if resp.status_code == 403:
+                        logger.debug(f"[Himalayas Portal] HTTP 403 at offset {offset}, stopping pagination.")
+                    else:
+                        logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {resp.status_code} for {resp.url}")
                     break
                 if resp.status_code == 200:
                     data = resp.json()
@@ -887,8 +918,10 @@ class HimalayasScraper:
 
 class NetEmpregosScraper:
     """Scrapes Net-Empregos portal (Portugal's largest job board) for tech, AI, Data & IEFP roles."""
-    def __init__(self, session: Optional[requests.Session] = None):
+    def __init__(self, session: Optional[requests.Session] = None, is_seen_func: Optional[Any] = None, queries: Optional[List[str]] = None):
         self.session = session or get_session()
+        self.is_seen_func = is_seen_func
+        self.queries = queries
 
     def _fetch_query_links(self, q: str, max_pages: int = 3) -> List[Dict]:
         cards = []
@@ -908,6 +941,8 @@ class NetEmpregosScraper:
                     clean_link = f"https://www.net-empregos.com{raw_href}" if not raw_href.startswith("http") else raw_href
                     title = a.get_text(separator=' ', strip=True)
                     if title and len(title) >= 5 and is_valid_job_offer(clean_link, title):
+                        if self.is_seen_func and self.is_seen_func(title, "Empresa via Net-Empregos"):
+                            continue
                         cards.append({"title": title, "link": clean_link})
                         page_added += 1
                 if page_added == 0:
@@ -964,8 +999,6 @@ class NetEmpregosScraper:
         if not company or "empresa via" in company.lower():
             company = "Empresa Confidencial"
 
-
-
         return Job(
             title=title, company=company, location=location,
             work_mode="Presencial / Híbrido", link=link, description=desc,
@@ -973,7 +1006,7 @@ class NetEmpregosScraper:
         )
 
     def fetch(self) -> List[Job]:
-        queries = config.candidate.search_queries or ["python", "data", "inteligencia artificial", "machine learning", "estagio iefp"]
+        queries = self.queries or config.candidate.search_queries or ["python", "data", "inteligencia artificial", "machine learning", "estagio iefp"]
         cards_to_fetch = []
         seen_links = set()
 
@@ -1003,8 +1036,9 @@ class NetEmpregosScraper:
 
 class TeamlyzerScraper:
     """Scrapes Teamlyzer jobs portal for tech & AI positions in Portugal."""
-    def __init__(self, session: Optional[requests.Session] = None):
+    def __init__(self, session: Optional[requests.Session] = None, is_seen_func: Optional[Any] = None):
         self.session = session or get_session()
+        self.is_seen_func = is_seen_func
 
     def _fetch_detail_page(self, card_info: dict) -> Job:
         link = card_info["link"]
@@ -1013,8 +1047,8 @@ class TeamlyzerScraper:
         desc = card_info["initial_desc"]
 
         try:
-            time.sleep(random.uniform(0.5, 1.5))
-            r = self.session.get(link, headers=get_random_headers(), timeout=20, allow_redirects=True)
+            time.sleep(random.uniform(0.2, 0.5))
+            r = self.session.get(link, headers=get_random_headers(), timeout=8, allow_redirects=True)
             if r.status_code != 200:
                 logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {r.status_code} for {r.url}")
             if r.status_code == 200:
@@ -1044,10 +1078,15 @@ class TeamlyzerScraper:
         for page in range(1, 4):
             url = f"https://pt.teamlyzer.com/companies/jobs?page={page}"
             try:
-                time.sleep(random.uniform(1.0, 2.5))
-                resp = self.session.get(url, headers=get_random_headers(), timeout=20)
+                time.sleep(random.uniform(0.8, 1.5))
+                headers = get_random_headers()
+                headers.update({
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+                    "Accept-Language": "pt-PT,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+                })
+                resp = self.session.get(url, headers=headers, timeout=10)
                 if resp.status_code != 200:
-                    logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {resp.status_code} for {resp.url}")
+                    logger.debug(f"[{self.__class__.__name__}] HTTP {resp.status_code} for {resp.url}")
                     break
                 if resp.status_code == 200:
                     soup = BeautifulSoup(resp.text, "html.parser")
@@ -1081,6 +1120,9 @@ class TeamlyzerScraper:
                         if not company:
                             company = "Empresa no Teamlyzer"
                             
+                        if self.is_seen_func and self.is_seen_func(title, company):
+                            continue
+
                         initial_desc = card.get_text(separator=" ", strip=True)
                         cards_to_fetch.append({
                             "link": link,
@@ -1090,7 +1132,7 @@ class TeamlyzerScraper:
                         })
 
             except Exception as e:
-                logger.error(f"[Teamlyzer Portal] Error at page {page}: {e}")
+                logger.debug(f"[Teamlyzer Portal] Connection issue at page {page}: {e}")
                 break
 
         jobs = []
@@ -1160,14 +1202,16 @@ class JobspressoScraper:
         logger.info(f"[Jobspresso Portal] Fetched {len(jobs)} jobs across pages 1-3.")
         return jobs
 
+
 class EuraxessScraper:
     """Scrapes Euraxess Portugal portal for AI, ML & Data Science research fellowships & R&D grants."""
-    def __init__(self, session: Optional[requests.Session] = None):
+    def __init__(self, session: Optional[requests.Session] = None, queries: Optional[List[str]] = None):
         self.session = session or get_session()
+        self.queries = queries
 
     def fetch(self) -> List[Job]:
         jobs = []
-        queries = config.candidate.search_queries or ["Portugal", "AI", "Data"]
+        queries = self.queries or config.candidate.search_queries or ["Portugal", "AI", "Data"]
         seen_links = set()
         
         for q in queries:
@@ -1225,12 +1269,14 @@ class EuraxessScraper:
 
 class IndeedScraper:
     """Scrapes Indeed Portugal (pt.indeed.com) for tech, AI & Data Science jobs."""
-    def __init__(self, session: Optional[requests.Session] = None):
+    def __init__(self, session: Optional[requests.Session] = None, is_seen_func: Optional[Any] = None, queries: Optional[List[str]] = None):
         self.session = session or get_session()
+        self.is_seen_func = is_seen_func
+        self.queries = queries
 
     def fetch(self) -> List[Job]:
         jobs = []
-        queries = config.candidate.search_queries or ["Junior AI", "Data Scientist", "Python", "Estagio Data"]
+        queries = self.queries or config.candidate.search_queries or ["Junior AI", "Data Scientist", "Python", "Estagio Data"]
         seen_links = set()
         
         for q in queries:
@@ -1275,6 +1321,9 @@ class IndeedScraper:
                         company_elem = card.find(class_=lambda c: c and "company" in str(c).lower())
                         company = company_elem.get_text(separator=" ", strip=True) if company_elem else "Empresa no Indeed"
                         
+                        if self.is_seen_func and self.is_seen_func(title, company):
+                            continue
+
                         loc_elem = card.find(class_=lambda c: c and "location" in str(c).lower())
                         location = loc_elem.get_text(separator=" ", strip=True) if loc_elem else "Portugal"
                         
@@ -1319,12 +1368,13 @@ class IndeedScraper:
 
 class GlassdoorScraper:
     """Scrapes Glassdoor Portugal portal for AI, ML & Data Science jobs."""
-    def __init__(self, session: Optional[requests.Session] = None):
+    def __init__(self, session: Optional[requests.Session] = None, queries: Optional[List[str]] = None):
         self.session = session or get_session()
+        self.queries = queries
 
     def fetch(self) -> List[Job]:
         jobs = []
-        queries = config.candidate.search_queries or ["data science", "junior ai", "python", "machine learning"]
+        queries = self.queries or config.candidate.search_queries or ["data science", "junior ai", "python", "machine learning"]
         seen_links = set()
 
         for q in queries:
@@ -1381,12 +1431,6 @@ class GlassdoorScraper:
                     break
         logger.info(f"[Glassdoor Portugal] Fetched {len(jobs)} jobs.")
         return jobs
-
-
-
-
-
-
 
 
 class WellfoundScraper:
@@ -1529,8 +1573,9 @@ class IEFPScraper:
     BASE_URL = "https://iefponline.iefp.pt"
     SEARCH_URL = f"{BASE_URL}/IEFP/pesquisas/search.do"
 
-    def __init__(self, session: Optional[requests.Session] = None):
+    def __init__(self, session: Optional[requests.Session] = None, is_seen_func: Optional[Any] = None):
         self.session = session or get_session()
+        self.is_seen_func = is_seen_func
 
     def _search_offers(self, query: str, tipo: str, seen_links: set) -> List[Job]:
         """Performs a POST search on the IEFP portal and parses the results."""
@@ -1585,6 +1630,9 @@ class IEFPScraper:
                 if not title or len(title) < 4:
                     continue
 
+                if self.is_seen_func and self.is_seen_func(title, "Empresa via IEFP"):
+                    continue
+
                 seen_links.add(link)
 
                 # Extract location from card
@@ -1629,28 +1677,33 @@ class IEFPScraper:
 
 class JobIngestionPipeline:
     """Aggregates all structured job portal scrapers concurrently and deduplicates jobs."""
-    def __init__(self, itjobs_api_key: str = ""):
+    def __init__(self, itjobs_api_key: str = "", seen_store: Optional[Any] = None, search_queries: Optional[List[str]] = None):
         self.session = get_session(pool_size=45)
-        self.linkedin_scraper = LinkedInScraper(session=self.session)
-        self.itjobs_scraper = ITJobsScraper(session=self.session)
+        self.itjobs_api_key = itjobs_api_key
+        self.seen_store = seen_store
+        self.search_queries = search_queries
+
+        is_seen_func = self.seen_store.is_seen_candidate if (self.seen_store and hasattr(self.seen_store, "is_seen_candidate")) else None
+
+        self.linkedin_scraper = LinkedInScraper(session=self.session, is_seen_func=is_seen_func, queries=search_queries)
+        self.itjobs_scraper = ITJobsScraper(session=self.session, is_seen_func=is_seen_func)
         self.landing_scraper = LandingJobsScraper(session=self.session)
         self.remotive_scraper = RemotiveScraper(session=self.session)
         self.arbeitnow_scraper = ArbeitnowScraper(session=self.session)
         self.wwr_scraper = WeWorkRemotelyScraper(session=self.session)
         self.remoteok_scraper = RemoteOKScraper(session=self.session)
-        self.carga_scraper = CargaDeTrabalhosScraper(session=self.session)
+        self.carga_scraper = CargaDeTrabalhosScraper(session=self.session, is_seen_func=is_seen_func, queries=search_queries)
         self.jobicy_scraper = JobicyScraper(session=self.session)
         self.himalayas_scraper = HimalayasScraper(session=self.session)
-        self.netempregos_scraper = NetEmpregosScraper(session=self.session)
-        self.teamlyzer_scraper = TeamlyzerScraper(session=self.session)
+        self.netempregos_scraper = NetEmpregosScraper(session=self.session, is_seen_func=is_seen_func, queries=search_queries)
+        self.teamlyzer_scraper = TeamlyzerScraper(session=self.session, is_seen_func=is_seen_func)
         self.jobspresso_scraper = JobspressoScraper(session=self.session)
-        self.euraxess_scraper = EuraxessScraper(session=self.session)
-        self.indeed_scraper = IndeedScraper(session=self.session)
-        self.glassdoor_scraper = GlassdoorScraper(session=self.session)
+        self.euraxess_scraper = EuraxessScraper(session=self.session, queries=search_queries)
+        self.indeed_scraper = IndeedScraper(session=self.session, is_seen_func=is_seen_func, queries=search_queries)
+        self.glassdoor_scraper = GlassdoorScraper(session=self.session, queries=search_queries)
         self.wellfound_scraper = WellfoundScraper(session=self.session)
         self.hn_scraper = HackerNewsScraper(session=self.session)
-        self.iefp_scraper = IEFPScraper(session=self.session)
-        self.itjobs_api_key = itjobs_api_key
+        self.iefp_scraper = IEFPScraper(session=self.session, is_seen_func=is_seen_func)
 
     def run(self) -> List[Job]:
         logger.info("🚀 Starting resilient & concurrent job portal ingestion pipeline...")
@@ -1700,7 +1753,7 @@ class JobIngestionPipeline:
             if count == -1:
                 logger.warning(f"⚠️ [{name}] FAILED — threw an exception during fetch.")
             elif count == 0:
-                logger.warning(f"⚠️ [{name}] returned 0 jobs — source may be broken or blocking requests.")
+                logger.info(f"ℹ️ [{name}] returned 0 jobs for current queries/filters.")
 
         if failed_scrapers:
             logger.warning(f"🔴 {len(failed_scrapers)}/{len(scrapers)} scrapers failed: {', '.join(failed_scrapers)}")

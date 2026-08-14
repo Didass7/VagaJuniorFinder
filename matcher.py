@@ -51,6 +51,11 @@ TEXT_SENIORITY_DISQUALIFIERS = [
     "senior-level", "senior level", "senior developer", "senior engineer", "senior backend", "senior software",
     "senior data scientist", "senior data engineer", "sénior developer", "sénior engineer", "sénior backend",
     "sr developer", "sr engineer",
+    "experiência profissional comprovada", "experiencia profissional comprovada",
+    "experiência comprovada", "experiencia comprovada",
+    "experiência prévia comprovada", "experiencia previa comprovada",
+    "proven experience", "proven professional experience", "proven track record",
+    "experiência sólida", "experiencia solida", "solid experience",
     "2+ years", "3+ years", "4+ years", "5+ years", "6+ years", "7+ years", "8+ years", "9+ years", "10+ years",
     "+2 years", "+3 years", "+4 years", "+5 years", "+6 years", "+7 years", "+8 years", "+9 years", "+10 years",
     "2+ anos", "3+ anos", "4+ anos", "5+ anos", "6+ anos", "7+ anos", "8+ anos", "9+ anos", "10+ anos",
@@ -58,6 +63,17 @@ TEXT_SENIORITY_DISQUALIFIERS = [
     "2 anos de experiência", "3 anos de experiência", "4 anos de experiência", "5 anos de experiência",
     "2 years of experience", "3 years of experience", "4 years of experience", "5 years of experience",
     "2 to 5 years", "2 a 5 anos", "2 a 3 anos", "2 to 3 years", "2 to 4 years", "2 a 4 anos"
+]
+
+PORTUGAL_LOCATIONS = [
+    "portugal", "lisboa", "lisbon", "porto", "coimbra", "braga", "castelo branco",
+    "aveiro", "leiria", "faro", "setúbal", "setubal", "viseu", "évora", "evora",
+    "guimarães", "guimaraes", "vila real", "bragança", "braganca", "guarda",
+    "beja", "portalegre", "santarém", "santarem", "viana do castelo", "madeira",
+    "funchal", "açores", "acores", "ponta delgada", "pombal", "louriçal", "alverca",
+    "oeiras", "cascais", "sintra", "almada", "amadora", "matosinhos", "maia", "gaia",
+    "vila nova de gaia", "ovar", "são joão da madeira", "figueira da foz", "covilhã",
+    "fundão", "seixal", "barreiro", "loures", "odivelas", "vila franca de xira"
 ]
 
 # Precompiled regexes for fast disqualifier matching
@@ -162,7 +178,9 @@ class JobMatcher:
         if (today - job_date).days > 14:
             return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Vaga Antiga (> 14 dias)", match_reason="Oferta expirada (> 14 dias)")
 
-        is_portugal = any(loc in location_lower for loc in ["portugal", "lisboa", "lisbon", "porto", "coimbra", "braga", "castelo branco", "aveiro", "leiria", "faro"])
+        profile_locs = [l.lower() for l in getattr(self.profile, 'locations', []) if l.lower() not in ["remoto", "remote", "hybrid", "híbrido", "hibrido"]]
+        allowed_locations = set(PORTUGAL_LOCATIONS + profile_locs)
+        is_portugal = any(loc in location_lower for loc in allowed_locations) or ("portugal" in text) or any(loc in text for loc in profile_locs if len(loc) > 3)
         is_strictly_remote = (work_mode_lower == "remoto") or ("remoto" in location_lower) or ("remote" in location_lower) or ("teletrabalho" in location_lower)
 
         if not is_portugal and not is_strictly_remote:

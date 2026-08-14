@@ -36,6 +36,22 @@ class SeenStore:
         """Return True if this job_id has been seen before."""
         return job_id in self._store
 
+    def is_seen_candidate(self, title: str, company: str = "") -> bool:
+        """Computes hash and checks if title + company combination has been seen."""
+        import hashlib
+        import string
+        import re
+
+        clean_c = re.sub(r"\b(modelo\s+híbrido|modelo\s+hibrido|teletrabalho|in\s+\d{4}|in\s+lisboa|in\s+lisbon|in\s+porto|in\s+portugal|lisboa|lisbon|portugal|presencial|remote|remoto|hybrid)\b.*$", "", company, flags=re.IGNORECASE).strip()
+        t_clean = re.sub(r"\b(remote|remoto|teletrabalho|híbrido|hibrido|hybrid|presencial|lisboa|lisbon|portugal)\b", "", title, flags=re.IGNORECASE)
+        
+        def _norm(s: str) -> str:
+            return " ".join(s.lower().translate(str.maketrans('', '', string.punctuation)).split())
+        
+        raw_str = f"{_norm(t_clean)}_{_norm(clean_c)}"
+        candidate_id = hashlib.sha256(raw_str.encode('utf-8')).hexdigest()[:16]
+        return self.is_seen(candidate_id)
+
     def mark_seen(self, job_ids: List[str]) -> None:
         """Mark a list of job_ids as seen with current timestamp."""
         now = time.time()

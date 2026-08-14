@@ -190,9 +190,36 @@ class AIEvaluator:
 
     def _parse_batch_json_response(self, raw_json: str, batch: List[Job]) -> Dict[str, AIEvaluationResult]:
         results: Dict[str, AIEvaluationResult] = {}
+        if not raw_json:
+            return results
+
+        data = None
+        cleaned_json = self._clean_and_extract_json(raw_json)
         try:
-            cleaned_json = self._clean_and_extract_json(raw_json)
             data = json.loads(cleaned_json)
+        except Exception as e1:
+            # Fallback 1: Attempt balancing open brackets and braces
+            try:
+                open_braces = cleaned_json.count("{") - cleaned_json.count("}")
+                open_brackets = cleaned_json.count("[") - cleaned_json.count("]")
+                fixed_json = cleaned_json + ("]" * max(0, open_brackets)) + ("}" * max(0, open_braces))
+                data = json.loads(fixed_json)
+            except Exception:
+                # Fallback 2: Regex extraction of individual job evaluation objects
+                eval_blocks = re.findall(r"\{\s*\"job_index\"[^\{\}]+\}", raw_json, re.DOTALL)
+                evals_list = []
+                for b in eval_blocks:
+                    try:
+                        evals_list.append(json.loads(b))
+                    except Exception:
+                        pass
+                if evals_list:
+                    data = {"evaluations": evals_list}
+                else:
+                    logger.error(f"Failed to parse batch AI JSON response: {e1}")
+                    return results
+
+        try:
             evals = data.get("evaluations", []) if isinstance(data, dict) else data
             
             if not isinstance(evals, list):
@@ -219,7 +246,7 @@ class AIEvaluator:
                     )
 
         except Exception as e:
-            logger.error(f"Failed to parse batch AI JSON response: {e}")
+            logger.error(f"Failed processing AI evaluations data: {e}")
 
         return results
 
