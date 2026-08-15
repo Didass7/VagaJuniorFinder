@@ -109,9 +109,15 @@ FOREIGN_JOB_POST_PATTERN = re.compile(
     re.IGNORECASE
 )
 
-# Geo-Restricted Remote Pattern (e.g. US/UK only)
+# Geo-Restricted Remote Pattern (e.g. US/UK only, specific country lists without Portugal)
 GEO_RESTRICTED_REMOTE_PATTERN = re.compile(
-    r"\b(?:based\s+in\s+(?:the\s+)?(?:us|united\s+states|usa|uk|united\s+kingdom)|legally\s+authorized\s+to\s+work\s+in\s+(?:the\s+)?(?:us|united\s+states|usa|uk|united\s+kingdom)|work\s+from\s+anywhere\s+in\s+(?:the\s+)?(?:us|united\s+states|usa|uk|united\s+kingdom)|(?:us|uk)\s+residents\s+only|only\s+open\s+to\s+(?:us|uk)\s+candidates|right\s+to\s+work\s+in\s+(?:the\s+)?(?:us|uk|united\s+states|united\s+kingdom)|located\s+in\s+(?:the\s+)?(?:us|usa|united\s+states|uk|united\s+kingdom))\b",
+    r"\b(?:(?:we\s+are\s+)?(?:looking\s+for|open\s+to|hiring)\s+(?:candidates|people|engineers|talent)?\s*(?:in|from)\s+(?:the\s+)?(?:[a-zA-Z,\s]+)?only\b)|"
+    r"\b(?:based\s+in|located\s+in|residing\s+in|resident\s+in|must\s+reside\s+in|must\s+be\s+located\s+in|living\s+in)\s+(?:the\s+)?(?:us|united\s+states|usa|uk|united\s+kingdom|germany|france|spain|italy|ireland|poland|canada|latin\s+america|latam|apac)\b|"
+    r"\b(?:us|uk|usa|united\s+states|united\s+kingdom|germany|france|spain|canada)\s+only\b|"
+    r"\b(?:only\s+open\s+to|only\s+hiring\s+in|only\s+for\s+candidates\s+in)\s+(?:the\s+)?(?:us|uk|united\s+states|united\s+kingdom|germany|france|spain|canada)\b|"
+    r"\b(?:right\s+to\s+work\s+in|legally\s+authorized\s+to\s+work\s+in)\s+(?:the\s+)?(?:us|uk|united\s+states|united\s+kingdom|germany|france|canada)\b|"
+    r"\|\s*(?:uk|us|usa|united\s+kingdom|germany|france|spain|italy|ireland|canada|emea|apac|latam)\s*\||"
+    r"\(\s*(?:uk|us|usa|germany|france|spain|canada)\s+only\s*\)",
     re.IGNORECASE
 )
 
