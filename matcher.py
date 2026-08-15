@@ -82,7 +82,15 @@ def build_strict_pattern(word: str) -> re.Pattern:
 IRRELEVANT_ROLE_PATTERNS = [(disq, build_strict_pattern(disq)) for disq in IRRELEVANT_ROLE_DISQUALIFIERS]
 TITLE_SENIORITY_PATTERNS = [(disq, build_strict_pattern(disq)) for disq in TITLE_SENIORITY_DISQUALIFIERS]
 TEXT_SENIORITY_PATTERNS = [(disq, build_strict_pattern(disq)) for disq in TEXT_SENIORITY_DISQUALIFIERS]
-YEARS_OF_EXP_PATTERN = re.compile(r"\b(?:[1-9]|1[0-9]|one|two|three|four|five|six|seven|eight|nine|ten|um|uma|dois|duas|três|tres|quatro|cinco|seis|sete|oito|nove|dez)\s*(?:to|-|a)?\s*(?:[1-9]|1[0-9]|one|two|three|four|five|six|seven|eight|nine|ten|um|uma|dois|duas|três|tres|quatro|cinco|seis|sete|oito|nove|dez)?\s*\+?\s*(?:(?:years?|anos?)\b(?:\s*(?:of|de)\s+)?(?:[\s\S]{0,60})experi(?:ence|ência|encia)\b|(?:\s*(?:of|de)\s+)?experi(?:ence|ência|encia)\b)|(?:\bexperi(?:ence|ência|encia)\b[\s\S]{0,40}\b(?:[1-9]|1[0-9]|one|two|three|four|five|six|seven|eight|nine|ten|um|uma|dois|duas|três|tres|quatro|cinco|seis|sete|oito|nove|dez)\s*\+?\s*(?:years?|anos?)\b)", re.IGNORECASE)
+YEARS_OF_EXP_PATTERN = re.compile(
+    r"\b(?:(?:mais\s+de|acima\s+de|superior\s+a|pelo\s+menos|no\s+m[ií]nimo|m[ií]nimo\s+de|m[ií]nimo|more\s+than|over|at\s+least|minimum\s+of|minimum)\s+)?"
+    r"(?:[1-9]|1[0-9]|one|two|three|four|five|six|seven|eight|nine|ten|um|uma|dois|duas|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez)\s*\+?\s*(?:to|-|a)?\s*"
+    r"(?:[1-9]|1[0-9]|one|two|three|four|five|six|seven|eight|nine|ten|um|uma|dois|duas|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez)?\s*\+?\s*"
+    r"(?:years?|anos?)\s+(?:of\s+|de\s+)?(?:[\w\s]{0,40})?experi(?:ence|[eê]ncia)\b|"
+    r"\bexperi(?:ence|[eê]ncia)\b[\w\s]{0,40}\b(?:(?:mais\s+de|acima\s+de|superior\s+a|pelo\s+menos|no\s+m[ií]nimo|m[ií]nimo\s+de|m[ií]nimo|more\s+than|over|at\s+least|minimum\s+of|minimum)\s+)?"
+    r"(?:[1-9]|1[0-9]|one|two|three|four|five|six|seven|eight|nine|ten|um|uma|dois|duas|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez)\s*\+?\s*(?:years?|anos?)\b",
+    re.IGNORECASE
+)
 
 # Disqualify jobs requiring PhD / Doctorate
 PHD_REQUIREMENT_PATTERN = re.compile(
