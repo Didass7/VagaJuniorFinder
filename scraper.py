@@ -1460,11 +1460,14 @@ class WellfoundScraper:
             data = json.loads(next_data_tag.string)
             apollo_state = data.get("props", {}).get("pageProps", {}).get("apolloState", {}).get("data", {})
 
-            # Build startup name lookup: StartupResult:ID -> name
-            startup_names = {}
+            # Build startup name and slug lookup: StartupResult:ID -> info dict
+            startup_info = {}
             for key, val in apollo_state.items():
                 if isinstance(val, dict) and val.get("__typename") == "StartupResult":
-                    startup_names[key] = val.get("name", "Startup via Wellfound")
+                    startup_info[key] = {
+                        "name": val.get("name", "Startup via Wellfound"),
+                        "slug": val.get("slug", "")
+                    }
 
             # Map job listing refs to their parent startup
             job_to_startup = {}
@@ -1473,7 +1476,7 @@ class WellfoundScraper:
                     for ref in val.get("highlightedJobListings", []):
                         ref_key = ref.get("__ref", "")
                         if ref_key:
-                            job_to_startup[ref_key] = startup_names.get(key, "Startup via Wellfound")
+                            job_to_startup[ref_key] = startup_info.get(key, {"name": "Startup via Wellfound", "slug": ""})
 
             seen_links = set()
             for key, val in apollo_state.items():
@@ -1492,7 +1495,17 @@ class WellfoundScraper:
                 if not title or not slug:
                     continue
 
-                link = f"https://wellfound.com/jobs/{slug}"
+                st_info = job_to_startup.get(key, {"name": "Startup via Wellfound", "slug": ""})
+                company = st_info["name"]
+                comp_slug = st_info["slug"]
+
+                if comp_slug and job_id:
+                    link = f"https://wellfound.com/company/{comp_slug}/jobs/{job_id}-{slug}"
+                elif job_id:
+                    link = f"https://wellfound.com/jobs/{job_id}-{slug}"
+                else:
+                    link = f"https://wellfound.com/jobs/{slug}"
+
                 if link in seen_links:
                     continue
 
@@ -1500,7 +1513,6 @@ class WellfoundScraper:
                     continue
 
                 seen_links.add(link)
-                company = job_to_startup.get(key, "Startup via Wellfound")
                 location = ", ".join(location_names) if location_names else "Remote"
                 work_mode = "Remoto" if is_remote else "Presencial / Híbrido"
 
