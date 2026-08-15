@@ -147,6 +147,13 @@ def reevaluate_notion_jobs():
             if "Estado" in props and props["Estado"].get("select"):
                 estado = props["Estado"]["select"].get("name", estado)
 
+            # Analysis text
+            analysis = ""
+            if "Análise IA" in props and props["Análise IA"].get("rich_text"):
+                analysis_list = props["Análise IA"].get("rich_text", [])
+                if analysis_list:
+                    analysis = analysis_list[0].get("text", {}).get("content", "")
+
             pages_to_process.append({
                 "page_id": page_id,
                 "title": title,
