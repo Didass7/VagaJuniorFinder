@@ -275,13 +275,13 @@ class AIEvaluator:
         all_jobs_str = "\n---\n".join(jobs_text_list)
 
         return f"""
-Es especialista em recrutamento em Tecnologia (IA, Data Science, Engenharia de Dados e Software).
+És especialista em recrutamento em Tecnologia (IA, Data Science, Engenharia de Dados e Software).
 Avalia as seguintes {len(batch)} vagas no lote em relação ao perfil do candidato.
 
 PERFIL DO CANDIDATO:
 - Nome: {profile.name}
 - Formação: {profile.degree}
-- Anos de Experiência: 0 a 1 ano (Recém-licenciado / Júnior)
+- Nível de Experiência: Júnior / Recém-licenciado (0 a 1 ano de experiência)
 - Elegível para Estágio IEFP / ATIVAR.pt: {"Sim" if profile.iefp_eligible else "Não"}
 - Idiomas: {languages_str}
 - Stack Técnica & Competências: {tech_stack_str}
@@ -290,12 +290,12 @@ VAGAS NO LOTE A AVALIAR:
 {all_jobs_str}
 
 REGRAS DE AVALIAÇÃO PARA CADA VAGA:
-1. Nível de Senioridade: O candidato é Júnior / Recém-licenciado (0 a 1 ano de experiência). Se a vaga exigir explicitamente 2 ou mais anos de experiência profissional formal (ex: "2+ years", "2 a 5 anos", "at least 2 years", "mínimo de 2 anos de experiência"), a vaga NÃO É ADEQUADA e DEVE SER REJEITADA (`is_suitable: false`, `fit_score: 0`). A vaga só é adequada se for para Júnior, Entry-Level, Recém-licenciado, Estágio, Trainee ou se exigir de 0 a 1 ano de experiência.
-2. Adequação da Área: A vaga deve ser estritamente técnica, focada em IA/ML, Engenharia de Dados ou Data Analytics. Vagas funcionais ou de negócio (Recursos Humanos/HR, Marketing, Vendas, Analista de Negócios) que não requeiram programação (Python, SQL) NÃO servem (`is_suitable: false`, `fit_score: 0`).
-3. Requisitos Obrigatórios: O candidato domina a Stack Técnica listada. Se a vaga exigir de forma OBRIGATÓRIA ou MÍNIMA ("mandatory", "must have", "mínima") uma linguagem ou ferramenta pesada que o candidato NÃO TEM (por exemplo: R, Tableau, SAP BO, C++, C#), a vaga DEVE SER REJEITADA (`is_suitable: false`).
-4. Línguas: Exigência de Alemão/Francês fluente é eliminatória (`is_suitable: false`, `fit_score: 0`).
-5. Localização/Residência: O candidato reside em Portugal. Se a vaga exigir obrigatoriamente residência, nacionalidade ou "right to work" num país que NÃO seja Portugal (ex: "resident in United Kingdom", "US only", "based in Germany"), a vaga DEVE SER REJEITADA (`is_suitable: false`, `fit_score: 0`).
-6. Atribui uma pontuação de adequação (`fit_score`) de 0 a 100%. Se a vaga exigir 2 ou mais anos de experiência profissional formal, o `fit_score` deve ser ZERO.
+1. Nível de Senioridade: O candidato é Júnior / Recém-licenciado (0 a 1 ano de experiência). Em Portugal, muitas vagas de nível Júnior/Entrada indicam '1 a 2 anos' ou 'experiência valorizada' como preferência, mas contratam e entrevistam recém-licenciados com base em projetos e formação. NÃO rejeites vagas júnior por mencionarem até 2 anos de experiência ou estágio. Apenas rejeita (`is_suitable: false`, `fit_score: 0`) se a vaga for claramente SÉNIOR / LIDERANÇA (3+ anos, 5+ anos, Lead, Principal, Gestor de Equipa).
+2. Adequação da Área: A vaga deve ser técnica (IA, Machine Learning, Data Science, Data Engineering, Python Developer, Software Engineer). Rejeita apenas vagas puramente de negócio/administrativas (ex: Vendas, Marketing, Recursos Humanos, Contabilidade) que não envolvam desenvolvimento ou análise de dados (`is_suitable: false`).
+3. Competências Técnicas: Avalia a sobreposição com a stack do candidato ({tech_stack_str}). Dá pontuação alta (70-95%) se a vaga usar Python, SQL, ML, IA, Docker ou FastAPI. Se a vaga pedir ferramentas adicionais como nice-to-have, pondera a pontuação sem rejeitar imediatamente.
+4. Línguas: Exigência de Alemão/Francês/Holandês nativo ou fluente é eliminatória (`is_suitable: false`). Inglês e Português são suportados.
+5. Localização/Residência: O candidato reside em Portugal. Se a vaga for presencial noutro país ou tiver restrição geográfica exclusiva para residentes nos EUA/UK, rejeita (`is_suitable: false`).
+6. Atribui uma pontuação de adequação (`fit_score`) de 0 a 100%. Vagas adequadas para júnior devem ter pontuação entre 60% e 95%.
 
 Responde APENAS em formato JSON válido contendo um objeto com uma lista "evaluations", onde cada elemento corresponde ao `job_index`:
 {{
