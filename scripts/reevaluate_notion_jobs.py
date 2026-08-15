@@ -142,10 +142,10 @@ def reevaluate_notion_jobs():
             if "Modo" in props and props["Modo"].get("select"):
                 mode = props["Modo"]["select"].get("name", mode)
 
-            # Analysis text
-            analysis = ""
-            if "Análise IA" in props and props["Análise IA"].get("rich_text"):
-                analysis = props["Análise IA"]["rich_text"][0].get("text", {}).get("content", "")
+            # Estado / Status
+            estado = "Por Candidatar"
+            if "Estado" in props and props["Estado"].get("select"):
+                estado = props["Estado"]["select"].get("name", estado)
 
             pages_to_process.append({
                 "page_id": page_id,
@@ -153,7 +153,8 @@ def reevaluate_notion_jobs():
                 "link": link,
                 "company": company,
                 "mode": mode,
-                "analysis": analysis
+                "analysis": analysis,
+                "estado": estado
             })
 
         has_more = data.get("has_more", False)
@@ -176,6 +177,7 @@ def reevaluate_notion_jobs():
         link = item["link"]
         company = item["company"]
         mode = item["mode"]
+        current_estado = item.get("estado", "Por Candidatar")
         
         logger.info(f"[{idx}/{len(pages_to_process)}] Processing '{title}' @ '{company}'...")
 
@@ -197,7 +199,7 @@ def reevaluate_notion_jobs():
             work_mode=mode,
             link=link,
             description=desc,
-            source="LinkedIn",
+            source="LinkedIn" if "linkedin" in link else "Outro",
             pub_date=datetime.date.today().isoformat()
         )
 
@@ -210,7 +212,7 @@ def reevaluate_notion_jobs():
             seniority = scored_jobs[0].seniority_status if scored_jobs else "Desqualificada"
             logger.info(f"  ↳ ❌ DISQUALIFIED: {reason} ({seniority})")
 
-            # Update Notion status to Rejeitada / Desqualificada or lower score
+            # Only update status to Desqualificada if it's not a manual user status like Entrevista/Candidatado
             patch_props = {}
             if "Match Score (%)" in schema:
                 patch_props["Match Score (%)"] = {"number": 0.0}
@@ -236,6 +238,10 @@ def reevaluate_notion_jobs():
         if "Análise IA" in schema:
             reason_text = sj.ai_reasoning if sj.ai_reasoning else sj.match_reason
             patch_props["Análise IA"] = {"rich_text": [{"text": {"content": reason_text[:1990]}}]}
+
+        # If it was marked as Desqualificada earlier, restore it back to Por Candidatar (preserve Entrevista/Candidatado)
+        if "Estado" in schema and current_estado in ["Desqualificada", "Rejeitada"]:
+            patch_props["Estado"] = {"select": {"name": "Por Candidatar"}}
 
         patch_resp = requests.patch(f"{NOTION_API_URL}/pages/{page_id}", headers=headers, json={"properties": patch_props}, timeout=15)
         if patch_resp.status_code == 200:
