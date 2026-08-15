@@ -61,6 +61,18 @@ def fetch_linkedin_full_description(url: str, session: requests.Session) -> str:
         logger.debug(f"Failed fetching LinkedIn job for {url}: {e}")
     return ""
 
+def fetch_generic_job_description(url: str, session: requests.Session) -> str:
+    """Fetches text description for non-LinkedIn portals."""
+    try:
+        headers = get_random_headers()
+        time.sleep(0.3)
+        resp = session.get(url, headers=headers, timeout=10)
+        if resp.status_code == 200:
+            return clean_job_description(resp.text)
+    except Exception as e:
+        logger.debug(f"Failed fetching generic job for {url}: {e}")
+    return ""
+
 def reevaluate_notion_jobs():
     token = config.notion_token
     database_id = config.notion_database_id
@@ -171,6 +183,8 @@ def reevaluate_notion_jobs():
         desc = ""
         if "linkedin.com" in link:
             desc = fetch_linkedin_full_description(link, session)
+        else:
+            desc = fetch_generic_job_description(link, session)
         
         if not desc or len(desc) < 80:
             logger.info(f"  ↳ Could not fetch fresh full description. Skipping.")
