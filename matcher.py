@@ -43,20 +43,24 @@ TITLE_SENIORITY_DISQUALIFIERS = [
     "head", "gestor de equipa", "mid-senior", "mid/senior", "level 3", "level iii", " iii"
 ]
 
-# Text-level Seniority Disqualifiers (Catches explicit Mid/Senior leadership levels and >= 3 years requirement)
+# Text-level Seniority Disqualifiers (Demanding explicit prior professional experience for non-entry levels)
 TEXT_SENIORITY_DISQUALIFIERS = [
     "seniority level mid-senior", "seniority level senior", "seniority level director", "seniority level executive",
     "technical leadership", "leadership experience", "experiência em liderança", "liderança técnica", "experiencia em liderança",
     "senior developer", "senior engineer", "senior backend", "senior software",
     "senior data scientist", "senior data engineer", "sénior developer", "sénior engineer", "sénior backend",
     "sr developer", "sr engineer",
-    "3+ years", "4+ years", "5+ years", "6+ years", "7+ years", "8+ years", "9+ years", "10+ years",
-    "+3 years", "+4 years", "+5 years", "+6 years", "+7 years", "+8 years", "+9 years", "+10 years",
-    "3+ anos", "4+ anos", "5+ anos", "6+ anos", "7+ anos", "8+ anos", "9+ anos", "10+ anos",
-    "+3 anos", "+4 anos", "+5 anos", "+6 anos", "+7 anos", "+8+ anos", "+9 anos", "+10 anos",
-    "3 anos de experiência", "4 anos de experiência", "5 anos de experiência",
-    "3 years of experience", "4 years of experience", "5 years of experience",
-    "3 to 5 years", "3 a 5 anos", "3 a 4 anos", "3 to 4 years"
+    "1+ years", "2+ years", "3+ years", "4+ years", "5+ years", "6+ years", "7+ years", "8+ years", "9+ years", "10+ years",
+    "+1 years", "+2 years", "+3 years", "+4 years", "+5 years", "+6 years", "+7 years", "+8 years", "+9 years", "+10 years",
+    "+1 year", "+2 year", "+3 year",
+    "1+ anos", "2+ anos", "3+ anos", "4+ anos", "5+ anos", "6+ anos", "7+ anos", "8+ anos", "9+ anos", "10+ anos",
+    "+1 anos", "+2 anos", "+3 anos", "+4 anos", "+5 anos", "+6 anos", "+7 anos", "+8+ anos", "+9 anos", "+10 anos",
+    "+1 ano", "+2 ano", "+3 ano",
+    "1 ano de experiência", "2 anos de experiência", "3 anos de experiência", "4 anos de experiência", "5 anos de experiência",
+    "1 year of experience", "2 years of experience", "3 years of experience", "4 years of experience", "5 years of experience",
+    "mínimo de 1 ano", "minimo de 1 ano", "mínimo de 2 anos", "minimo de 2 anos", "mínimo de 3 anos", "minimo de 3 anos",
+    "minimum 1 year", "minimum 2 years", "minimum 3 years", "minimum of 1 year", "minimum of 2 years",
+    "1 to 3 years", "2 to 5 years", "2 a 5 anos", "2 a 3 anos", "2 to 3 years", "2 to 4 years", "2 a 4 anos", "3 to 5 years", "3 a 5 anos"
 ]
 
 PORTUGAL_LOCATIONS = [
@@ -77,7 +81,7 @@ def build_strict_pattern(word: str) -> re.Pattern:
 IRRELEVANT_ROLE_PATTERNS = [(disq, build_strict_pattern(disq)) for disq in IRRELEVANT_ROLE_DISQUALIFIERS]
 TITLE_SENIORITY_PATTERNS = [(disq, build_strict_pattern(disq)) for disq in TITLE_SENIORITY_DISQUALIFIERS]
 TEXT_SENIORITY_PATTERNS = [(disq, build_strict_pattern(disq)) for disq in TEXT_SENIORITY_DISQUALIFIERS]
-YEARS_OF_EXP_PATTERN = re.compile(r"\b(?:[3-9]|1[0-9]|three|four|five|six|seven|eight|nine|ten|três|tres|quatro|cinco|seis|sete|oito|nove|dez)\s*(?:to|-|a)?\s*(?:[3-9]|1[0-9]|three|four|five|six|seven|eight|nine|ten|três|tres|quatro|cinco|seis|sete|oito|nove|dez)?\s*\+?\s*(?:(?:years?|anos?)\b(?:\s*(?:of|de)\s+)?(?:[\s\S]{0,60})experi(?:ence|ência|encia)\b|(?:\s*(?:of|de)\s+)?experi(?:ence|ência|encia)\b)|(?:\bexperi(?:ence|ência|encia)\b[\s\S]{0,40}\b(?:[3-9]|1[0-9]|three|four|five|six|seven|eight|nine|ten|três|tres|quatro|cinco|seis|sete|oito|nove|dez)\s*\+?\s*(?:years?|anos?)\b)", re.IGNORECASE)
+YEARS_OF_EXP_PATTERN = re.compile(r"\b(?:[1-9]|1[0-9]|one|two|three|four|five|six|seven|eight|nine|ten|um|uma|dois|duas|três|tres|quatro|cinco|seis|sete|oito|nove|dez)\s*(?:to|-|a)?\s*(?:[1-9]|1[0-9]|one|two|three|four|five|six|seven|eight|nine|ten|um|uma|dois|duas|três|tres|quatro|cinco|seis|sete|oito|nove|dez)?\s*\+?\s*(?:(?:years?|anos?)\b(?:\s*(?:of|de)\s+)?(?:[\s\S]{0,60})experi(?:ence|ência|encia)\b|(?:\s*(?:of|de)\s+)?experi(?:ence|ência|encia)\b)|(?:\bexperi(?:ence|ência|encia)\b[\s\S]{0,40}\b(?:[1-9]|1[0-9]|one|two|three|four|five|six|seven|eight|nine|ten|um|uma|dois|duas|três|tres|quatro|cinco|seis|sete|oito|nove|dez)\s*\+?\s*(?:years?|anos?)\b)", re.IGNORECASE)
 
 # Disqualify jobs requiring PhD / Doctorate
 PHD_REQUIREMENT_PATTERN = re.compile(
