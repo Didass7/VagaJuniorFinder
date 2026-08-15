@@ -219,7 +219,27 @@ class JobMatcher:
         target_titles_lower = [t.lower() for t in self.profile.target_titles]
         tech_stack_lower = [t.lower() for t in self.profile.tech_stack]
         
-        has_target_title = any(tt in title_lower for tt in target_titles_lower)
+        # Build core domain tokens from candidate profile and standard IT/AI/Data roles
+        target_tokens = set()
+        for tt in target_titles_lower:
+            for token in re.findall(r"\b[a-zA-Z\u00C0-\u00FF]{2,}\b", tt):
+                target_tokens.add(token.lower())
+        for ts in tech_stack_lower:
+            for token in re.findall(r"\b[a-zA-Z\u00C0-\u00FF]{2,}\b", ts):
+                target_tokens.add(token.lower())
+        
+        core_domain_words = {
+            "ai", "ia", "data", "dados", "analytics", "analyst", "analista", "scientist", "cientista",
+            "machine", "learning", "deep", "nlp", "llm", "software", "developer", "desenvolvedor",
+            "programmer", "programador", "engineer", "engenheiro", "engenharia", "python", "backend",
+            "fullstack", "it", "ti", "informática", "informatica", "estágio", "estagio", "intern",
+            "internship", "trainee", "graduate", "tech", "technology", "tecnologia"
+        }
+        all_domain_tokens = target_tokens.union(core_domain_words)
+
+        title_tokens = set(re.findall(r"\b[a-zA-Z\u00C0-\u00FF]{2,}\b", title_lower))
+        has_domain_in_title = bool(title_tokens.intersection(all_domain_tokens))
+        has_target_title = any(tt in title_lower for tt in target_titles_lower) or has_domain_in_title
         has_tech_in_title = any(ts in title_lower for ts in tech_stack_lower)
 
         # Protect against cross-profile leaks (e.g. Data Engineer job slipping into Cybersecurity/DevOps profile)
@@ -238,7 +258,7 @@ class JobMatcher:
             if any(st in title_lower for st in security_net_terms):
                 return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Fora do Perfil", match_reason="Vaga de Cibersegurança/Redes fora do perfil de IA/Data")
 
-        if not has_target_title and not has_tech_in_title:
+        if not has_domain_in_title and not has_target_title and not has_tech_in_title:
             return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Fora do Perfil", match_reason="Título não corresponde às funções ou tecnologias alvo do candidato")
 
         if PHD_REQUIREMENT_PATTERN.search(title_lower) or PHD_REQUIREMENT_PATTERN.search(text):
