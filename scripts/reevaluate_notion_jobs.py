@@ -33,30 +33,38 @@ NOTION_API_URL = "https://api.notion.com/v1"
 NOTION_VERSION = "2022-06-28"
 
 def fetch_linkedin_full_description(url: str, session: requests.Session) -> str:
-    """Fetches the full 3000+ character description from LinkedIn guest API."""
+    """Fetches the full 3000+ character description from LinkedIn guest API with retry support."""
     try:
-        id_match = re.search(r"(\d{8,12})", url)
+        id_match = re.search(r"(\d{6,14})", url)
         if not id_match:
             return ""
         job_id = id_match.group(1)
         api_url = f"https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/{job_id}"
-        headers = get_random_headers()
-        headers.update({
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-            "Accept-Language": "pt-PT,pt;q=0.9,en-US;q=0.8,en;q=0.7",
-        })
-        time.sleep(0.4)
-        resp = session.get(api_url, headers=headers, timeout=10)
-        if resp.status_code == 200:
-            soup = BeautifulSoup(resp.text, "html.parser")
-            markup = (
-                soup.find("div", class_=lambda c: c and "show-more-less-html__markup" in str(c)) or
-                soup.find("section", class_=lambda c: c and "description" in str(c)) or
-                soup.find("div", class_=lambda c: c and "description__text" in str(c))
-            )
-            if markup:
-                return clean_job_description(markup.get_text(separator=" ", strip=True))
-            return clean_job_description(soup.get_text(separator=" ", strip=True))
+        
+        for attempt in range(1, 3):
+            headers = get_random_headers()
+            headers.update({
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+                "Accept-Language": "pt-PT,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+            })
+            time.sleep(0.5)
+            resp = session.get(api_url, headers=headers, timeout=12)
+            if resp.status_code == 200:
+                soup = BeautifulSoup(resp.text, "html.parser")
+                markup = (
+                    soup.find("div", class_=lambda c: c and "show-more-less-html__markup" in str(c)) or
+                    soup.find("section", class_=lambda c: c and "description" in str(c)) or
+                    soup.find("div", class_=lambda c: c and "description__text" in str(c))
+                )
+                if markup:
+                    return clean_job_description(markup.get_text(separator=" ", strip=True))
+                return clean_job_description(soup.get_text(separator=" ", strip=True))
+            elif resp.status_code == 429:
+                logger.info(f"  ↳ LinkedIn 429 rate limit. Waiting 2.5s (attempt {attempt}/2)...")
+                time.sleep(2.5)
+            elif resp.status_code in [404, 410]:
+                logger.info(f"  ↳ Job posting {job_id} is no longer available on LinkedIn (HTTP {resp.status_code}).")
+                break
     except Exception as e:
         logger.debug(f"Failed fetching LinkedIn job for {url}: {e}")
     return ""
@@ -64,9 +72,12 @@ def fetch_linkedin_full_description(url: str, session: requests.Session) -> str:
 def fetch_generic_job_description(url: str, session: requests.Session) -> str:
     """Fetches text description for non-LinkedIn portals."""
     try:
+        clean_url = url.strip()
+        if not clean_url.startswith("http://") and not clean_url.startswith("https://"):
+            clean_url = "https://" + clean_url
         headers = get_random_headers()
         time.sleep(0.3)
-        resp = session.get(url, headers=headers, timeout=10)
+        resp = session.get(clean_url, headers=headers, timeout=10)
         if resp.status_code == 200:
             return clean_job_description(resp.text)
     except Exception as e:
