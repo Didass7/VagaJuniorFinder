@@ -121,6 +121,12 @@ GEO_RESTRICTED_REMOTE_PATTERN = re.compile(
     re.IGNORECASE
 )
 
+# Zero-Experience Indicator Pattern (Strict word boundaries to prevent 'intern' matching 'international')
+ZERO_EXP_INDICATOR_PATTERN = re.compile(
+    r"\b(?:0\s*(?:a|to|-)\s*1\s*(?:ano|anos|year|years)|0\s*(?:anos|years)|sem\s+experi[eê]ncia|n[aã]o\s+[eé]\s+necess[aá]ria\s+experi[eê]ncia|n[aã]o\s+requer\s+experi[eê]ncia|rec[eé]m[- ]licenciad[oa]s?|est[aá]gio\s+profissional|est[aá]gios?|trainees?|internships?|\binterns?\b|\bgraduates?\b)\b",
+    re.IGNORECASE
+)
+
 def parse_job_date(date_str: str) -> datetime.date:
     """Parses various date formats to a standard datetime.date."""
     if not date_str:
@@ -238,12 +244,7 @@ class JobMatcher:
         has_verified_junior_indicator = is_explicit_junior or job.iefp_mentioned or is_explicit_zero_to_one
 
         # Check if the job is explicitly targeted at 0 years / Entry-Level / Estágio / Recém-Licenciado
-        is_explicit_zero_exp = any(b in text for b in [
-            "0 a 1 ano", "0-1 ano", "0 to 1 year", "0-1 year", "0 anos",
-            "sem experiência", "sem experiencia", "não é necessária experiência", "não requer experiência",
-            "recém-licenciado", "recem-licenciado", "recém licenciado", "recem licenciado",
-            "estágio", "estagio", "trainee", "intern", "graduate"
-        ]) or job.iefp_mentioned or any(t in title_lower for t in ["estágio", "estagio", "trainee", "intern", "recém-licenciado", "recem-licenciado"])
+        is_explicit_zero_exp = bool(ZERO_EXP_INDICATOR_PATTERN.search(text)) or job.iefp_mentioned or any(t in title_lower for t in ["estágio", "estagio", "trainee", "recém-licenciado", "recem-licenciado"])
 
         for disq, pattern in TITLE_SENIORITY_PATTERNS:
             if pattern.search(title_lower):
@@ -258,6 +259,11 @@ class JobMatcher:
             exp_match = YEARS_OF_EXP_PATTERN.search(text)
             if exp_match:
                 return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Requer Experiência (>0 anos)", match_reason=f"Exige experiência prévia ({exp_match.group(0).strip()})")
+        else:
+            # Even if zero-exp keywords were present, hard disqualify if explicit 3+ or 5+ years is demanded
+            for disq in ["3+ years", "4+ years", "5+ years", "6+ years", "7+ years", "8+ years", "10+ years", "3+ anos", "4+ anos", "5+ anos", "10+ anos"]:
+                if disq in text:
+                    return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Requer Experiência (>0 anos)", match_reason=f"Exige experiência avançada ({disq})")
 
 
         # -------------------------------------------------------------
