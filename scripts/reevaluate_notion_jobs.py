@@ -1,11 +1,18 @@
 from __future__ import annotations
 import sys
+import os
 import io
 import re
 import time
 import datetime
 import logging
 import requests
+
+# Ensure project root is in sys.path
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 from typing import Dict, Any, List, Optional
 from bs4 import BeautifulSoup
 from config import config, load_config
