@@ -12,14 +12,12 @@ from ai_evaluator import AIEvaluator, AIEvaluationResult
 logger = logging.getLogger("Matcher")
 
 # Irrelevant Non-Target Roles Disqualifiers (Hard Disqualification if present in title)
-# Removed: "network", "cybersecurity", "cibersegurança", "devops engineer", "sysadmin"
 IRRELEVANT_ROLE_DISQUALIFIERS = [
     "php", "sap", "abap", "rpa", "blue prism", "embedded", "c++", "c/c++", "dotnet", ".net", 
     "c#", "frontend", "front-end", "front end", "ui engineer", "ux engineer", "ui/ux", "react", 
     "angular", "vue", "node.js", "wordpress", "laravel", "qa", "tester", "salesforce", "cobol", 
-    "ios", "android", "flutter", "web developer", "webmaster", "helpdesk", "support technician", 
+    "ios", "android", "flutter", "webmaster", "helpdesk", "support technician", 
     "electronics engineer", "rf engineer", "hardware engineer", "mainframe", "scrum master",
-    "fullstack", "full stack", "full-stack", "java developer", "backend developer", "back end",
     "gestor de projeto", "project manager", "blockchain", "consultor funcional",
     "marketing", "social media", "paid media", "growth", "seo", "sem", "crm", "copywriter",
     "content writer", "content manager", "content creator", "content strategist",
@@ -39,34 +37,26 @@ IRRELEVANT_ROLE_DISQUALIFIERS = [
 
 # Title Disqualifiers for Senior / Lead / Level II-III / Doctorate Roles
 TITLE_SENIORITY_DISQUALIFIERS = [
-    "senior", "sr", "lead", "principal", "head of", "director", "architect", "staff", "vp of", "manager",
+    "senior", "sr", "lead", "principal", "head of", "director", "staff", "vp of", "manager",
     "phd", "ph.d", "doctorate", "doutoramento", "postdoc", "post-doc", "postdoctoral", "expert", "consultor sénior",
     "responsável", "responsavel", "coordenador", "coordenadora", "diretor", "diretora", "director", "chefe",
-    "head", "gestor de", "mid", "mid-level", "mid level", "mid-senior", "mid/senior", "pleno",
-    " iii", " ii", " level 3", " level 2", " level iii", " level ii", " 3", " 2"
+    "head", "gestor de equipa", "mid-senior", "mid/senior", "level 3", "level iii", " iii"
 ]
 
-# Text-level Seniority Disqualifiers (Catches explicit Mid/Senior leadership levels and >= 2 years requirement)
+# Text-level Seniority Disqualifiers (Catches explicit Mid/Senior leadership levels and >= 3 years requirement)
 TEXT_SENIORITY_DISQUALIFIERS = [
-    "mid-senior", "mid senior", "mid-to-senior", "mid to senior", "mid-to-senior-level", "mid to senior level",
-    "mid-level to senior", "mid level to senior", "seniority level mid-senior", "seniority level senior",
-    "seniority level director", "seniority level executive", "technical leadership",
-    "leadership experience", "experiência em liderança", "liderança técnica", "experiencia em liderança",
-    "senior-level", "senior level", "senior developer", "senior engineer", "senior backend", "senior software",
+    "seniority level mid-senior", "seniority level senior", "seniority level director", "seniority level executive",
+    "technical leadership", "leadership experience", "experiência em liderança", "liderança técnica", "experiencia em liderança",
+    "senior developer", "senior engineer", "senior backend", "senior software",
     "senior data scientist", "senior data engineer", "sénior developer", "sénior engineer", "sénior backend",
     "sr developer", "sr engineer",
-    "experiência profissional comprovada", "experiencia profissional comprovada",
-    "experiência comprovada", "experiencia comprovada",
-    "experiência prévia comprovada", "experiencia previa comprovada",
-    "proven experience", "proven professional experience", "proven track record",
-    "experiência sólida", "experiencia solida", "solid experience",
-    "2+ years", "3+ years", "4+ years", "5+ years", "6+ years", "7+ years", "8+ years", "9+ years", "10+ years",
-    "+2 years", "+3 years", "+4 years", "+5 years", "+6 years", "+7 years", "+8 years", "+9 years", "+10 years",
-    "2+ anos", "3+ anos", "4+ anos", "5+ anos", "6+ anos", "7+ anos", "8+ anos", "9+ anos", "10+ anos",
-    "+2 anos", "+3 anos", "+4 anos", "+5 anos", "+6 anos", "+7 anos", "+8+ anos", "+9 anos", "+10 anos",
-    "2 anos de experiência", "3 anos de experiência", "4 anos de experiência", "5 anos de experiência",
-    "2 years of experience", "3 years of experience", "4 years of experience", "5 years of experience",
-    "2 to 5 years", "2 a 5 anos", "2 a 3 anos", "2 to 3 years", "2 to 4 years", "2 a 4 anos"
+    "3+ years", "4+ years", "5+ years", "6+ years", "7+ years", "8+ years", "9+ years", "10+ years",
+    "+3 years", "+4 years", "+5 years", "+6 years", "+7 years", "+8 years", "+9 years", "+10 years",
+    "3+ anos", "4+ anos", "5+ anos", "6+ anos", "7+ anos", "8+ anos", "9+ anos", "10+ anos",
+    "+3 anos", "+4 anos", "+5 anos", "+6 anos", "+7 anos", "+8+ anos", "+9 anos", "+10 anos",
+    "3 anos de experiência", "4 anos de experiência", "5 anos de experiência",
+    "3 years of experience", "4 years of experience", "5 years of experience",
+    "3 to 5 years", "3 a 5 anos", "3 a 4 anos", "3 to 4 years"
 ]
 
 PORTUGAL_LOCATIONS = [
@@ -87,7 +77,7 @@ def build_strict_pattern(word: str) -> re.Pattern:
 IRRELEVANT_ROLE_PATTERNS = [(disq, build_strict_pattern(disq)) for disq in IRRELEVANT_ROLE_DISQUALIFIERS]
 TITLE_SENIORITY_PATTERNS = [(disq, build_strict_pattern(disq)) for disq in TITLE_SENIORITY_DISQUALIFIERS]
 TEXT_SENIORITY_PATTERNS = [(disq, build_strict_pattern(disq)) for disq in TEXT_SENIORITY_DISQUALIFIERS]
-YEARS_OF_EXP_PATTERN = re.compile(r"\b(?:[2-9]|1[0-9]|two|three|four|five|six|seven|eight|nine|ten|dois|três|tres|quatro|cinco|seis|sete|oito|nove|dez)\s*(?:to|-|a)?\s*(?:[2-9]|1[0-9]|two|three|four|five|six|seven|eight|nine|ten|dois|três|tres|quatro|cinco|seis|sete|oito|nove|dez)?\s*\+?\s*(?:(?:years?|anos?)\b(?:\s*(?:of|de)\s+)?(?:[\s\S]{0,60})experi(?:ence|ência|encia)\b|(?:\s*(?:of|de)\s+)?experi(?:ence|ência|encia)\b)|(?:\bexperi(?:ence|ência|encia)\b[\s\S]{0,40}\b(?:[2-9]|1[0-9]|two|three|four|five|six|seven|eight|nine|ten|dois|três|tres|quatro|cinco|seis|sete|oito|nove|dez)\s*\+?\s*(?:years?|anos?)\b)", re.IGNORECASE)
+YEARS_OF_EXP_PATTERN = re.compile(r"\b(?:[3-9]|1[0-9]|three|four|five|six|seven|eight|nine|ten|três|tres|quatro|cinco|seis|sete|oito|nove|dez)\s*(?:to|-|a)?\s*(?:[3-9]|1[0-9]|three|four|five|six|seven|eight|nine|ten|três|tres|quatro|cinco|seis|sete|oito|nove|dez)?\s*\+?\s*(?:(?:years?|anos?)\b(?:\s*(?:of|de)\s+)?(?:[\s\S]{0,60})experi(?:ence|ência|encia)\b|(?:\s*(?:of|de)\s+)?experi(?:ence|ência|encia)\b)|(?:\bexperi(?:ence|ência|encia)\b[\s\S]{0,40}\b(?:[3-9]|1[0-9]|three|four|five|six|seven|eight|nine|ten|três|tres|quatro|cinco|seis|sete|oito|nove|dez)\s*\+?\s*(?:years?|anos?)\b)", re.IGNORECASE)
 
 # Disqualify jobs requiring PhD / Doctorate
 PHD_REQUIREMENT_PATTERN = re.compile(
