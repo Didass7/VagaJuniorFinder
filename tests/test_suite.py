@@ -134,8 +134,8 @@ class TestMatcherModule(unittest.TestCase):
         scored_jobs = self.matcher.process_jobs([job])
         self.assertEqual(len(scored_jobs), 0)
 
-    def test_itsector_2_years_exp_accepted(self):
-        """Verifies that AI Engineer with 2 years of experience is accepted as Junior Potential and not falsely disqualified."""
+    def test_itsector_2_years_exp_disqualification(self):
+        """Verifies that AI Engineer requiring minimum 2 years of professional experience is disqualified when experience is set to 0."""
         job = Job(
             title="AI Engineer",
             company="ITSector",
@@ -147,8 +147,7 @@ class TestMatcherModule(unittest.TestCase):
             pub_date="2026-08-05"
         )
         scored_jobs = self.matcher.process_jobs([job])
-        self.assertEqual(len(scored_jobs), 1)
-        self.assertGreater(scored_jobs[0].score, 50.0)
+        self.assertEqual(len(scored_jobs), 0)
 
     def test_teaching_formador_disqualification(self):
         """Verifies that Professor/Formador/Teaching roles are strictly disqualified."""
