@@ -84,6 +84,25 @@ def fetch_generic_job_description(url: str, session: requests.Session) -> str:
         logger.debug(f"Failed fetching generic job for {url}: {e}")
     return ""
 
+def safe_notion_patch(page_id: str, patch_props: dict, headers: dict, max_retries: int = 3) -> bool:
+    """Executes a Notion page patch with automatic retries on timeout or 429/500 errors."""
+    url = f"{NOTION_API_URL}/pages/{page_id}"
+    for attempt in range(1, max_retries + 1):
+        try:
+            resp = requests.patch(url, headers=headers, json={"properties": patch_props}, timeout=25)
+            if resp.status_code == 200:
+                return True
+            elif resp.status_code == 429:
+                logger.warning(f"  ↳ Notion API 429 rate limited. Backing off 3s (attempt {attempt}/{max_retries})...")
+                time.sleep(3)
+            else:
+                logger.warning(f"  ↳ Notion patch returned {resp.status_code}: {resp.text[:200]}")
+                time.sleep(1)
+        except Exception as e:
+            logger.warning(f"  ↳ Notion patch timeout/network issue: {e}. Retrying (attempt {attempt}/{max_retries})...")
+            time.sleep(2)
+    return False
+
 def reevaluate_notion_jobs_for_profile(profile_name: str):
     os.environ["ACTIVE_PROFILE"] = profile_name
     current_config = load_config()
@@ -107,7 +126,7 @@ def reevaluate_notion_jobs_for_profile(profile_name: str):
     }
 
     # Fetch database schema to map property names correctly
-    schema_resp = requests.get(f"{NOTION_API_URL}/databases/{database_id}", headers=headers, timeout=15)
+    schema_resp = requests.get(f"{NOTION_API_URL}/databases/{database_id}", headers=headers, timeout=20)
     if schema_resp.status_code != 200:
         logger.error(f"❌ Failed to fetch database schema for {profile_name}: {schema_resp.text}")
         return
@@ -125,9 +144,20 @@ def reevaluate_notion_jobs_for_profile(profile_name: str):
         if start_cursor:
             payload["start_cursor"] = start_cursor
 
-        resp = requests.post(url, headers=headers, json=payload, timeout=15)
-        if resp.status_code != 200:
-            logger.error(f"❌ Query error ({resp.status_code}): {resp.text}")
+        resp = None
+        for q_attempt in range(1, 4):
+            try:
+                resp = requests.post(url, headers=headers, json=payload, timeout=25)
+                if resp.status_code == 200:
+                    break
+                elif resp.status_code == 429:
+                    time.sleep(3)
+            except Exception as e:
+                logger.warning(f"Query attempt {q_attempt} timed out ({e}). Retrying in 2s...")
+                time.sleep(2)
+
+        if not resp or resp.status_code != 200:
+            logger.error(f"❌ Query error for {profile_name}")
             break
 
         data = resp.json()
@@ -238,7 +268,6 @@ def reevaluate_notion_jobs_for_profile(profile_name: str):
             seniority = scored_jobs[0].seniority_status if scored_jobs else "Desqualificada"
             logger.info(f"  ↳ ❌ DISQUALIFIED: {reason} ({seniority})")
 
-            # Only update status to Desqualificada if it's not a manual user status like Entrevista/Candidatado
             patch_props = {}
             if "Match Score (%)" in schema:
                 patch_props["Match Score (%)"] = {"number": 0.0}
@@ -247,8 +276,8 @@ def reevaluate_notion_jobs_for_profile(profile_name: str):
             if "Análise IA" in schema:
                 patch_props["Análise IA"] = {"rich_text": [{"text": {"content": f"❌ Rejeitada: {reason}"}}]}
 
-            requests.patch(f"{NOTION_API_URL}/pages/{page_id}", headers=headers, json={"properties": patch_props}, timeout=15)
-            time.sleep(0.35)
+            safe_notion_patch(page_id, patch_props, headers)
+            time.sleep(0.3)
             continue
 
         sj = scored_jobs[0]
@@ -269,14 +298,14 @@ def reevaluate_notion_jobs_for_profile(profile_name: str):
         if "Estado" in schema and current_estado in ["Desqualificada", "Rejeitada"]:
             patch_props["Estado"] = {"select": {"name": "Por Candidatar"}}
 
-        patch_resp = requests.patch(f"{NOTION_API_URL}/pages/{page_id}", headers=headers, json={"properties": patch_props}, timeout=15)
-        if patch_resp.status_code == 200:
+        success = safe_notion_patch(page_id, patch_props, headers)
+        if success:
             updated_count += 1
             logger.info(f"  ↳ Updated Notion page successfully.")
         else:
-            logger.warning(f"  ↳ Notion patch error ({patch_resp.status_code}): {patch_resp.text}")
+            logger.warning(f"  ↳ Failed to update Notion page after retries.")
 
-        time.sleep(0.35)
+        time.sleep(0.3)
 
     logger.info("==================================================")
     logger.info(f"🎉 Re-evaluation complete for {profile_name}! {updated_count} jobs updated, {disqualified_count} jobs flagged/disqualified.")
