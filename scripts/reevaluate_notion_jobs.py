@@ -84,13 +84,21 @@ def fetch_generic_job_description(url: str, session: requests.Session) -> str:
         logger.debug(f"Failed fetching generic job for {url}: {e}")
     return ""
 
-def reevaluate_notion_jobs():
-    token = config.notion_token
-    database_id = config.notion_database_id
+def reevaluate_notion_jobs_for_profile(profile_name: str):
+    os.environ["ACTIVE_PROFILE"] = profile_name
+    current_config = load_config()
+
+    token = current_config.notion_token
+    database_id = current_config.notion_database_id
 
     if not token or not database_id:
-        logger.error("❌ NOTION_TOKEN or NOTION_DATABASE_ID not configured.")
+        logger.warning(f"⚠️ Skipping profile '{profile_name}': NOTION_TOKEN or NOTION_DATABASE_ID not configured.")
         return
+
+    logger.info("==================================================")
+    logger.info(f"🚀 RE-EVALUATING NOTION DATABASE FOR: {current_config.candidate.name} ({profile_name})")
+    logger.info(f"📋 Database ID: {database_id}")
+    logger.info("==================================================")
 
     headers = {
         "Authorization": f"Bearer {token}",
@@ -101,11 +109,11 @@ def reevaluate_notion_jobs():
     # Fetch database schema to map property names correctly
     schema_resp = requests.get(f"{NOTION_API_URL}/databases/{database_id}", headers=headers, timeout=15)
     if schema_resp.status_code != 200:
-        logger.error(f"❌ Failed to fetch database schema: {schema_resp.text}")
+        logger.error(f"❌ Failed to fetch database schema for {profile_name}: {schema_resp.text}")
         return
     schema = schema_resp.json().get("properties", {})
 
-    logger.info("🔍 Querying Notion database for pages needing re-evaluation...")
+    logger.info(f"🔍 Querying Notion database for pages needing re-evaluation ({profile_name})...")
     url = f"{NOTION_API_URL}/databases/{database_id}/query"
     
     pages_to_process = []
@@ -178,10 +186,10 @@ def reevaluate_notion_jobs():
         has_more = data.get("has_more", False)
         start_cursor = data.get("next_cursor")
 
-    logger.info(f"📊 Found {len(pages_to_process)} total pages in Notion.")
+    logger.info(f"📊 Found {len(pages_to_process)} total pages in Notion for {profile_name}.")
 
-    # Initialize Matcher and AI Evaluator
-    matcher = JobMatcher(profile=config.candidate)
+    # Initialize Matcher and AI Evaluator for this profile
+    matcher = JobMatcher(profile=current_config.candidate)
     ai_evaluator = AIEvaluator()
     logger.info(f"🤖 AI Evaluator Status: {'ACTIVE (' + ai_evaluator.active_provider + ')' if ai_evaluator.is_available else 'INACTIVE (Heuristic Only)'}")
 
@@ -271,8 +279,24 @@ def reevaluate_notion_jobs():
         time.sleep(0.35)
 
     logger.info("==================================================")
-    logger.info(f"🎉 Re-evaluation complete! {updated_count} jobs updated, {disqualified_count} jobs flagged/disqualified.")
+    logger.info(f"🎉 Re-evaluation complete for {profile_name}! {updated_count} jobs updated, {disqualified_count} jobs flagged/disqualified.")
     logger.info("==================================================")
 
+def reevaluate_all_profiles():
+    import glob
+    profiles_dir = "profiles"
+    if not os.path.exists(profiles_dir):
+        reevaluate_notion_jobs_for_profile("diogo_ai")
+        return
+
+    profile_files = sorted(glob.glob(os.path.join(profiles_dir, "*.json")))
+    if not profile_files:
+        reevaluate_notion_jobs_for_profile("diogo_ai")
+        return
+
+    for p_file in profile_files:
+        p_name = os.path.splitext(os.path.basename(p_file))[0]
+        reevaluate_notion_jobs_for_profile(p_name)
+
 if __name__ == "__main__":
-    reevaluate_notion_jobs()
+    reevaluate_all_profiles()
