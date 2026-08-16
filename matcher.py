@@ -32,15 +32,17 @@ IRRELEVANT_ROLE_DISQUALIFIERS = [
     "recursos humanos", "recruiter", "recrutamento", "secretária", "secretaria", "secretariado", "financeiro", "financeira",
     "hr ", "human resources", "hris", "talent acquisition", "business analyst", "systems analyst", "process analyst",
     "crianças", "criancas", "adolescentes", "pós-letivo", "pos-letivo", "kids", "children", "academias de ia",
-    "data entry", "introdução de dados", "introducao de dados", "entry assistant", "entry clerk"
+    "data entry", "introdução de dados", "introducao de dados", "entry assistant", "entry clerk",
+    "volunteer", "voluntário", "voluntario", "trader", "crypto trader", "broker",
+    "produção e montagem", "producao e montagem", "montagem", "operador de produção", "operador fabril"
 ]
 
 # Title Disqualifiers for Senior / Lead / Level II-III / Doctorate Roles
 TITLE_SENIORITY_DISQUALIFIERS = [
-    "senior", "sr", "lead", "principal", "head of", "director", "staff", "vp of", "manager",
-    "phd", "ph.d", "doctorate", "doutoramento", "postdoc", "post-doc", "postdoctoral", "expert", "consultor sénior",
+    "senior", "sénior", "sênior", "sr", "sr.", "snr", "lead", "principal", "head of", "director", "staff", "vp of", "manager",
+    "phd", "ph.d", "doctorate", "doutoramento", "postdoc", "post-doc", "postdoctoral", "expert", "consultor sénior", "consultor sênior",
     "responsável", "responsavel", "coordenador", "coordenadora", "diretor", "diretora", "director", "chefe",
-    "head", "gestor de equipa", "mid-senior", "mid/senior", "level 3", "level iii", " iii"
+    "head", "gestor de equipa", "mid-senior", "mid/senior", "level 2", "level ii", "level 3", "level iii", " ii", " iii"
 ]
 
 # Text-level Seniority Disqualifiers (Demanding explicit prior professional experience >0 years)
@@ -389,19 +391,26 @@ class JobMatcher:
                 if ai_res:
                     reason_lower = ai_res.reasoning.lower()
                     seniority_det_lower = (ai_res.seniority_detected or "").lower()
-                    is_clearly_senior = any(s in seniority_det_lower for s in ["senior", "sénior", "lead", "principal", "director", "executive", "head of"])
+                    is_clearly_senior = any(s in seniority_det_lower for s in ["senior", "sénior", "sênior", "lead", "principal", "director", "executive", "head of"])
                     is_demanding_3plus_years = ("exige" in reason_lower and any(yr in reason_lower for yr in ["3 anos", "4 anos", "5 anos", "6 anos", "7 anos", "8 anos", "10 anos", "superior a 2", "superior a 3"]))
 
-                    if is_clearly_senior or is_demanding_3plus_years:
+                    # If AI explicitly marked the job as unsuitable, 0 fit score, or non-junior/senior
+                    if not ai_res.is_suitable or ai_res.fit_score == 0 or is_clearly_senior or is_demanding_3plus_years:
                         sj.score = 0.0
-                        sj.seniority_status = f"Rejeitada por IA ({ai_res.seniority_detected})"
+                        sj.seniority_status = f"Rejeitada por IA ({ai_res.seniority_detected or 'Inadequada'})"
                         sj.match_reason = ai_res.reasoning
                         ai_rejected += 1
                         continue
 
-                    # Blend heuristic and AI scores
-                    ai_score = ai_res.fit_score if (ai_res.is_suitable and ai_res.fit_score > 0) else min(sj.score, 65.0)
-                    blended_score = round(0.5 * sj.score + 0.5 * ai_score, 1)
+                    # Only jobs verified as suitable by AI are accepted
+                    blended_score = round(0.5 * sj.score + 0.5 * ai_res.fit_score, 1)
+                    if blended_score < 50.0:
+                        sj.score = 0.0
+                        sj.seniority_status = "Score Insuficiente"
+                        sj.match_reason = ai_res.reasoning
+                        ai_rejected += 1
+                        continue
+
                     sj.score = blended_score
                     sj.ai_evaluated = True
                     sj.ai_reasoning = ai_res.reasoning
