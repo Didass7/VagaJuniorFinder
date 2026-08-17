@@ -53,10 +53,10 @@ class AIEvaluator:
 
     @property
     def active_provider(self) -> str:
-        if self._groq_client:
-            return f"Groq ({self.groq_model_name})"
-        elif self._gemini_client:
+        if self._gemini_client:
             return f"Gemini ({self.gemini_model_name})"
+        elif self._groq_client:
+            return f"Groq ({self.groq_model_name})"
         return "None"
 
     def evaluate_job(self, job: Job, profile: CandidateProfile) -> Optional[AIEvaluationResult]:
@@ -85,10 +85,15 @@ class AIEvaluator:
         return results
 
     def _process_single_batch(self, batch: List[Job], profile: CandidateProfile) -> Dict[str, AIEvaluationResult]:
-        if self._groq_client:
+        if self._gemini_client:
+            res = self._evaluate_batch_with_gemini(batch, profile)
+            if res:
+                return res
+            elif self._groq_client:
+                logger.info("Gemini batch empty. Falling back to Groq...")
+                return self._evaluate_batch_with_groq(batch, profile)
+        elif self._groq_client:
             return self._evaluate_batch_with_groq(batch, profile)
-        elif self._gemini_client:
-            return self._evaluate_batch_with_gemini(batch, profile)
         return {}
 
     def _clean_and_extract_json(self, raw_text: str) -> str:
@@ -214,6 +219,9 @@ class AIEvaluator:
                 logger.warning(f"⚠️ Gemini model '{model}' issue ({e}). Trying next candidate...")
                 continue
 
+        if self._groq_client:
+            logger.info("Gemini models unavailable. Falling back to Groq API...")
+            return self._evaluate_batch_with_groq(batch, profile)
         return {}
 
     def _parse_batch_json_response(self, raw_json: str, batch: List[Job]) -> Dict[str, AIEvaluationResult]:
