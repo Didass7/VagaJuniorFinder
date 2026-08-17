@@ -84,6 +84,26 @@ def fetch_generic_job_description(url: str, session: requests.Session) -> str:
         logger.debug(f"Failed fetching generic job for {url}: {e}")
     return ""
 
+def fetch_notion_page_text(page_id: str, headers: dict) -> str:
+    """Fetches text content from Notion page blocks as fallback when web fetch fails."""
+    try:
+        url = f"{NOTION_API_URL}/blocks/{page_id}/children?page_size=50"
+        resp = requests.get(url, headers=headers, timeout=10)
+        if resp.status_code == 200:
+            blocks = resp.json().get("results", [])
+            text_parts = []
+            for b in blocks:
+                b_type = b.get("type", "")
+                if b_type in b and "rich_text" in b[b_type]:
+                    for rt in b[b_type]["rich_text"]:
+                        content = rt.get("text", {}).get("content", "")
+                        if content:
+                            text_parts.append(content)
+            return " ".join(text_parts).strip()
+    except Exception:
+        pass
+    return ""
+
 def safe_notion_patch(page_id: str, patch_props: dict, headers: dict, max_retries: int = 3) -> bool:
     """Executes a Notion page patch with automatic retries on timeout or 429/500 errors."""
     url = f"{NOTION_API_URL}/pages/{page_id}"
@@ -242,12 +262,19 @@ def reevaluate_notion_jobs_for_profile(profile_name: str):
         
         logger.info(f"[{idx}/{len(pages_to_process)}] Processing '{title}' @ '{company}'...")
 
-        # 1. Fetch real description
+        # 1. Fetch real description (try web first, then Notion page blocks fallback)
         desc = ""
         if "linkedin.com" in link:
             desc = fetch_linkedin_full_description(link, session)
-        else:
+        elif link:
             desc = fetch_generic_job_description(link, session)
+        
+        if not desc or len(desc) < 80:
+            page_text = fetch_notion_page_text(page_id, headers)
+            if page_text and len(page_text) >= 50:
+                desc = page_text
+            else:
+                desc = f"{title} na empresa {company}. {item.get('analysis', '')}"
         
         if not desc or len(desc) < 80:
             logger.info(f"  ↳ Could not fetch fresh full description. Skipping.")

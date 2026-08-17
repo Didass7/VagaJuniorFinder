@@ -194,6 +194,21 @@ class TestMatcherModule(unittest.TestCase):
         scored_jobs = self.matcher.process_jobs([job])
         self.assertEqual(len(scored_jobs), 0)
 
+    def test_adentis_5_anos_exp_disqualification(self):
+        """Verifies that AI Engineer demanding Mais de 5 anos de experiência profissional is strictly disqualified."""
+        job = Job(
+            title="AI Engineer",
+            company="Adentis",
+            location="Lisboa, Portugal",
+            work_mode="Presencial / Híbrido",
+            link="https://pt.linkedin.com/jobs/view/ai-engineer-at-adentis-portugal-4442023763",
+            description="Requisitos: • Mais de 5 anos de experiência profissional com Machine Learning • Mais de 5 anos de experiência profissional com Generative AI • Mais de 5 anos de experiência profissional com Python.",
+            source="LinkedIn",
+            pub_date="2026-08-14"
+        )
+        scored_jobs = self.matcher.process_jobs([job])
+        self.assertEqual(len(scored_jobs), 0)
+
     def test_teaching_formador_disqualification(self):
         """Verifies that Professor/Formador/Teaching roles are strictly disqualified."""
         job = Job(
