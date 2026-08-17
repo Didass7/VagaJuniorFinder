@@ -196,12 +196,23 @@ def reevaluate_notion_jobs_for_profile(profile_name: str):
             if "Estado" in props and props["Estado"].get("select"):
                 estado = props["Estado"]["select"].get("name", estado)
 
+            # Senioridade
+            seniority_val = ""
+            if "Senioridade" in props and props["Senioridade"].get("select"):
+                seniority_val = props["Senioridade"]["select"].get("name", "")
+
             # Analysis text
             analysis = ""
             if "Análise IA" in props and props["Análise IA"].get("rich_text"):
                 analysis_list = props["Análise IA"].get("rich_text", [])
                 if analysis_list:
                     analysis = analysis_list[0].get("text", {}).get("content", "")
+
+            # Skip jobs already marked as Desqualificada, Rejeitada, or Não Adequada
+            estado_lower = estado.lower()
+            seniority_lower = seniority_val.lower()
+            if any(disq in estado_lower for disq in ["desqualificada", "rejeitada", "não adequada", "nao adequada"]) or any(disq in seniority_lower for disq in ["desqualificada", "rejeitada", "fora do perfil"]):
+                continue
 
             pages_to_process.append({
                 "page_id": page_id,
@@ -216,7 +227,7 @@ def reevaluate_notion_jobs_for_profile(profile_name: str):
         has_more = data.get("has_more", False)
         start_cursor = data.get("next_cursor")
 
-    logger.info(f"📊 Found {len(pages_to_process)} total pages in Notion for {profile_name}.")
+    logger.info(f"📊 Found {len(pages_to_process)} active pages to re-evaluate in Notion for {profile_name} (skipped already disqualified/rejected).")
 
     # Initialize Matcher and AI Evaluator for this profile
     matcher = JobMatcher(profile=current_config.candidate)
