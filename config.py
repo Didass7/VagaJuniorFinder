@@ -27,7 +27,7 @@ class AppConfig:
     itjobs_api_key: str = os.getenv("ITJOBS_API_KEY", "")
     gemini_api_key: str = os.getenv("GEMINI_API_KEY", os.getenv("GOOGLE_API_KEY", ""))
     groq_api_key: str = os.getenv("GROQ_API_KEY", "")
-    groq_model_name: str = os.getenv("GROQ_MODEL_NAME", "gpt-oss-120b")
+    groq_model_name: str = os.getenv("GROQ_MODEL_NAME", "openai/gpt-oss-120b")
     enable_ai_evaluation: bool = os.getenv("ENABLE_AI_EVALUATION", "true").lower() == "true"
 
     ai_model_name: str = os.getenv("AI_MODEL_NAME", "gemini-3.6-flash")
