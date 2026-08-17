@@ -32,6 +32,8 @@ class AIEvaluator:
         self._gemini_client = None
         self._gemini_cooldown_until: float = 0.0
         self._groq_cooldown_until: float = 0.0
+        self._invalid_groq_models = set()
+        self._invalid_gemini_models = set()
         
         if self.groq_api_key:
             try:
@@ -91,46 +93,46 @@ class AIEvaluator:
         return results
 
     def _process_single_batch(self, batch: List[Job], profile: CandidateProfile) -> Dict[str, AIEvaluationResult]:
-        for attempt in range(1, 4):
-            now = time.time()
-            gemini_ready = self._gemini_client is not None and now >= self._gemini_cooldown_until
-            groq_ready = self._groq_client is not None and now >= self._groq_cooldown_until
+        now = time.time()
+        gemini_ready = self._gemini_client is not None and now >= self._gemini_cooldown_until
+        groq_ready = self._groq_client is not None and now >= self._groq_cooldown_until
 
-            # If both engines are currently in rate-limit cooldown, pause until the earliest resets
-            if not gemini_ready and not groq_ready and (self._gemini_client or self._groq_client):
-                wait_sec = 20.0
-                if self._gemini_client and self._groq_client:
-                    wait_sec = max(5.0, min(self._gemini_cooldown_until - now, self._groq_cooldown_until - now))
-                elif self._gemini_client:
-                    wait_sec = max(5.0, self._gemini_cooldown_until - now)
-                elif self._groq_client:
-                    wait_sec = max(5.0, self._groq_cooldown_until - now)
-                
-                logger.info(f"⏳ Both AI engines (Gemini/Groq) in rate-limit cooldown. Pausing {int(wait_sec)}s before next evaluation...")
-                time.sleep(wait_sec)
+        if not gemini_ready and not groq_ready:
+            if not self._gemini_client and not self._groq_client:
+                return {}
+            min_cooldown = min(
+                self._gemini_cooldown_until - now if self._gemini_client else 9999,
+                self._groq_cooldown_until - now if self._groq_client else 9999
+            )
+            if 0 < min_cooldown <= 5.0:
+                logger.info(f"⏳ Pausing {int(min_cooldown + 1)}s for AI rate-limit reset...")
+                time.sleep(min_cooldown + 1.0)
                 now = time.time()
                 gemini_ready = self._gemini_client is not None and now >= self._gemini_cooldown_until
                 groq_ready = self._groq_client is not None and now >= self._groq_cooldown_until
+            else:
+                logger.info("⏳ Both AI engines (Gemini/Groq) in rate-limit cooldown. Using Stage 1 Heuristic Scoring for this batch.")
+                return {}
 
-            # 1. Prefer Gemini if ready
-            if gemini_ready:
-                res = self._evaluate_batch_with_gemini(batch, profile)
-                if res:
-                    return res
-                if self._groq_client and time.time() >= self._groq_cooldown_until:
-                    res_g = self._evaluate_batch_with_groq(batch, profile)
-                    if res_g:
-                        return res_g
+        # 1. Prefer Gemini if ready
+        if gemini_ready:
+            res = self._evaluate_batch_with_gemini(batch, profile)
+            if res:
+                return res
+            if self._groq_client and time.time() >= self._groq_cooldown_until:
+                res_g = self._evaluate_batch_with_groq(batch, profile)
+                if res_g:
+                    return res_g
 
-            # 2. Otherwise use Groq
-            elif groq_ready:
-                res = self._evaluate_batch_with_groq(batch, profile)
-                if res:
-                    return res
-                if self._gemini_client and time.time() >= self._gemini_cooldown_until:
-                    res_m = self._evaluate_batch_with_gemini(batch, profile)
-                    if res_m:
-                        return res_m
+        # 2. Otherwise use Groq
+        elif groq_ready:
+            res = self._evaluate_batch_with_groq(batch, profile)
+            if res:
+                return res
+            if self._gemini_client and time.time() >= self._gemini_cooldown_until:
+                res_m = self._evaluate_batch_with_gemini(batch, profile)
+                if res_m:
+                    return res_m
 
         return {}
 
@@ -159,17 +161,23 @@ class AIEvaluator:
 
     def _evaluate_batch_with_groq(self, batch: List[Job], profile: CandidateProfile) -> Dict[str, AIEvaluationResult]:
         prompt = self._build_batch_prompt(batch, profile)
-        groq_candidates = list(dict.fromkeys([
-            "openai/gpt-oss-20b",
-            "openai/gpt-oss-120b",
-            "qwen/qwen-3.6-27b",
-            "llama-3.3-70b-versatile",
-            self.groq_model_name
-        ]))
+        groq_candidates = [
+            m for m in dict.fromkeys([
+                self.groq_model_name,
+                "llama-3.3-70b-versatile",
+                "llama-3.1-8b-instant",
+                "openai/gpt-oss-120b",
+                "openai/gpt-oss-20b",
+                "gemma2-9b-it",
+                "deepseek-r1-distill-llama-70b",
+                "llama-3.2-3b-preview",
+                "llama-3.2-1b-preview",
+            ]) if m not in self._invalid_groq_models
+        ]
 
         for model in groq_candidates:
             try:
-                time.sleep(0.8)  # Polite delay between calls
+                time.sleep(0.6)  # Polite delay between calls
                 response = self._groq_client.chat.completions.create(
                     model=model,
                     messages=[
@@ -194,10 +202,15 @@ class AIEvaluator:
                 parsed = self._parse_batch_json_response(content, batch)
                 if parsed:
                     self.groq_model_name = model
+                    self._groq_cooldown_until = 0.0
                     return parsed
             except Exception as e:
                 err_str = str(e).lower()
-                if "rate_limit" in err_str or "429" in err_str:
+                if "model_decommissioned" in err_str or "decommissioned" in err_str or "not_found" in err_str or "does not exist" in err_str:
+                    logger.warning(f"⚠️ Groq model '{model}' is decommissioned/unavailable ({e}). Pruning from candidates...")
+                    self._invalid_groq_models.add(model)
+                    continue
+                elif "rate_limit" in err_str or "429" in err_str:
                     logger.warning(f"⏳ Groq model '{model}' rate limited (429). Trying next candidate model...")
                     continue
                 else:
@@ -210,10 +223,21 @@ class AIEvaluator:
 
     def _evaluate_batch_with_gemini(self, batch: List[Job], profile: CandidateProfile) -> Dict[str, AIEvaluationResult]:
         prompt = self._build_batch_prompt(batch, profile)
-        gemini_candidates = list(dict.fromkeys([
-            self.gemini_model_name,
-            "gemini-3.6-flash"
-        ]))
+        gemini_candidates = [
+            m for m in dict.fromkeys([
+                self.gemini_model_name,
+                "gemini-2.5-flash",
+                "gemini-2.0-flash",
+                "gemini-2.0-flash-lite",
+                "gemini-1.5-flash",
+                "gemini-1.5-flash-8b",
+                "gemini-3.5-flash-lite",
+                "gemini-3.5-flash",
+                "gemini-3.6-flash",
+                "gemini-2.5-pro",
+                "gemini-1.5-pro"
+            ]) if m not in self._invalid_gemini_models
+        ]
 
         from google.genai import types
 
@@ -236,17 +260,23 @@ class AIEvaluator:
                 parsed = self._parse_batch_json_response(response.text, batch)
                 if parsed:
                     self.gemini_model_name = model
+                    self._gemini_cooldown_until = 0.0
                     return parsed
             except Exception as e:
                 err_str = str(e).lower()
-                if "429" in err_str or "resource_exhausted" in err_str or "quota" in err_str:
-                    logger.warning(f"⏳ Gemini quota limit reached (429). Setting Gemini cooldown for 60s...")
-                    self._gemini_cooldown_until = time.time() + 60.0
-                    return {}
+                if "not_found" in err_str or "not found" in err_str or "is not supported" in err_str or "invalid_argument" in err_str:
+                    logger.warning(f"⚠️ Gemini model '{model}' is unavailable/deprecated ({e}). Pruning from candidates...")
+                    self._invalid_gemini_models.add(model)
+                    continue
+                elif "429" in err_str or "resource_exhausted" in err_str or "quota" in err_str:
+                    logger.warning(f"⏳ Gemini model '{model}' quota/rate limit reached (429). Trying next candidate model...")
+                    continue
                 else:
                     logger.warning(f"⚠️ Gemini model '{model}' issue ({e}). Trying next candidate...")
                     continue
 
+        logger.warning("⏳ All Gemini candidate models exhausted / rate limited. Setting Gemini cooldown for 60s...")
+        self._gemini_cooldown_until = time.time() + 60.0
         return {}
 
     def _parse_batch_json_response(self, raw_json: str, batch: List[Job]) -> Dict[str, AIEvaluationResult]:
