@@ -120,15 +120,25 @@ FOREIGN_JOB_POST_PATTERN = re.compile(
     re.IGNORECASE
 )
 
-# Geo-Restricted Remote Pattern (e.g. US/UK only, specific country lists without Portugal)
+FOREIGN_GEO_REGIONS = (
+    r"latam|latin\s+america|am[eé]rica\s+latina|mexico|m[eé]xico|brasil|brazil|peru|chile|argentina|colombia|colômbia|"
+    r"uruguay|uruguaio|ecuador|equador|venezuela|costa\s+rica|panama|panam[aá]|guatemala|"
+    r"us|usa|united\s+states|estados\s+unidos|canada|canad[aá]|north\s+america|am[eé]rica\s+do\s+norte|"
+    r"apac|asia|ásia|asia-pacific|india|[ií]ndia|philippines|filipinas|pakistan|paquist[aã]o|vietnam|singapore|singapura|"
+    r"australia|austr[aá]lia|new\s+zealand|nova\s+zel[aâ]ndia|south\s+africa|[aá]frica\s+do\s+sul|nigeria|nig[eé]ria|kenya|qu[eé]nia"
+)
+
+# Geo-Restricted Remote Pattern (e.g. LATAM, Brazil, US, Canada, APAC, specific country lists without Portugal)
 GEO_RESTRICTED_REMOTE_PATTERN = re.compile(
-    r"\b(?:(?:we\s+are\s+)?(?:looking\s+for|open\s+to|hiring)\s+(?:candidates|people|engineers|talent)?\s*(?:in|from)\s+(?:the\s+)?(?:[a-zA-Z,\s]+)?only\b)|"
-    r"\b(?:based\s+in|located\s+in|residing\s+in|resident\s+in|must\s+reside\s+in|must\s+be\s+located\s+in|living\s+in)\s+(?:the\s+)?(?:us|united\s+states|usa|uk|united\s+kingdom|germany|france|spain|italy|ireland|poland|canada|latin\s+america|latam|apac)\b|"
-    r"\b(?:us|uk|usa|united\s+states|united\s+kingdom|germany|france|spain|canada)\s+only\b|"
-    r"\b(?:only\s+open\s+to|only\s+hiring\s+in|only\s+for\s+candidates\s+in)\s+(?:the\s+)?(?:us|uk|united\s+states|united\s+kingdom|germany|france|spain|canada)\b|"
-    r"\b(?:right\s+to\s+work\s+in|legally\s+authorized\s+to\s+work\s+in)\s+(?:the\s+)?(?:us|uk|united\s+states|united\s+kingdom|germany|france|canada)\b|"
-    r"\|\s*(?:uk|us|usa|united\s+kingdom|germany|france|spain|italy|ireland|canada|emea|apac|latam)\s*\||"
-    r"\(\s*(?:uk|us|usa|germany|france|spain|canada)\s+only\s*\)",
+    rf"\b(?:(?:we\s+are\s+)?(?:looking\s+for|open\s+to|hiring)\s+(?:candidates|people|engineers|talent)?\s*(?:in|from)\s+(?:the\s+)?(?:[a-zA-Z,\s]+)?only\b)|"
+    rf"\b(?:based\s+in|located\s+in|residing\s+in|resident\s+in|must\s+reside\s+in|must\s+be\s+located\s+in|living\s+in|remote\s+in|remote\s+from|remote\s+within|remote\s+only\s+in)\s+(?:the\s+)?(?:{FOREIGN_GEO_REGIONS})\b|"
+    rf"\b(?:{FOREIGN_GEO_REGIONS})\s+(?:only|residents\s+only|citizens\s+only|candidates\s+only)\b|"
+    rf"\b(?:only\s+open\s+to|only\s+hiring\s+in|only\s+for\s+candidates\s+in)\s+(?:the\s+)?(?:{FOREIGN_GEO_REGIONS})\b|"
+    rf"\b(?:right\s+to\s+work\s+in|legally\s+authorized\s+to\s+work\s+in)\s+(?:the\s+)?(?:{FOREIGN_GEO_REGIONS})\b|"
+    rf"\b(?:location\s+preference|location\s+requirement|location\s+restrictions?|work\s+location)\s*:\s*(?:[^\n\.\;]{{0,60}})?(?:{FOREIGN_GEO_REGIONS})\b|"
+    rf"\|\s*(?:{FOREIGN_GEO_REGIONS})\s*\||"
+    rf"\(\s*(?:{FOREIGN_GEO_REGIONS})\s*(?:only)?\s*\)|"
+    rf"\b(?:remoto\s*\(\s*(?:{FOREIGN_GEO_REGIONS})\s*\))\b",
     re.IGNORECASE
 )
 
@@ -184,7 +194,7 @@ class JobMatcher:
         self.ai_evaluator = AIEvaluator() if config.enable_ai_evaluation else None
 
     def evaluate_job(self, job: Job) -> ScoredJob:
-        text = f"{job.title} {job.description}".lower()
+        text = f"{job.title} {job.location} {job.description}".lower()
         title_lower = job.title.lower()
         location_lower = job.location.lower()
         work_mode_lower = job.work_mode.lower()
@@ -220,8 +230,9 @@ class JobMatcher:
         if not is_portugal and not is_strictly_remote:
             return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Fora do Âmbito Geográfico", match_reason="Presencial/Híbrido no Estrangeiro", ai_reasoning="❌ Filtro Automático: Vaga presencial/híbrida no estrangeiro")
 
-        if is_strictly_remote and GEO_RESTRICTED_REMOTE_PATTERN.search(text):
-            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Remoto Geobloqueado", match_reason="Vaga remota mas restrita", ai_reasoning="❌ Filtro Automático: Vaga remota com restrição geográfica a outros países")
+        geo_match = GEO_RESTRICTED_REMOTE_PATTERN.search(text)
+        if is_strictly_remote and geo_match:
+            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Remoto Geobloqueado", match_reason=f"Vaga remota restrita ({geo_match.group(0).strip()})", ai_reasoning=f"❌ Filtro Automático: Vaga remota com restrição geográfica a outros países ({geo_match.group(0).strip()})")
 
         for disq, pattern in IRRELEVANT_ROLE_PATTERNS:
             if pattern.search(title_lower):

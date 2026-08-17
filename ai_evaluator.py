@@ -377,11 +377,11 @@ REGRAS DE AVALIAÇÃO PARA CADA VAGA:
 2. Adequação da Área: A vaga deve ser técnica (IA, Machine Learning, Data Science, Data Engineering, Python Developer, Software Engineer). Rejeita apenas vagas puramente de negócio/administrativas (ex: Vendas, Marketing, Recursos Humanos, Contabilidade) que não envolvam desenvolvimento ou análise de dados (`is_suitable: false`).
 3. Competências Técnicas: Avalia a sobreposição com a stack do candidato ({tech_stack_str}). Dá pontuação alta (70-95%) se a vaga usar Python, SQL, ML, IA, Docker ou FastAPI. Se a vaga pedir ferramentas adicionais como nice-to-have, pondera a pontuação sem rejeitar imediatamente.
 4. Línguas: Exigência de Alemão/Francês/Holandês nativo ou fluente é eliminatória (`is_suitable: false`). Inglês e Português são suportados.
-5. Localização/Residência: O candidato reside em Portugal. Se a vaga for presencial noutro país ou tiver restrição geográfica exclusiva para residentes nos EUA/UK, rejeita (`is_suitable: false`).
+5. Localização/Residência: O candidato reside em Portugal. Se a vaga for presencial noutro país ou tiver restrição geográfica remota exclusiva para residentes noutros países/regiões (ex: EUA, Reino Unido, LATAM, Brasil, México, Peru, Chile, Canadá, Índia, APAC, fuso horário EST/PST sem opção para Portugal/Europa), deves OBRIGATORIAMENTE REJEITÁ-LA (`is_suitable: false`, `fit_score: 0`, `reasoning: "❌ Rejeitada por IA: Vaga remota com restrição geográfica a outros países"`).
 6. Atribui uma pontuação de adequação (`fit_score`) de 0 a 100%. Vagas adequadas para júnior devem ter pontuação entre 60% e 95%.
 7. Justificação (reasoning):
    - Se for ADEQUADA (`is_suitable: true`): explica de forma concisa em Português o motivo do bom alinhamento (ex: "Forte sobreposição em Python e GenAI para nível júnior").
-   - Se for DESQUALIFICADA (`is_suitable: false`): explica OBRIGATORIAMENTE e de forma CONCRETA o obstáculo factual que levou à rejeição (ex: "Exige 5+ anos de experiência e liderança de equipa", "Função de Vendas/Comercial sem componente técnica", "Exige Alemão fluente obrigatório", "Presencial no estrangeiro sem opção para residentes em Portugal").
+   - Se for DESQUALIFICADA (`is_suitable: false`): explica OBRIGATORIAMENTE e de forma CONCRETA o obstáculo factual que levou à rejeição (ex: "Exige 5+ anos de experiência e liderança de equipa", "Função de Vendas/Comercial sem componente técnica", "Exige Alemão fluente obrigatório", "Restrição geográfica exclusiva para residentes em LATAM / EUA").
 
 Responde APENAS em formato JSON válido contendo um objeto com uma lista "evaluations", onde cada elemento corresponde ao `job_index`:
 {{

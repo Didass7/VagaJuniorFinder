@@ -179,6 +179,21 @@ class TestMatcherModule(unittest.TestCase):
         scored_jobs = self.matcher.process_jobs([job])
         self.assertEqual(len(scored_jobs), 0)
 
+    def test_jobicy_latam_remote_disqualification(self):
+        """Verifies that remote roles restricted to Latin America/Brazil/Mexico/USA are disqualified for Portugal candidate."""
+        job = Job(
+            title="GenAI Engineer",
+            company="NTT DATA",
+            location="Remoto (Latam)",
+            work_mode="Remoto",
+            link="https://jobicy.com/jobs/145940-genai-engineer",
+            description="Location Preference: 100% remote in Mexico, Brasil, Peru, Chile working EST Time Zone OR onsite in Washington, D.C. Python, LLMs, GenAI.",
+            source="Jobicy",
+            pub_date="2026-08-16"
+        )
+        scored_jobs = self.matcher.process_jobs([job])
+        self.assertEqual(len(scored_jobs), 0)
+
     def test_teaching_formador_disqualification(self):
         """Verifies that Professor/Formador/Teaching roles are strictly disqualified."""
         job = Job(
