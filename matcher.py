@@ -131,9 +131,19 @@ GEO_RESTRICTED_REMOTE_PATTERN = re.compile(
     re.IGNORECASE
 )
 
-# Zero-Experience Indicator Pattern (Strict word boundaries to prevent 'intern' matching 'international')
+# Zero-Experience Indicator Pattern (Strict word boundaries to prevent 'graduates' matching general degree requirements)
 ZERO_EXP_INDICATOR_PATTERN = re.compile(
-    r"\b(?:0\s*(?:a|to|-)\s*1\s*(?:ano|anos|year|years)|0\s*(?:anos|years)|sem\s+experi[eê]ncia|n[aã]o\s+[eé]\s+necess[aá]ria\s+experi[eê]ncia|n[aã]o\s+requer\s+experi[eê]ncia|rec[eé]m[- ]licenciad[oa]s?|est[aá]gio\s+profissional|est[aá]gios?|trainees?|internships?|\binterns?\b|\bgraduates?\b)\b",
+    r"\b(?:0\s*(?:a|to|-)\s*1\s*(?:ano|anos|year|years)|0\s*(?:anos|years)|sem\s+experi[eê]ncia|n[aã]o\s+[eé]\s+necess[aá]ria\s+experi[eê]ncia|n[aã]o\s+requer\s+experi[eê]ncia|rec[eé]m[- ]licenciad[oa]s?|est[aá]gio\s+profissional|est[aá]gios?|trainees?|internships?|\binterns?\b|\b(?:recém[- ]graduad[oa]s?|recem[- ]graduad[oa]s?|recent\s+graduates?|fresh\s+graduates?|new\s+graduates?|graduate\s+program|graduate\s+scheme)\b)\b",
+    re.IGNORECASE
+)
+
+# Advanced Seniority Experience Hard Disqualifier Pattern (3+, 4+, 5+ years, +5 years, minimum 3+ years)
+ADVANCED_EXP_HARD_DISQUALIFIERS_PATTERN = re.compile(
+    r"(?:(?:\+|\>|mais\s+de|superior\s+a|pelo\s+menos|no\s+m[ií]nimo|m[ií]nimo\s+de|more\s+than|over|at\s+least|minimum\s+of|minimum)\s*)?"
+    r"(?:[3-9]|1[0-9]|three|four|five|six|seven|eight|nine|ten|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez)\s*\+?\s*"
+    r"(?:years?|anos?)\s+(?:of\s+|de\s+)?(?:[\w\s]{0,40})?experi(?:ence|[eê]ncia)\b|"
+    r"(?<!\w)(?:\+|\>)?\s*[3-9]\s*\+?\s*(?:years?|anos?)\b|"
+    r"\bexperi(?:ence|[eê]ncia)\b[\w\s]{0,40}(?:(?:\+|\>|mais\s+de|superior\s+a|pelo\s+menos|no\s+m[ií]nimo|m[ií]nimo\s+de|more\s+than|over|at\s+least|minimum\s+of|minimum)\s*)?(?:[3-9]|1[0-9]|three|four|five|six|seven|eight|nine|ten|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez)\s*\+?\s*(?:years?|anos?)\b",
     re.IGNORECASE
 )
 
@@ -269,8 +279,8 @@ class JobMatcher:
         if MANDATORY_OTHER_LANGUAGES_PATTERN.search(text) or FOREIGN_JOB_POST_PATTERN.search(text):
             return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Idioma Não Suportado", match_reason="Exige outro idioma nativo/fluente", ai_reasoning="❌ Filtro Automático: Exige outro idioma estrangeiro fluente/nativo")
 
-        is_explicit_junior = any(j_term in title_lower for j_term in ["junior", "jr", "estágio", "estagio", "trainee", "graduate", "entry level", "intern"])
-        is_explicit_zero_to_one = any(b in text for b in ["recém-licenciado", "recem licenciado", "0-1", " graduate", "0 a 1 ano", "0 to 1 year"])
+        is_explicit_junior = any(j_term in title_lower for j_term in ["junior", "jr", "estágio", "estagio", "trainee", "graduate program", "entry level", "intern"])
+        is_explicit_zero_to_one = any(b in text for b in ["recém-licenciado", "recem licenciado", "recém licenciado", "0-1", "recent graduate", "fresh graduate", "recém-graduado", "recem-graduado", "0 a 1 ano", "0 to 1 year"])
         has_verified_junior_indicator = is_explicit_junior or job.iefp_mentioned or is_explicit_zero_to_one
 
         # Check if the job is explicitly targeted at 0 years / Entry-Level / Estágio / Recém-Licenciado
@@ -280,7 +290,17 @@ class JobMatcher:
             if pattern.search(title_lower):
                 return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Sénior / Liderança", match_reason=f"Título sénior ({disq})", ai_reasoning=f"❌ Filtro Automático: Título sénior ({disq})")
 
-        # If not explicitly marked as a 0-experience / internship position, check for >0 years experience requirements
+        # Hard Disqualification: Any explicit 3+, 4+, 5+ years requirement is definitively senior / not junior
+        adv_exp_match = ADVANCED_EXP_HARD_DISQUALIFIERS_PATTERN.search(text)
+        if adv_exp_match:
+            return ScoredJob(
+                job=job, score=0.0, matched_skills=[], missing_skills=[],
+                seniority_status="Requer Experiência (>0 anos)",
+                match_reason=f"Exige experiência sénior ({adv_exp_match.group(0).strip()})",
+                ai_reasoning=f"❌ Filtro Automático: Exige experiência sénior ({adv_exp_match.group(0).strip()})"
+            )
+
+        # If not explicitly marked as a 0-experience / internship position, check for other experience requirements
         if not is_explicit_zero_exp:
             for disq, pattern in TEXT_SENIORITY_PATTERNS:
                 if pattern.search(text):
@@ -289,11 +309,6 @@ class JobMatcher:
             exp_match = YEARS_OF_EXP_PATTERN.search(text)
             if exp_match:
                 return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Requer Experiência (>0 anos)", match_reason=f"Exige experiência prévia ({exp_match.group(0).strip()})", ai_reasoning=f"❌ Filtro Automático: Exige experiência prévia ({exp_match.group(0).strip()})")
-        else:
-            # Even if zero-exp keywords were present, hard disqualify if explicit 3+ or 5+ years is demanded
-            for disq in ["3+ years", "4+ years", "5+ years", "6+ years", "7+ years", "8+ years", "10+ years", "3+ anos", "4+ anos", "5+ anos", "10+ anos"]:
-                if disq in text:
-                    return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Requer Experiência (>0 anos)", match_reason=f"Exige experiência avançada ({disq})", ai_reasoning=f"❌ Filtro Automático: Exige experiência avançada ({disq})")
 
 
         # -------------------------------------------------------------

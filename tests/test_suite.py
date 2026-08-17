@@ -149,6 +149,21 @@ class TestMatcherModule(unittest.TestCase):
         scored_jobs = self.matcher.process_jobs([job])
         self.assertEqual(len(scored_jobs), 0)
 
+    def test_volkswagen_5_years_exp_disqualification(self):
+        """Verifies that Data Engineer demanding +5 years of hands-on experience is strictly disqualified even if graduates are mentioned."""
+        job = Job(
+            title="Data Engineer (AWS)",
+            company="Volkswagen Group Digital Solutions",
+            location="Lisboa, Portugal",
+            work_mode="Presencial / Híbrido",
+            link="https://pt.linkedin.com/jobs/view/data-engineer-aws-at-volkswagen-group-digital-solutions-portugal-4432266264",
+            description="University Degree / Master for graduates in Computer Science, Informatics, or related fields. +5 years of hands-on experience as a Data Engineer or Software Engineer working on big-data environments. Strong skills in Python, SQL, AWS.",
+            source="LinkedIn",
+            pub_date="2026-08-14"
+        )
+        scored_jobs = self.matcher.process_jobs([job])
+        self.assertEqual(len(scored_jobs), 0)
+
     def test_teaching_formador_disqualification(self):
         """Verifies that Professor/Formador/Teaching roles are strictly disqualified."""
         job = Job(
