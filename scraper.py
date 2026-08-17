@@ -867,57 +867,6 @@ class JobicyScraper:
         logger.info(f"[Jobicy Portal] Fetched {len(jobs)} jobs.")
         return jobs
 
-class HimalayasScraper:
-    """Scrapes Himalayas public API for remote tech & data jobs."""
-    def __init__(self, session: Optional[requests.Session] = None):
-        self.session = session or get_session()
-
-    def fetch(self) -> List[Job]:
-        jobs = []
-        seen_links = set()
-        offsets = [0, 50, 100]
-        for offset in offsets:
-            url = f"https://himalayas.app/jobs/api?limit=50&offset={offset}"
-            try:
-                time.sleep(random.uniform(0.6, 1.2))
-                h = get_random_headers()
-                h["Accept"] = "application/json"
-                resp = self.session.get(url, headers=h, timeout=10)
-                if resp.status_code != 200:
-                    if resp.status_code == 403:
-                        logger.debug(f"[Himalayas Portal] HTTP 403 at offset {offset}, stopping pagination.")
-                    else:
-                        logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {resp.status_code} for {resp.url}")
-                    break
-                if resp.status_code == 200:
-                    data = resp.json()
-                    items = data.get("jobs", [])
-                    if not items:
-                        break
-                    for item in items:
-                        title = item.get("title", "")
-                        link = item.get("applicationLink", "") or item.get("guid", "")
-                        if not link or link in seen_links or not is_valid_job_offer(link, title):
-                            continue
-                        seen_links.add(link)
-                        company = item.get("companyName", "Himalayas Company")
-                        locs = item.get("locationRestrictions", [])
-                        location_str = ", ".join(locs) if locs else "Worldwide Remote"
-                        raw_desc = item.get("description", "") or item.get("excerpt", "")
-                        desc = BeautifulSoup(raw_desc, "html.parser").get_text(separator=" ", strip=True)
-                        pub_ts = item.get("pubDate")
-                        pub_date = datetime.date.fromtimestamp(pub_ts).isoformat() if isinstance(pub_ts, (int, float)) else datetime.date.today().isoformat()
-                        jobs.append(Job(
-                            title=title, company=company, location=f"Remoto ({location_str})",
-                            work_mode="Remoto", link=link, description=desc,
-                            source="Himalayas", pub_date=pub_date
-                        ))
-            except Exception as e:
-                logger.error(f"[Himalayas Portal] Error at offset {offset}: {e}")
-                break
-        logger.info(f"[Himalayas Portal] Fetched {len(jobs)} jobs across offsets.")
-        return jobs
-
 class NetEmpregosScraper:
     """Scrapes Net-Empregos portal (Portugal's largest job board) for tech, AI, Data & IEFP roles."""
     def __init__(self, session: Optional[requests.Session] = None, is_seen_func: Optional[Any] = None, queries: Optional[List[str]] = None):
@@ -1034,120 +983,6 @@ class NetEmpregosScraper:
                         logger.debug(f"[Net-Empregos Portal] Detail fetch error: {err}")
 
         logger.info(f"[Net-Empregos Portal] Fetched {len(jobs)} jobs with full detail body parsing concurrently.")
-        return jobs
-
-class TeamlyzerScraper:
-    """Scrapes Teamlyzer jobs portal for tech & AI positions in Portugal."""
-    def __init__(self, session: Optional[requests.Session] = None, is_seen_func: Optional[Any] = None):
-        self.session = session or get_session()
-        self.is_seen_func = is_seen_func
-
-    def _fetch_detail_page(self, card_info: dict) -> Job:
-        link = card_info["link"]
-        title = card_info["title"]
-        company = card_info["company"]
-        desc = card_info["initial_desc"]
-
-        try:
-            time.sleep(random.uniform(0.2, 0.5))
-            r = self.session.get(link, headers=get_random_headers(), timeout=8, allow_redirects=True)
-            if r.status_code != 200:
-                logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {r.status_code} for {r.url}")
-            if r.status_code == 200:
-                soup = BeautifulSoup(r.text, "html.parser")
-                h1_tag = soup.find("h1")
-                if h1_tag:
-                    full_h1 = h1_tag.get_text(separator=' ', strip=True)
-                    if len(full_h1) > len(title):
-                        title = full_h1
-
-                fetched_text = clean_job_description(r.text)
-                if len(fetched_text) >= 100:
-                    desc = f"{title} - " + fetched_text
-        except Exception as e:
-            logger.debug(f"[Teamlyzer Portal] Error fetching detail page for {link}: {e}")
-
-        work_mode = "Remoto" if "remote" in desc.lower() else "Presencial / Híbrido"
-        return Job(
-            title=title, company=company, location="Portugal",
-            work_mode=work_mode, link=link, description=desc,
-            source="Teamlyzer", pub_date=datetime.date.today().isoformat()
-        )
-
-    def fetch(self) -> List[Job]:
-        cards_to_fetch = []
-        seen_links = set()
-        for page in range(1, 4):
-            url = f"https://pt.teamlyzer.com/companies/jobs?page={page}"
-            try:
-                time.sleep(random.uniform(0.8, 1.5))
-                headers = get_random_headers()
-                headers.update({
-                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-                    "Accept-Language": "pt-PT,pt;q=0.9,en-US;q=0.8,en;q=0.7",
-                })
-                resp = self.session.get(url, headers=headers, timeout=10)
-                if resp.status_code != 200:
-                    logger.debug(f"[{self.__class__.__name__}] HTTP {resp.status_code} for {resp.url}")
-                    break
-                if resp.status_code == 200:
-                    soup = BeautifulSoup(resp.text, "html.parser")
-                    cards = soup.find_all("div", class_=lambda c: c and "jobcard" in str(c).lower())
-                    if not cards:
-                        break
-                    for card in cards:
-                        a_title = card.find("h4", class_="jobcard__title")
-                        a_tag = a_title.find("a") if a_title else card.find("a", href=lambda h: h and "/get-job/" in h)
-                        if not a_tag:
-                            continue
-                        
-                        href = a_tag.get("href", "")
-                        clean_href = href.split("?")[0]
-                        if clean_href in seen_links:
-                            continue
-                        
-                        link = f"https://pt.teamlyzer.com{href}" if href.startswith("/") else href
-                        seen_links.add(clean_href)
-                        
-                        title = a_tag.get_text(separator=' ', strip=True)
-                        if not title or not is_valid_job_offer(link, title):
-                            continue
-                        
-                        logo_img = card.find("img", alt=True)
-                        company = logo_img["alt"].strip() if logo_img and logo_img.get("alt") else ""
-                        if not company:
-                            comp_a = card.find("a", href=lambda h: h and "/companies/" in h and "/get-job/" not in h)
-                            if comp_a:
-                                company = comp_a.get_text(separator=' ', strip=True) or comp_a.get("href", "").split("/")[-1]
-                        if not company:
-                            company = "Empresa no Teamlyzer"
-                            
-                        if self.is_seen_func and self.is_seen_func(title, company):
-                            continue
-
-                        initial_desc = card.get_text(separator=" ", strip=True)
-                        cards_to_fetch.append({
-                            "link": link,
-                            "title": title,
-                            "company": company,
-                            "initial_desc": initial_desc
-                        })
-
-            except Exception as e:
-                logger.debug(f"[Teamlyzer Portal] Connection issue at page {page}: {e}")
-                break
-
-        jobs = []
-        if cards_to_fetch:
-            with ThreadPoolExecutor(max_workers=8) as executor:
-                future_to_detail = {executor.submit(self._fetch_detail_page, c): c for c in cards_to_fetch}
-                for future in as_completed(future_to_detail):
-                    try:
-                        jobs.append(future.result())
-                    except Exception as err:
-                        logger.debug(f"[Teamlyzer Portal] Detail fetch error: {err}")
-
-        logger.info(f"[Teamlyzer Portal] Fetched {len(jobs)} jobs across pages 1-3 concurrently.")
         return jobs
 
 class JobspressoScraper:
@@ -1435,153 +1270,6 @@ class GlassdoorScraper:
         return jobs
 
 
-class WellfoundScraper:
-    """Scrapes Wellfound (formerly AngelList) for startup AI & Data Science jobs via __NEXT_DATA__ Apollo state."""
-    def __init__(self, session: Optional[requests.Session] = None):
-        self.session = session or get_session()
-
-    def fetch(self) -> List[Job]:
-        jobs = []
-        url = "https://wellfound.com/location/portugal"
-        try:
-            h = get_random_headers()
-            resp = self.session.get(url, headers=h, timeout=15)
-            if resp.status_code != 200:
-                logger.warning(f"[Wellfound Portal] HTTP {resp.status_code}")
-                return jobs
-
-            soup = BeautifulSoup(resp.text, "html.parser")
-            next_data_tag = soup.find("script", id="__NEXT_DATA__")
-            if not next_data_tag or not next_data_tag.string:
-                logger.warning("[Wellfound Portal] No __NEXT_DATA__ found — page structure may have changed.")
-                return jobs
-
-            import json
-            data = json.loads(next_data_tag.string)
-            apollo_state = data.get("props", {}).get("pageProps", {}).get("apolloState", {}).get("data", {})
-
-            # Build startup name and slug lookup: StartupResult:ID -> info dict
-            startup_info = {}
-            for key, val in apollo_state.items():
-                if isinstance(val, dict) and val.get("__typename") == "StartupResult":
-                    startup_info[key] = {
-                        "name": val.get("name", "Startup via Wellfound"),
-                        "slug": val.get("slug", "")
-                    }
-
-            # Map job listing refs to their parent startup
-            job_to_startup = {}
-            for key, val in apollo_state.items():
-                if isinstance(val, dict) and val.get("__typename") == "StartupResult":
-                    for ref in val.get("highlightedJobListings", []):
-                        ref_key = ref.get("__ref", "")
-                        if ref_key:
-                            job_to_startup[ref_key] = startup_info.get(key, {"name": "Startup via Wellfound", "slug": ""})
-
-            seen_links = set()
-            for key, val in apollo_state.items():
-                if not isinstance(val, dict) or val.get("__typename") != "JobListingSearchResult":
-                    continue
-
-                title = val.get("title", "") or val.get("primaryRoleTitle", "")
-                slug = val.get("slug", "")
-                description = val.get("description", "")
-                location_names = val.get("locationNames", [])
-                is_remote = val.get("remote", False)
-                job_id = val.get("id", "")
-                years_min = val.get("yearsExperienceMin")
-                years_max = val.get("yearsExperienceMax")
-
-                if not title or not slug:
-                    continue
-
-                st_info = job_to_startup.get(key, {"name": "Startup via Wellfound", "slug": ""})
-                company = st_info["name"]
-                comp_slug = st_info["slug"]
-
-                if comp_slug and job_id:
-                    link = f"https://wellfound.com/company/{comp_slug}/jobs/{job_id}-{slug}"
-                elif job_id:
-                    link = f"https://wellfound.com/jobs/{job_id}-{slug}"
-                else:
-                    link = f"https://wellfound.com/jobs/{slug}"
-
-                if link in seen_links:
-                    continue
-
-                if not is_valid_job_offer(link, title):
-                    continue
-
-                seen_links.add(link)
-                location = ", ".join(location_names) if location_names else "Remote"
-                work_mode = "Remoto" if is_remote else "Presencial / Híbrido"
-
-                # Build enriched description
-                exp_info = ""
-                if years_min is not None:
-                    exp_info = f" Experience: {years_min}-{years_max} years." if years_max else f" Experience: {years_min}+ years."
-                full_desc = f"{title} at {company}. Location: {location}.{exp_info} {description}"
-
-                jobs.append(Job(
-                    title=title, company=company, location=location,
-                    work_mode=work_mode, link=link, description=full_desc,
-                    source="Wellfound (AngelList)", pub_date=datetime.date.today().isoformat()
-                ))
-            logger.info(f"[Wellfound Portal] Fetched {len(jobs)} startup jobs.")
-        except Exception as e:
-            logger.error(f"[Wellfound Portal] Error: {e}")
-        return jobs
-
-
-class HackerNewsScraper:
-    """Scrapes Hacker News monthly 'Who is Hiring?' threads via Algolia REST API for high-quality remote/AI roles."""
-    def __init__(self, session: Optional[requests.Session] = None):
-        self.session = session or get_session()
-
-    def fetch(self) -> List[Job]:
-        jobs = []
-        try:
-            search_url = "https://hn.algolia.com/api/v1/search_by_date?tags=story,author_whoishiring&query=%22Who%20is%20hiring?%22"
-            resp = self.session.get(search_url, headers=get_random_headers(), timeout=10)
-            if resp.status_code == 200:
-                hits = resp.json().get("hits", [])
-                
-                # Ensure we only pick the actual 'Who is hiring?' thread (avoid 'Who wants to be hired?')
-                valid_hits = [h for h in hits if "Who is hiring?" in h.get("title", "")]
-                if valid_hits:
-                    latest_story_id = valid_hits[0].get("objectID")
-                    comments_url = f"https://hn.algolia.com/api/v1/search?tags=comment,story_{latest_story_id}&hitsPerPage=50"
-                    c_resp = self.session.get(comments_url, headers=get_random_headers(), timeout=10)
-                    if c_resp.status_code == 200:
-                        comments = c_resp.json().get("hits", [])
-                        keywords = ["ai", "data", "python", "machine learning", "remote", "portugal", "europe"]
-                        for c in comments:
-                            text = c.get("comment_text", "")
-                            if not text:
-                                continue
-                            soup = BeautifulSoup(text, "html.parser")
-                            clean_text = soup.get_text(separator=" ", strip=True)
-                            text_lower = clean_text.lower()
-                            
-                            if any(kw in text_lower for kw in keywords) and ("hiring" in text_lower or "|" in clean_text[:80]):
-                                first_line = clean_text.split("\n")[0][:100]
-                                parts = first_line.split("|")
-                                company = parts[0].strip() if len(parts) > 1 else "Hacker News Startup"
-                                title = parts[1].strip() if len(parts) > 1 else first_line
-                                link = f"https://news.ycombinator.com/item?id={c.get('objectID')}"
-                                
-                                if is_valid_job_offer(link, title):
-                                    jobs.append(Job(
-                                        title=title[:80], company=company[:60], location="Remote / Europe",
-                                        work_mode="Remoto", link=link, description=clean_text,
-                                        source="Hacker News (Who is Hiring?)", pub_date=datetime.date.today().isoformat()
-                                    ))
-            logger.info(f"[Hacker News] Fetched {len(jobs)} high-quality Tech/AI jobs.")
-        except Exception as e:
-            logger.error(f"[Hacker News] Error: {e}")
-        return jobs
-
-
 class IEFPScraper:
     """Scrapes official IEFP Portugal portal (iefponline.iefp.pt) for job offers and internships via POST-based search."""
     BASE_URL = "https://iefponline.iefp.pt"
@@ -1708,15 +1396,11 @@ class JobIngestionPipeline:
         self.remoteok_scraper = RemoteOKScraper(session=self.session)
         self.carga_scraper = CargaDeTrabalhosScraper(session=self.session, is_seen_func=is_seen_func, queries=search_queries)
         self.jobicy_scraper = JobicyScraper(session=self.session)
-        self.himalayas_scraper = HimalayasScraper(session=self.session)
         self.netempregos_scraper = NetEmpregosScraper(session=self.session, is_seen_func=is_seen_func, queries=search_queries)
-        self.teamlyzer_scraper = TeamlyzerScraper(session=self.session, is_seen_func=is_seen_func)
         self.jobspresso_scraper = JobspressoScraper(session=self.session)
         self.euraxess_scraper = EuraxessScraper(session=self.session, queries=search_queries)
         self.indeed_scraper = IndeedScraper(session=self.session, is_seen_func=is_seen_func, queries=search_queries)
         self.glassdoor_scraper = GlassdoorScraper(session=self.session, queries=search_queries)
-        self.wellfound_scraper = WellfoundScraper(session=self.session)
-        self.hn_scraper = HackerNewsScraper(session=self.session)
         self.iefp_scraper = IEFPScraper(session=self.session, is_seen_func=is_seen_func)
 
     def run(self) -> List[Job]:
@@ -1733,15 +1417,11 @@ class JobIngestionPipeline:
             ("WeWorkRemotely", self.wwr_scraper.fetch),
             ("RemoteOK", self.remoteok_scraper.fetch),
             ("Jobicy", self.jobicy_scraper.fetch),
-            ("Himalayas", self.himalayas_scraper.fetch),
             ("Net-Empregos", self.netempregos_scraper.fetch),
-            ("Teamlyzer", self.teamlyzer_scraper.fetch),
             ("Jobspresso", self.jobspresso_scraper.fetch),
             ("Euraxess / Ergas", self.euraxess_scraper.fetch),
             ("Indeed Portugal", self.indeed_scraper.fetch),
             ("Glassdoor Portugal", self.glassdoor_scraper.fetch),
-            ("Wellfound", self.wellfound_scraper.fetch),
-            ("Hacker News", self.hn_scraper.fetch),
             ("IEFP Portal", self.iefp_scraper.fetch),
         ]
 

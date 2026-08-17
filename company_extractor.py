@@ -14,7 +14,7 @@ GENERIC_COMPANY_NAMES = {
     "empresa", "empresa via itjobs", "empresa via net-empregos", "empresa no linkedin",
     "empresa via carga de trabalhos", "empresa confidencial", "desconhecida", "n/a",
     "landing.jobs company", "remotive company", "arbeitnow company", "weworkremotely company",
-    "remoteok company", "jobicy company", "himalayas company", ""
+    "remoteok company", "jobicy company", ""
 }
 
 def is_generic_company(name: Optional[str]) -> bool:
@@ -77,13 +77,6 @@ def extract_company_from_link(link: str, title: str = "", current_company: str =
                             if not is_generic_company(txt) and len(txt) > 1:
                                 result = txt
                                 break
-
-                # Teamlyzer.com
-                elif 'teamlyzer.com' in link_lower:
-                    if soup.title:
-                        parts = [p.strip() for p in soup.title.text.split(' | ')]
-                        if len(parts) >= 2 and not is_generic_company(parts[0]):
-                            result = parts[0]
 
                 # Carga de Trabalhos
                 elif 'cargadetrabalhos.pt' in link_lower:

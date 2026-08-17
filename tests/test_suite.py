@@ -9,9 +9,9 @@ from scraper import (
     Job, is_valid_job_offer,
     LinkedInScraper, ITJobsScraper, LandingJobsScraper, RemotiveScraper,
     ArbeitnowScraper, WeWorkRemotelyScraper, RemoteOKScraper, CargaDeTrabalhosScraper,
-    JobicyScraper, HimalayasScraper, NetEmpregosScraper, TeamlyzerScraper,
+    JobicyScraper, NetEmpregosScraper,
     JobspressoScraper, EuraxessScraper, IndeedScraper, GlassdoorScraper,
-    WellfoundScraper, HackerNewsScraper, IEFPScraper, JobIngestionPipeline
+    IEFPScraper, JobIngestionPipeline
 )
 from matcher import JobMatcher
 from seen_store import SeenStore
@@ -64,16 +64,16 @@ class TestScraperModule(unittest.TestCase):
         self.assertEqual(job2.work_mode, "Remoto")
 
     def test_scrapers_instantiation(self):
-        """Verifies that all 19 active scrapers can be instantiated without errors."""
+        """Verifies that all 15 active scrapers can be instantiated without errors."""
         scrapers = [
             LinkedInScraper(), ITJobsScraper(), LandingJobsScraper(),
             RemotiveScraper(), ArbeitnowScraper(), WeWorkRemotelyScraper(),
             RemoteOKScraper(), CargaDeTrabalhosScraper(), JobicyScraper(),
-            HimalayasScraper(), NetEmpregosScraper(), TeamlyzerScraper(),
+            NetEmpregosScraper(),
             JobspressoScraper(), EuraxessScraper(), IndeedScraper(),
-            GlassdoorScraper(), WellfoundScraper(), HackerNewsScraper(), IEFPScraper()
+            GlassdoorScraper(), IEFPScraper()
         ]
-        self.assertEqual(len(scrapers), 19)
+        self.assertEqual(len(scrapers), 15)
         for s in scrapers:
             self.assertTrue(hasattr(s, "fetch"))
 

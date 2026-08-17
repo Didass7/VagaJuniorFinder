@@ -6,16 +6,17 @@
 
 ## 🚀 Funcionalidades
 
-- **Ingestão Multi-Fonte (14 Portais)**:
+- **Ingestão Multi-Fonte (15 Portais Ativos)**:
   - 🇵🇹 **LinkedIn Jobs** (API Pública Guest)
   - 🇵🇹 **ITJobs.pt** (API Pública / Feed RSS)
   - 🇵🇹 **Carga de Trabalhos** (Scraping de Vagas Tech em Portugal)
   - 🇵🇹 **Net-Empregos** (Scraping de TI, Data, AI & Estágios IEFP)
-  - 🇵🇹 **Teamlyzer Jobs** (Scraping de Ofertas Tech em Portugal)
+  - 🇵🇹 **IEFP Online** (Portal Oficial de Ofertas e Estágios IEFP)
+  - 🇵🇹 **Indeed Portugal** (Pesquisa de Vagas Tech)
+  - 🇵🇹 **Glassdoor Portugal** (Pesquisa de Vagas Tech)
   - 🎓 **Euraxess / Ergas** (Bolsas de Investigação & P&D em IA/ML em Portugal)
   - 🇪🇺 / 🇵🇹 **Landing.jobs** (API Pública)
   - 🌍 **Jobicy** (API de Vagas Remotas Data & AI)
-  - 🏔️ **Himalayas** (API de Vagas Remotas Tech Globais)
   - 🌍 **Remotive.com** (API de Vagas Remotas)
   - ☕ **Jobspresso** (Feed RSS de Vagas Remotas Tech)
   - 🇪🇺 **Arbeitnow** (API de Vagas Tech Europa & Remoto)
