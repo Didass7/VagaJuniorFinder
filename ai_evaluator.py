@@ -118,15 +118,17 @@ class AIEvaluator:
         prompt = self._build_batch_prompt(batch, profile)
         groq_candidates = list(dict.fromkeys([
             self.groq_model_name,
-            "llama3-70b-8192",
-            "llama3-8b-8192",
+            "gpt-oss-120b",
+            "gpt-oss-20b",
+            "qwen-3.6-27b",
+            "llama-3.3-70b",
             "llama-3.3-70b-versatile",
-            "llama-3.3-70b-specdec",
-            "llama-3.2-11b-text-preview",
-            "llama-3.2-3b-preview",
-            "llama-3.2-1b-preview",
-            "mixtral-8x7b-32768",
-            "gemma2-9b-it"
+            "llama-3.3-70b-instruct",
+            "openai/gpt-oss-120b",
+            "openai/gpt-oss-20b",
+            "qwen/qwen-3.6-27b",
+            "llama3-70b-8192",
+            "llama3-8b-8192"
         ]))
 
         for model in groq_candidates:
