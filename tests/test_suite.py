@@ -209,6 +209,21 @@ class TestMatcherModule(unittest.TestCase):
         scored_jobs = self.matcher.process_jobs([job])
         self.assertEqual(len(scored_jobs), 0)
 
+    def test_toloka_crowdsourcing_microtasks_disqualification(self):
+        """Verifies that crowdsourcing / video recording gigs (e.g. Toloka) are strictly disqualified."""
+        job = Job(
+            title="Record Your Daily Routine & Get Paid - AI Training",
+            company="Toloka AI",
+            location="Remoto",
+            work_mode="Remoto",
+            link="https://himalayas.app/companies/toloka-ai/jobs/record-your-daily-routine-get-paid-ai-training-8754786082",
+            description="This is a project-based opportunity on an AI training platform — not a job. We're looking for people to record point-of-view videos of everyday household activities.",
+            source="Himalayas",
+            pub_date="2026-08-16"
+        )
+        scored_jobs = self.matcher.process_jobs([job])
+        self.assertEqual(len(scored_jobs), 0)
+
     def test_teaching_formador_disqualification(self):
         """Verifies that Professor/Formador/Teaching roles are strictly disqualified."""
         job = Job(

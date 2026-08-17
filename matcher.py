@@ -142,6 +142,13 @@ GEO_RESTRICTED_REMOTE_PATTERN = re.compile(
     re.IGNORECASE
 )
 
+# Disqualify Crowdsourcing / Microtasks / Domestic Video-Audio Recording / Contributor Gigs (e.g. Toloka, Appen, Remotasks, Outlier)
+CROWDSOURCING_MICROTASKS_PATTERN = re.compile(
+    r"\b(?:not\s+a\s+job|n[aã]o\s+[eé]\s+um\s+emprego|not\s+an\s+employment|this\s+is\s+not\s+a\s+job|toloka|remotasks|oneforma|clickworker|appen|prolific|mturk|mechanical\s+turk|outlier\s+ai|telus\s+international)\b|"
+    r"\b(?:record\s+(?:your|everyday|point-of-view|household|routine|videos?)|mount\s+your\s+smartphone|household\s+chores|earn\s+while\s+you|get\s+paid\s+(?:just\s+)?for\s+recording|micro-?tasks?|microtarefas?|crowdsourcing|data\s+collector|video\s+recording\s+contributor|audio\s+recording\s+task|voice\s+recording\s+task)\b",
+    re.IGNORECASE
+)
+
 # Zero-Experience Indicator Pattern (Strict word boundaries to prevent 'graduates' matching general degree requirements)
 ZERO_EXP_INDICATOR_PATTERN = re.compile(
     r"\b(?:0\s*(?:a|to|-)\s*1\s*(?:ano|anos|year|years)|0\s*(?:anos|years)|sem\s+experi[eê]ncia|n[aã]o\s+[eé]\s+necess[aá]ria\s+experi[eê]ncia|n[aã]o\s+requer\s+experi[eê]ncia|rec[eé]m[- ]licenciad[oa]s?|est[aá]gio\s+profissional|est[aá]gios?|trainees?|internships?|\binterns?\b|\b(?:recém[- ]graduad[oa]s?|recem[- ]graduad[oa]s?|recent\s+graduates?|fresh\s+graduates?|new\s+graduates?|graduate\s+program|graduate\s+scheme)\b)\b",
@@ -233,6 +240,10 @@ class JobMatcher:
         geo_match = GEO_RESTRICTED_REMOTE_PATTERN.search(text)
         if is_strictly_remote and geo_match:
             return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Remoto Geobloqueado", match_reason=f"Vaga remota restrita ({geo_match.group(0).strip()})", ai_reasoning=f"❌ Filtro Automático: Vaga remota com restrição geográfica a outros países ({geo_match.group(0).strip()})")
+
+        crowd_match = CROWDSOURCING_MICROTASKS_PATTERN.search(text)
+        if crowd_match:
+            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Microtarefas / Crowdsourcing", match_reason=f"Oportunidade de crowdsourcing/microtarefas ({crowd_match.group(0).strip()})", ai_reasoning=f"❌ Filtro Automático: Microtarefas/Crowdsourcing não elegível como emprego formal ({crowd_match.group(0).strip()})")
 
         for disq, pattern in IRRELEVANT_ROLE_PATTERNS:
             if pattern.search(title_lower):
