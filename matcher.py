@@ -85,12 +85,13 @@ IRRELEVANT_ROLE_PATTERNS = [(disq, build_strict_pattern(disq)) for disq in IRREL
 TITLE_SENIORITY_PATTERNS = [(disq, build_strict_pattern(disq)) for disq in TITLE_SENIORITY_DISQUALIFIERS]
 TEXT_SENIORITY_PATTERNS = [(disq, build_strict_pattern(disq)) for disq in TEXT_SENIORITY_DISQUALIFIERS]
 YEARS_OF_EXP_PATTERN = re.compile(
-    r"\b(?:(?:mais\s+de|acima\s+de|superior\s+a|pelo\s+menos|no\s+m[ií]nimo|m[ií]nimo\s+de|m[ií]nimo|more\s+than|over|at\s+least|minimum\s+of|minimum)\s+)?"
-    r"(?:[1-9]|1[0-9]|one|two|three|four|five|six|seven|eight|nine|ten|um|uma|dois|duas|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez)\s*\+?\s*(?:to|-|a)?\s*"
-    r"(?:[1-9]|1[0-9]|one|two|three|four|five|six|seven|eight|nine|ten|um|uma|dois|duas|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez)?\s*\+?\s*"
-    r"(?:years?|anos?)\s+(?:of\s+|de\s+)?(?:[\w\s]{0,40})?experi(?:ence|[eê]ncia)\b|"
-    r"\bexperi(?:ence|[eê]ncia)\b[\w\s]{0,40}\b(?:(?:mais\s+de|acima\s+de|superior\s+a|pelo\s+menos|no\s+m[ií]nimo|m[ií]nimo\s+de|m[ií]nimo|more\s+than|over|at\s+least|minimum\s+of|minimum)\s+)?"
-    r"(?:[1-9]|1[0-9]|one|two|three|four|five|six|seven|eight|nine|ten|um|uma|dois|duas|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez)\s*\+?\s*(?:years?|anos?)\b",
+    r"(?:(?:\+|\>|mais\s+de|superior\s+a|acima\s+de|pelo\s+menos|no\s+m[ií]nimo|m[ií]nimo\s+de|m[ií]nimo|more\s+than|over|at\s+least|minimum\s+of|minimum)\s*)?"
+    r"(?<!\w)(?:\+|\>)?\s*(?:[1-9]|1[0-9]|one|two|three|four|five|six|seven|eight|nine|ten|um|uma|dois|duas|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez)"
+    r"(?:\s*\+|\s+or\s+more|\s+ou\s+mais|\s+plus)?"
+    r"(?:\s*(?:to|-|a)\s*(?:[1-9]|1[0-9]|one|two|three|four|five|six|seven|eight|nine|ten|um|uma|dois|duas|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez)(?:\s*\+|\s+or\s+more|\s+ou\s+mais)?)?"
+    r"\s*(?:years?|anos?)"
+    r"(?:\s+or\s+more|\s+ou\s+mais|\s+plus|\s+(?:of\s+|de\s+)?(?:[\w\s]{0,40})?experi(?:ence|[eê]ncia))?\b|"
+    r"\bexperi(?:ence|[eê]ncia)\b[\w\s]{0,40}(?:(?:\+|\>|mais\s+de|superior\s+a|pelo\s+menos|no\s+m[ií]nimo|m[ií]nimo\s+de|more\s+than|over|at\s+least|minimum\s+of|minimum)\s*)?(?:[1-9]|1[0-9]|one|two|three|four|five|six|seven|eight|nine|ten|um|uma|dois|duas|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez)\s*(?:\+|\s+or\s+more|\s+ou\s+mais)?\s*(?:years?|anos?)\b",
     re.IGNORECASE
 )
 
@@ -137,13 +138,15 @@ ZERO_EXP_INDICATOR_PATTERN = re.compile(
     re.IGNORECASE
 )
 
-# Advanced Seniority Experience Hard Disqualifier Pattern (3+, 4+, 5+ years, +5 years, minimum 3+ years)
+# Advanced Seniority Experience Hard Disqualifier Pattern (3+, 4+, 5+, 8+ years, +5 years, minimum 3+ years, 8 or more years)
 ADVANCED_EXP_HARD_DISQUALIFIERS_PATTERN = re.compile(
-    r"(?:(?:\+|\>|mais\s+de|superior\s+a|pelo\s+menos|no\s+m[ií]nimo|m[ií]nimo\s+de|more\s+than|over|at\s+least|minimum\s+of|minimum)\s*)?"
-    r"(?:[3-9]|1[0-9]|three|four|five|six|seven|eight|nine|ten|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez)\s*\+?\s*"
-    r"(?:years?|anos?)\s+(?:of\s+|de\s+)?(?:[\w\s]{0,40})?experi(?:ence|[eê]ncia)\b|"
-    r"(?<!\w)(?:\+|\>)?\s*[3-9]\s*\+?\s*(?:years?|anos?)\b|"
-    r"\bexperi(?:ence|[eê]ncia)\b[\w\s]{0,40}(?:(?:\+|\>|mais\s+de|superior\s+a|pelo\s+menos|no\s+m[ií]nimo|m[ií]nimo\s+de|more\s+than|over|at\s+least|minimum\s+of|minimum)\s*)?(?:[3-9]|1[0-9]|three|four|five|six|seven|eight|nine|ten|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez)\s*\+?\s*(?:years?|anos?)\b",
+    r"(?:(?:\+|\>|mais\s+de|superior\s+a|acima\s+de|pelo\s+menos|no\s+m[ií]nimo|m[ií]nimo\s+de|m[ií]nimo|more\s+than|over|at\s+least|minimum\s+of|minimum)\s*)?"
+    r"(?<!\w)(?:\+|\>)?\s*(?:[3-9]|1[0-9]|three|four|five|six|seven|eight|nine|ten|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez)"
+    r"(?:\s*\+|\s+or\s+more|\s+ou\s+mais|\s+plus)?"
+    r"(?:\s*(?:to|-|a)\s*(?:[3-9]|1[0-9]|three|four|five|six|seven|eight|nine|ten|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez)(?:\s*\+|\s+or\s+more|\s+ou\s+mais)?)?"
+    r"\s*(?:years?|anos?)"
+    r"(?:\s+or\s+more|\s+ou\s+mais|\s+plus|\s+(?:of\s+|de\s+)?(?:[\w\s]{0,40})?experi(?:ence|[eê]ncia))?\b|"
+    r"\bexperi(?:ence|[eê]ncia)\b[\w\s]{0,40}(?:(?:\+|\>|mais\s+de|superior\s+a|pelo\s+menos|no\s+m[ií]nimo|m[ií]nimo\s+de|more\s+than|over|at\s+least|minimum\s+of|minimum)\s*)?(?:[3-9]|1[0-9]|three|four|five|six|seven|eight|nine|ten|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez)\s*(?:\+|\s+or\s+more|\s+ou\s+mais)?\s*(?:years?|anos?)\b",
     re.IGNORECASE
 )
 

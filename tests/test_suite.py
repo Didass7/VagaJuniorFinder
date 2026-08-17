@@ -164,6 +164,21 @@ class TestMatcherModule(unittest.TestCase):
         scored_jobs = self.matcher.process_jobs([job])
         self.assertEqual(len(scored_jobs), 0)
 
+    def test_toptal_8_or_more_years_disqualification(self):
+        """Verifies that senior freelance roles demanding 8 or more years of experience are strictly disqualified."""
+        job = Job(
+            title="Python Backend Development Talent with RAG and Agentic AI Experience",
+            company="Toptal",
+            location="Remoto",
+            work_mode="Remoto",
+            link="https://weworkremotely.com/remote-jobs/toptal-python-backend-development-talent-with-rag-and-agentic-ai-experience",
+            description="Toptal is looking for Python Backend Development Talent. Required: 8 or more years of professional Python backend development experience. Strong skills in Python, FastAPI, RAG, LangChain.",
+            source="WeWorkRemotely",
+            pub_date="2026-08-17"
+        )
+        scored_jobs = self.matcher.process_jobs([job])
+        self.assertEqual(len(scored_jobs), 0)
+
     def test_teaching_formador_disqualification(self):
         """Verifies that Professor/Formador/Teaching roles are strictly disqualified."""
         job = Job(
