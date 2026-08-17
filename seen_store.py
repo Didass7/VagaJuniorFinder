@@ -40,16 +40,11 @@ class SeenStore:
     def is_seen_candidate(self, title: str, company: str = "") -> bool:
         """Computes hash and checks if title + company combination has been seen."""
         import hashlib
-        import string
-        import re
-
-        clean_c = re.sub(r"\b(modelo\s+híbrido|modelo\s+hibrido|teletrabalho|in\s+\d{4}|in\s+lisboa|in\s+lisbon|in\s+porto|in\s+portugal|lisboa|lisbon|portugal|presencial|remote|remoto|hybrid)\b.*$", "", company, flags=re.IGNORECASE).strip()
-        t_clean = re.sub(r"\b(remote|remoto|teletrabalho|híbrido|hibrido|hybrid|presencial|lisboa|lisbon|portugal)\b", "", title, flags=re.IGNORECASE)
-        
-        def _norm(s: str) -> str:
-            return " ".join(s.lower().translate(str.maketrans('', '', string.punctuation)).split())
-        
-        raw_str = f"{_norm(t_clean)}_{_norm(clean_c)}"
+        try:
+            from scraper import normalize_title_company_for_hash
+            raw_str = normalize_title_company_for_hash(title, company)
+        except Exception:
+            raw_str = f"{title.lower()}_{company.lower()}"
         candidate_id = hashlib.sha256(raw_str.encode('utf-8')).hexdigest()[:16]
         return self.is_seen(candidate_id)
 
@@ -61,15 +56,15 @@ class SeenStore:
                 self._store[jid] = now
 
     def filter_new(self, jobs) -> list:
-        """Return only jobs whose job_id hasn't been seen before.
-        
-        Args:
-            jobs: List of Job dataclass instances (from scraper.py).
-            
-        Returns:
-            List of unseen Job instances.
-        """
-        return [j for j in jobs if not self.is_seen(j.job_id)]
+        """Return only jobs whose job_id hasn't been seen before, deduplicating across current batch as well."""
+        seen_in_batch = set()
+        unseen_jobs = []
+        for j in jobs:
+            if self.is_seen(j.job_id) or j.job_id in seen_in_batch:
+                continue
+            seen_in_batch.add(j.job_id)
+            unseen_jobs.append(j)
+        return unseen_jobs
 
     def save(self) -> None:
         """Persist the store to disk atomically."""

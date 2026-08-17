@@ -57,13 +57,14 @@ class NotionStore:
         
         return {}
 
-    def get_existing_urls(self) -> Set[str]:
-        """Queries the Notion Database to retrieve URLs of already synced jobs."""
+    def get_existing_records(self) -> tuple[Set[str], Set[str]]:
+        """Queries the Notion Database to retrieve URLs and normalized dedup keys (title + company) of already synced jobs."""
         if not self.is_configured:
-            return set()
+            return set(), set()
 
         url = f"{NOTION_API_URL}/databases/{self.database_id}/query"
         existing_urls: Set[str] = set()
+        existing_keys: Set[str] = set()
         
         has_more = True
         start_cursor = None
@@ -86,10 +87,33 @@ class NotionStore:
                     
                     for page in results:
                         props = page.get("properties", {})
-                        # Check any property of type "url"
-                        for prop_data in props.values():
-                            if prop_data.get("type") == "url" and prop_data.get("url"):
+                        page_title = ""
+                        page_company = ""
+
+                        for prop_name, prop_data in props.items():
+                            p_type = prop_data.get("type")
+                            if p_type == "url" and prop_data.get("url"):
                                 existing_urls.add(prop_data.get("url"))
+                            elif p_type == "title":
+                                title_list = prop_data.get("title", [])
+                                if title_list:
+                                    page_title = title_list[0].get("text", {}).get("content", "")
+                            elif prop_name.lower() in ["empresa", "company"]:
+                                if p_type == "rich_text":
+                                    rt_list = prop_data.get("rich_text", [])
+                                    if rt_list:
+                                        page_company = rt_list[0].get("text", {}).get("content", "")
+                                elif p_type == "select" and prop_data.get("select"):
+                                    page_company = prop_data.get("select", {}).get("name", "")
+
+                        if page_title and page_company:
+                            try:
+                                from scraper import get_job_dedup_key
+                                key = get_job_dedup_key(page_title, page_company)
+                                if key:
+                                    existing_keys.add(key)
+                            except Exception:
+                                pass
 
                     has_more = data.get("has_more", False)
                     start_cursor = data.get("next_cursor")
@@ -104,7 +128,12 @@ class NotionStore:
             if not success:
                 break
 
-        return existing_urls
+        return existing_urls, existing_keys
+
+    def get_existing_urls(self) -> Set[str]:
+        """Queries the Notion Database to retrieve URLs of already synced jobs."""
+        urls, _ = self.get_existing_records()
+        return urls
 
     def sync_jobs(self, scored_jobs: List[ScoredJob]) -> Set[str]:
         """Syncs new scored jobs to Notion Database. Returns set of successfully synced job IDs."""
@@ -112,7 +141,7 @@ class NotionStore:
             logger.info("ℹ️ Notion token or database ID not configured. Skipping Notion sync.")
             return {sj.job.job_id for sj in scored_jobs}
 
-        existing_urls = self.get_existing_urls()
+        existing_urls, existing_keys = self.get_existing_records()
         synced_count = 0
         successful_job_ids: Set[str] = set()
 
@@ -122,7 +151,14 @@ class NotionStore:
                 continue
 
             job = sj.job
-            if job.link in existing_urls:
+            try:
+                from scraper import get_job_dedup_key
+                dedup_key = get_job_dedup_key(job.title, job.company)
+            except Exception:
+                dedup_key = ""
+
+            if job.link in existing_urls or (dedup_key and dedup_key in existing_keys):
+                logger.info(f"ℹ️ Skipping duplicate job already present in Notion: '{job.title}' @ '{job.company}'")
                 successful_job_ids.add(job.job_id)
                 continue
 
@@ -131,6 +167,8 @@ class NotionStore:
                 if success:
                     synced_count += 1
                     existing_urls.add(job.link)
+                    if dedup_key:
+                        existing_keys.add(dedup_key)
                     successful_job_ids.add(job.job_id)
                 time.sleep(0.35)  # Throttling to stay safely below Notion 3 req/sec rate limit
             except Exception as e:

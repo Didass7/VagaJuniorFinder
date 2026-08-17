@@ -264,6 +264,24 @@ class TestMatcherModule(unittest.TestCase):
         scored_jobs = self.matcher.process_jobs([job])
         self.assertEqual(len(scored_jobs), 0)
 
+    def test_cross_portal_deduplication_keys(self):
+        """Verifies that jobs posted across different portals with company suffix differences produce matching dedup keys and are filtered."""
+        from scraper import get_job_dedup_key
+        
+        # Test Neotalent
+        key1 = get_job_dedup_key("Data Analyst", "Neotalent Conclusion")
+        key2 = get_job_dedup_key("Data Analyst", "Neotalent")
+        key3 = get_job_dedup_key("Data Analyst", "Neotalent Portugal")
+        self.assertEqual(key1, key2)
+        self.assertEqual(key2, key3)
+        
+        # Test Fyld
+        key_f1 = get_job_dedup_key("Data Engineer (Azure)", "Fyld")
+        key_f2 = get_job_dedup_key("Data Engineer - Azure", "FYLD - Consulting")
+        key_f3 = get_job_dedup_key("Data Engineer (Azure)", "FYLD Portugal")
+        self.assertEqual(key_f1, key_f2)
+        self.assertEqual(key_f2, key_f3)
+
     def test_teaching_formador_disqualification(self):
         """Verifies that Professor/Formador/Teaching roles are strictly disqualified."""
         job = Job(

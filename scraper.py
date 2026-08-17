@@ -136,6 +136,38 @@ NOISE_COMPANY_PATTERNS = [
     r"\bhybrid\b.*$",
 ]
 
+COMPANY_STRIP_SUFFIXES = [
+    r"\bconclusion(?:\s+group)?\b",
+    r"\bconsulting\b",
+    r"\bconsultancy\b",
+    r"\bsolutions\b",
+    r"\btechnologies\b",
+    r"\btechnology\b",
+    r"\btech\b",
+    r"\bdigital\b",
+    r"\bservices\b",
+    r"\bgroup\b",
+    r"\bgrupo\b",
+    r"\bportugal\b",
+    r"\bpt\b",
+    r"\bcorp\b",
+    r"\bcorporation\b",
+    r"\binc\b",
+    r"\bllc\b",
+    r"\bltd\b",
+    r"\blimited\b",
+    r"\bgmbh\b",
+    r"\bs\.?a\.?\b",
+    r"\blda\.?\b",
+    r"\bunipessoal\b",
+    r"\bholding\b",
+    r"\bholdings\b",
+    r"\bsystems\b",
+    r"\binternational\b",
+    r"\bglobal\b",
+    r"\beurope\b",
+]
+
 def clean_company_name(company: str) -> str:
     if not company:
         return "Empresa Confidencial"
@@ -145,14 +177,33 @@ def clean_company_name(company: str) -> str:
     c = re.sub(r"[\s\-\|]+$", "", c).strip()
     return c if c else company.strip()
 
+def normalize_company_name(company: str) -> str:
+    if not company:
+        return ""
+    c = clean_company_name(company).lower().strip()
+    c = re.sub(r"\[.*?\]|\(.*?\)", " ", c)
+    c = c.translate(str.maketrans(string.punctuation, ' ' * len(string.punctuation)))
+    for pat in COMPANY_STRIP_SUFFIXES:
+        c = re.sub(pat, " ", c, flags=re.IGNORECASE)
+    return " ".join(c.split())
+
+def normalize_title_name(title: str) -> str:
+    if not title:
+        return ""
+    t = title.lower().strip()
+    t = re.sub(r"\(\s*m\s*/\s*f\s*(?:/\s*[a-z])?\s*\)|\(\s*m\s*/\s*w\s*/\s*d\s*\)", " ", t)
+    noise = r"\b(lisboa|porto|portugal|remote|remoto|hybrid|híbrido|hibrido|presencial|estágio|estagio|iefp|ativar|júnior|junior|recém|recem|licenciado|graduates|full-time|fulltime)\b"
+    t = re.sub(noise, " ", t, flags=re.IGNORECASE)
+    t = t.translate(str.maketrans(string.punctuation, ' ' * len(string.punctuation)))
+    return " ".join(t.split())
+
+def get_job_dedup_key(title: str, company: str) -> str:
+    nc = normalize_company_name(company)
+    nt = normalize_title_name(title)
+    return f"{nt}__{nc}"
+
 def normalize_title_company_for_hash(title: str, company: str) -> str:
-    clean_c = clean_company_name(company)
-    t_clean = re.sub(r"\b(remote|remoto|teletrabalho|híbrido|hibrido|hybrid|presencial|lisboa|lisbon|portugal)\b", "", title, flags=re.IGNORECASE)
-    
-    def _norm(s: str) -> str:
-        return " ".join(s.lower().translate(str.maketrans('', '', string.punctuation)).split())
-    
-    return f"{_norm(t_clean)}_{_norm(clean_c)}"
+    return get_job_dedup_key(title, company)
 
 @dataclass
 class Job:
