@@ -118,10 +118,13 @@ class AIEvaluator:
         prompt = self._build_batch_prompt(batch, profile)
         groq_candidates = list(dict.fromkeys([
             self.groq_model_name,
-            "llama-3.3-70b-versatile",
-            "llama-3.1-70b-versatile",
             "llama3-70b-8192",
             "llama3-8b-8192",
+            "llama-3.3-70b-versatile",
+            "llama-3.3-70b-specdec",
+            "llama-3.2-11b-text-preview",
+            "llama-3.2-3b-preview",
+            "llama-3.2-1b-preview",
             "mixtral-8x7b-32768",
             "gemma2-9b-it"
         ]))
@@ -156,8 +159,8 @@ class AIEvaluator:
                     return parsed
             except Exception as e:
                 err_str = str(e).lower()
-                if "model_not_found" in err_str or "does not exist" in err_str or "404" in err_str:
-                    logger.warning(f"⚠️ Groq model '{model}' not found or deprecated. Trying next model...")
+                if "model_not_found" in err_str or "decommissioned" in err_str or "does not exist" in err_str or "404" in err_str or "400" in err_str:
+                    logger.warning(f"⚠️ Groq model '{model}' not supported/decommissioned ({e}). Trying next Groq model...")
                     continue
                 elif "rate_limit" in err_str or "429" in err_str:
                     if self._gemini_client:
@@ -165,10 +168,8 @@ class AIEvaluator:
                         return self._evaluate_batch_with_gemini(batch, profile)
                     time.sleep(10)
                 else:
-                    logger.error(f"Error calling Groq model '{model}': {e}")
-                    if self._gemini_client:
-                        logger.info("Attempting batch fallback to Gemini API...")
-                        return self._evaluate_batch_with_gemini(batch, profile)
+                    logger.warning(f"Error calling Groq model '{model}': {e}. Trying next candidate...")
+                    continue
 
         if self._gemini_client:
             logger.info("Groq models unavailable. Falling back to Gemini API...")
@@ -178,11 +179,15 @@ class AIEvaluator:
     def _evaluate_batch_with_gemini(self, batch: List[Job], profile: CandidateProfile) -> Dict[str, AIEvaluationResult]:
         prompt = self._build_batch_prompt(batch, profile)
         gemini_candidates = list(dict.fromkeys([
+            "gemini-3.6-flash",
             self.gemini_model_name,
             "gemini-2.5-flash",
+            "gemini-2.0-flash",
             "gemini-1.5-flash",
+            "gemini-1.5-flash-latest",
             "gemini-2.0-flash-exp",
-            "gemini-1.5-pro"
+            "gemini-1.5-pro",
+            "gemini-1.5-pro-latest"
         ]))
 
         from google.genai import types
@@ -207,11 +212,8 @@ class AIEvaluator:
                     return parsed
             except Exception as e:
                 err_str = str(e).lower()
-                if "not_found" in err_str or "no longer available" in err_str or "404" in err_str:
-                    logger.warning(f"⚠️ Gemini model '{model}' not found or deprecated. Trying next candidate model...")
-                    continue
-                else:
-                    logger.error(f"Error calling Gemini model '{model}': {e}")
+                logger.warning(f"⚠️ Gemini model '{model}' issue ({e}). Trying next candidate...")
+                continue
 
         return {}
 
