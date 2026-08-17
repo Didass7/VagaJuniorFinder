@@ -265,14 +265,14 @@ def reevaluate_notion_jobs_for_profile(profile_name: str):
         )
 
         # 2. Re-evaluate with Matcher & AI
-        scored_jobs = matcher.process_jobs([job])
+        scored_jobs = matcher.process_jobs([job], include_disqualified=True)
         if not scored_jobs or scored_jobs[0].score == 0:
             # Job is disqualified by heuristic or AI
             disqualified_count += 1
-            reason = scored_jobs[0].match_reason if scored_jobs else "Requisitos não adequados para Júnior"
-            seniority = scored_jobs[0].seniority_status if scored_jobs else "Desqualificada"
+            reason = scored_jobs[0].match_reason if (scored_jobs and scored_jobs[0].match_reason) else "Requisitos não adequados para Júnior"
+            seniority = scored_jobs[0].seniority_status if (scored_jobs and scored_jobs[0].seniority_status) else "Desqualificada"
             ai_reason_text = scored_jobs[0].ai_reasoning if (scored_jobs and scored_jobs[0].ai_reasoning) else f"❌ Rejeitada: {reason}"
-            logger.info(f"  ↳ ❌ DISQUALIFIED: {reason} ({seniority})")
+            logger.info(f"  ↳ ❌ DISQUALIFIED: {ai_reason_text} ({seniority})")
 
             patch_props = {}
             if "Match Score (%)" in schema:

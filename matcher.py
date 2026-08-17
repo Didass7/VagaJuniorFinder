@@ -365,16 +365,19 @@ class JobMatcher:
             match_reason=f"Avaliação Heurística. Skills: {', '.join(matched_skills) if matched_skills else 'Nenhuma'}."
         )
 
-    def process_jobs(self, jobs: List[Job]) -> List[ScoredJob]:
+    def process_jobs(self, jobs: List[Job], include_disqualified: bool = False) -> List[ScoredJob]:
         # Stage 1: Fast Heuristic Pre-filter
         heuristic_candidates: List[ScoredJob] = []
+        disqualified_jobs: List[ScoredJob] = []
         for job in jobs:
             evaluated = self.evaluate_job(job)
             if evaluated.score >= 55.0:
                 heuristic_candidates.append(evaluated)
+            else:
+                disqualified_jobs.append(evaluated)
 
         if not heuristic_candidates:
-            return []
+            return disqualified_jobs if include_disqualified else []
 
         # Stage 2: Batch AI Evaluation
         if self.ai_evaluator and self.ai_evaluator.is_available:
@@ -401,6 +404,8 @@ class JobMatcher:
                         sj.match_reason = ai_res.reasoning
                         sj.ai_reasoning = f"❌ Rejeitada por IA: {ai_res.reasoning}"
                         ai_rejected += 1
+                        if include_disqualified:
+                            final_scored_jobs.append(sj)
                         continue
 
                     # Only jobs verified as suitable by AI are accepted
@@ -411,6 +416,8 @@ class JobMatcher:
                         sj.match_reason = ai_res.reasoning
                         sj.ai_reasoning = f"❌ Score Insuficiente ({blended_score}%): {ai_res.reasoning}"
                         ai_rejected += 1
+                        if include_disqualified:
+                            final_scored_jobs.append(sj)
                         continue
 
                     sj.score = blended_score
@@ -447,6 +454,8 @@ class JobMatcher:
                     final_scored_jobs.append(sj)
 
             logger.info(f"🤖 Stage 2 AI Summary: {ai_accepted} accepted, {ai_rejected} rejected as non-junior/unsuitable.")
+            if include_disqualified:
+                final_scored_jobs.extend(disqualified_jobs)
             final_scored_jobs.sort(key=lambda x: x.score, reverse=True)
             return final_scored_jobs
         else:
@@ -454,5 +463,7 @@ class JobMatcher:
             for sj in heuristic_candidates:
                 if not sj.ai_reasoning:
                     sj.ai_reasoning = f"Avaliação Heurística: Vaga adequada para perfil Júnior ({', '.join(sj.matched_skills[:3]) if sj.matched_skills else 'Target Role'})"
+            if include_disqualified:
+                heuristic_candidates.extend(disqualified_jobs)
             heuristic_candidates.sort(key=lambda x: x.score, reverse=True)
             return heuristic_candidates

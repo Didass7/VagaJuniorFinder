@@ -379,7 +379,12 @@ VAGAS NO LOTE A AVALIAR:
 {all_jobs_str}
 
 REGRAS DE AVALIAÇÃO PARA CADA VAGA:
-1. Nível de Senioridade: O candidato é Júnior / Recém-licenciado (0 a 1 ano de experiência). Em Portugal, muitas vagas de nível Júnior/Entrada indicam '1 a 2 anos' ou 'experiência valorizada' como preferência, mas contratam e entrevistam recém-licenciados com base em projetos e formação. NÃO rejeites vagas júnior por mencionarem até 2 anos de experiência ou estágio. Apenas rejeita (`is_suitable: false`, `fit_score: 0`) se a vaga for claramente SÉNIOR / LIDERANÇA (3+ anos, 5+ anos, Lead, Principal, Gestor de Equipa).
+1. Nível de Senioridade e Experiência:
+   - O candidato é Júnior / Recém-licenciado com sólida formação e projetos práticos (0 a 1 ano de experiência profissional).
+   - Em Portugal e no setor tecnológico, a esmagadora maioria das vagas de entrada / júnior usa termos como "experienced", "proven experience", "experiência em desenvolvimento", "conhecimento prático" ou "1 a 2 anos" referindo-se a competências em projetos académicos, teses ou projetos pessoais.
+   - NÃO rejeites vagas por usarem termos como "experienced", "proven experience", "experiência em Python/GenAI/ML" ou por mencionarem até 2 anos de experiência.
+   - Se a vaga NÃO exigir expressamente 3+ anos, 5+ anos, ou cargos de liderança/sénior (Lead, Senior Developer, Principal, Head, Gestor), deves considerá-la ADEQUADA (`is_suitable: true`, `seniority_detected: "Júnior"` ou `"Recém-licenciado"`, `fit_score: 65% a 90%`).
+   - Apenas rejeita (`is_suitable: false`, `fit_score: 0`) se a vaga for claramente e inequivocamente SÉNIOR / LIDERANÇA (3+ anos obrigatórios, 5+ anos, Lead, Principal, Gestor de Equipa).
 2. Adequação da Área: A vaga deve ser técnica (IA, Machine Learning, Data Science, Data Engineering, Python Developer, Software Engineer). Rejeita apenas vagas puramente de negócio/administrativas (ex: Vendas, Marketing, Recursos Humanos, Contabilidade) que não envolvam desenvolvimento ou análise de dados (`is_suitable: false`).
 3. Competências Técnicas: Avalia a sobreposição com a stack do candidato ({tech_stack_str}). Dá pontuação alta (70-95%) se a vaga usar Python, SQL, ML, IA, Docker ou FastAPI. Se a vaga pedir ferramentas adicionais como nice-to-have, pondera a pontuação sem rejeitar imediatamente.
 4. Línguas: Exigência de Alemão/Francês/Holandês nativo ou fluente é eliminatória (`is_suitable: false`). Inglês e Português são suportados.
