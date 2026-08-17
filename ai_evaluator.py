@@ -26,7 +26,7 @@ class AIEvaluator:
         self.groq_model_name = config.groq_model_name or "openai/gpt-oss-120b"
         
         self.gemini_api_key = gemini_api_key if gemini_api_key is not None else config.gemini_api_key
-        self.gemini_model_name = config.ai_model_name or "gemini-3.6-flash"
+        self.gemini_model_name = config.ai_model_name or "gemini-3.5-flash-lite"
         
         self._groq_client = None
         self._gemini_client = None
@@ -226,14 +226,15 @@ class AIEvaluator:
         gemini_candidates = [
             m for m in dict.fromkeys([
                 self.gemini_model_name,
+                "gemini-3.5-flash-lite",
+                "gemini-3.6-flash",
+                "gemini-3.5-flash",
+                "gemini-3.7-flash",
                 "gemini-2.5-flash",
                 "gemini-2.0-flash",
                 "gemini-2.0-flash-lite",
                 "gemini-1.5-flash",
                 "gemini-1.5-flash-8b",
-                "gemini-3.5-flash-lite",
-                "gemini-3.5-flash",
-                "gemini-3.6-flash",
                 "gemini-2.5-pro",
                 "gemini-1.5-pro"
             ]) if m not in self._invalid_gemini_models

@@ -99,7 +99,7 @@ class TestAIEvaluator(unittest.TestCase):
             res = evaluator._evaluate_batch_with_gemini([sample_job], self.profile)
             
         self.assertTrue(bool(res))
-        self.assertIn("gemini-2.5-flash", evaluator._invalid_gemini_models)
+        self.assertIn("gemini-3.5-flash-lite", evaluator._invalid_gemini_models)
         self.assertEqual(evaluator._gemini_cooldown_until, 0.0)
 
 
