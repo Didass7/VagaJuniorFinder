@@ -91,28 +91,46 @@ class AIEvaluator:
         return results
 
     def _process_single_batch(self, batch: List[Job], profile: CandidateProfile) -> Dict[str, AIEvaluationResult]:
-        now = time.time()
-        # 1. Prefer Gemini if not in rate-limit cooldown
-        if self._gemini_client and now >= self._gemini_cooldown_until:
-            res = self._evaluate_batch_with_gemini(batch, profile)
-            if res:
-                return res
-            elif self._groq_client and now >= self._groq_cooldown_until:
-                return self._evaluate_batch_with_groq(batch, profile)
+        for attempt in range(1, 4):
+            now = time.time()
+            gemini_ready = self._gemini_client is not None and now >= self._gemini_cooldown_until
+            groq_ready = self._groq_client is not None and now >= self._groq_cooldown_until
 
-        # 2. Otherwise use Groq
-        if self._groq_client and now >= self._groq_cooldown_until:
-            res = self._evaluate_batch_with_groq(batch, profile)
-            if res:
-                return res
-            elif self._gemini_client:
-                return self._evaluate_batch_with_gemini(batch, profile)
+            # If both engines are currently in rate-limit cooldown, pause until the earliest resets
+            if not gemini_ready and not groq_ready and (self._gemini_client or self._groq_client):
+                wait_sec = 20.0
+                if self._gemini_client and self._groq_client:
+                    wait_sec = max(5.0, min(self._gemini_cooldown_until - now, self._groq_cooldown_until - now))
+                elif self._gemini_client:
+                    wait_sec = max(5.0, self._gemini_cooldown_until - now)
+                elif self._groq_client:
+                    wait_sec = max(5.0, self._groq_cooldown_until - now)
+                
+                logger.info(f"⏳ Both AI engines (Gemini/Groq) in rate-limit cooldown. Pausing {int(wait_sec)}s before next evaluation...")
+                time.sleep(wait_sec)
+                now = time.time()
+                gemini_ready = self._gemini_client is not None and now >= self._gemini_cooldown_until
+                groq_ready = self._groq_client is not None and now >= self._groq_cooldown_until
 
-        # 3. Last attempt if cooldowns expired
-        if self._gemini_client:
-            return self._evaluate_batch_with_gemini(batch, profile)
-        elif self._groq_client:
-            return self._evaluate_batch_with_groq(batch, profile)
+            # 1. Prefer Gemini if ready
+            if gemini_ready:
+                res = self._evaluate_batch_with_gemini(batch, profile)
+                if res:
+                    return res
+                if self._groq_client and time.time() >= self._groq_cooldown_until:
+                    res_g = self._evaluate_batch_with_groq(batch, profile)
+                    if res_g:
+                        return res_g
+
+            # 2. Otherwise use Groq
+            elif groq_ready:
+                res = self._evaluate_batch_with_groq(batch, profile)
+                if res:
+                    return res
+                if self._gemini_client and time.time() >= self._gemini_cooldown_until:
+                    res_m = self._evaluate_batch_with_gemini(batch, profile)
+                    if res_m:
+                        return res_m
 
         return {}
 

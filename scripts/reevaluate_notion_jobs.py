@@ -316,7 +316,7 @@ def reevaluate_notion_jobs_for_profile(profile_name: str):
         else:
             logger.warning(f"  ↳ Failed to update Notion page after retries.")
 
-        time.sleep(0.3)
+        time.sleep(1.0)
 
     logger.info("==================================================")
     logger.info(f"🎉 Re-evaluation complete for {profile_name}! {updated_count} jobs updated, {disqualified_count} jobs flagged/disqualified.")
