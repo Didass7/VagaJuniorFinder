@@ -189,15 +189,15 @@ class JobMatcher:
         ]
         
         if len(clean_desc) < 100 or any(ind in clean_desc_lower for ind in incomplete_indicators):
-            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Descrição Incompleta / Bloqueada", match_reason="Descrição indisponível")
+            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Descrição Incompleta / Bloqueada", match_reason="Descrição indisponível", ai_reasoning="❌ Filtro Automático: Descrição indisponível ou protegida por login")
 
         if any(exp_term in clean_desc_lower for exp_term in ["oferta expirada", "vaga expirada", "anúncio expirado", "job no longer available", "no longer accepting applications", "this job is no longer available"]):
-            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Oferta Expirada", match_reason="Anúncio marcado como expirado")
+            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Oferta Expirada", match_reason="Anúncio marcado como expirado", ai_reasoning="❌ Filtro Automático: Anúncio de vaga já expirado")
 
         today = datetime.date.today()
         job_date = parse_job_date(job.pub_date)
         if (today - job_date).days > 14:
-            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Vaga Antiga (> 14 dias)", match_reason="Oferta expirada (> 14 dias)")
+            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Vaga Antiga (> 14 dias)", match_reason="Oferta expirada (> 14 dias)", ai_reasoning="❌ Filtro Automático: Publicada há mais de 14 dias")
 
         profile_locs = [l.lower() for l in getattr(self.profile, 'locations', []) if l.lower() not in ["remoto", "remote", "hybrid", "híbrido", "hibrido"]]
         allowed_locations = set(PORTUGAL_LOCATIONS + profile_locs)
@@ -205,17 +205,17 @@ class JobMatcher:
         is_strictly_remote = (work_mode_lower == "remoto") or ("remoto" in location_lower) or ("remote" in location_lower) or ("teletrabalho" in location_lower)
 
         if not is_portugal and not is_strictly_remote:
-            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Fora do Âmbito Geográfico", match_reason="Presencial/Híbrido no Estrangeiro")
+            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Fora do Âmbito Geográfico", match_reason="Presencial/Híbrido no Estrangeiro", ai_reasoning="❌ Filtro Automático: Vaga presencial/híbrida no estrangeiro")
 
         if is_strictly_remote and GEO_RESTRICTED_REMOTE_PATTERN.search(text):
-            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Remoto Geobloqueado", match_reason="Vaga remota mas restrita")
+            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Remoto Geobloqueado", match_reason="Vaga remota mas restrita", ai_reasoning="❌ Filtro Automático: Vaga remota com restrição geográfica a outros países")
 
         for disq, pattern in IRRELEVANT_ROLE_PATTERNS:
             if pattern.search(title_lower):
-                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Cargo Irrelevante", match_reason=f"Título desqualificado por conter '{disq}'")
+                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Cargo Irrelevante", match_reason=f"Título desqualificado por conter '{disq}'", ai_reasoning=f"❌ Filtro Automático: Cargo irrelevante ({disq})")
 
         if any(k in text for k in ["crianças", "criancas", "adolescentes", "pós-letivo", "pos-letivo", "sharkcoders"]):
-            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Ensino Infantil", match_reason="Ensino de crianças/adolescentes")
+            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Ensino Infantil", match_reason="Ensino de crianças/adolescentes", ai_reasoning="❌ Filtro Automático: Ensino de crianças/adolescentes")
 
         # Dynamic Core Domain Check based on profile's target titles and tech stack
         target_titles_lower = [t.lower() for t in self.profile.target_titles]
@@ -254,20 +254,20 @@ class JobMatcher:
 
         if is_security_profile and not is_data_profile:
             if any(dt in title_lower for dt in data_domain_terms):
-                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Fora do Perfil", match_reason="Vaga de Engenharia/Ciência de Dados fora do perfil de Cibersegurança/DevOps")
+                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Fora do Perfil", match_reason="Vaga de Engenharia/Ciência de Dados fora do perfil de Cibersegurança/DevOps", ai_reasoning="❌ Filtro Automático: Cargo de Dados fora do perfil de Cibersegurança")
 
         if is_data_profile and not is_security_profile:
             if any(st in title_lower for st in security_net_terms):
-                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Fora do Perfil", match_reason="Vaga de Cibersegurança/Redes fora do perfil de IA/Data")
+                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Fora do Perfil", match_reason="Vaga de Cibersegurança/Redes fora do perfil de IA/Data", ai_reasoning="❌ Filtro Automático: Cargo de Cibersegurança/Redes fora do perfil de IA/Data")
 
         if not has_domain_in_title and not has_target_title and not has_tech_in_title:
-            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Fora do Perfil", match_reason="Título não corresponde às funções ou tecnologias alvo do candidato")
+            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Fora do Perfil", match_reason="Título não corresponde às funções ou tecnologias alvo do candidato", ai_reasoning="❌ Filtro Automático: Título não corresponde às funções alvo do candidato")
 
         if PHD_REQUIREMENT_PATTERN.search(title_lower) or PHD_REQUIREMENT_PATTERN.search(text):
-            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Requer Doutoramento", match_reason="Exige PhD ou Doutoramento")
+            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Requer Doutoramento", match_reason="Exige PhD ou Doutoramento", ai_reasoning="❌ Filtro Automático: Exige Doutoramento (PhD)")
 
         if MANDATORY_OTHER_LANGUAGES_PATTERN.search(text) or FOREIGN_JOB_POST_PATTERN.search(text):
-            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Idioma Não Suportado", match_reason="Exige outro idioma nativo/fluente")
+            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Idioma Não Suportado", match_reason="Exige outro idioma nativo/fluente", ai_reasoning="❌ Filtro Automático: Exige outro idioma estrangeiro fluente/nativo")
 
         is_explicit_junior = any(j_term in title_lower for j_term in ["junior", "jr", "estágio", "estagio", "trainee", "graduate", "entry level", "intern"])
         is_explicit_zero_to_one = any(b in text for b in ["recém-licenciado", "recem licenciado", "0-1", " graduate", "0 a 1 ano", "0 to 1 year"])
@@ -278,22 +278,22 @@ class JobMatcher:
 
         for disq, pattern in TITLE_SENIORITY_PATTERNS:
             if pattern.search(title_lower):
-                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Sénior / Liderança", match_reason=f"Título sénior ({disq})")
+                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Sénior / Liderança", match_reason=f"Título sénior ({disq})", ai_reasoning=f"❌ Filtro Automático: Título sénior ({disq})")
 
         # If not explicitly marked as a 0-experience / internship position, check for >0 years experience requirements
         if not is_explicit_zero_exp:
             for disq, pattern in TEXT_SENIORITY_PATTERNS:
                 if pattern.search(text):
-                    return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Requer Experiência (>0 anos)", match_reason=f"Exige experiência prévia ({disq})")
+                    return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Requer Experiência (>0 anos)", match_reason=f"Exige experiência prévia ({disq})", ai_reasoning=f"❌ Filtro Automático: Exige experiência prévia ({disq})")
                     
             exp_match = YEARS_OF_EXP_PATTERN.search(text)
             if exp_match:
-                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Requer Experiência (>0 anos)", match_reason=f"Exige experiência prévia ({exp_match.group(0).strip()})")
+                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Requer Experiência (>0 anos)", match_reason=f"Exige experiência prévia ({exp_match.group(0).strip()})", ai_reasoning=f"❌ Filtro Automático: Exige experiência prévia ({exp_match.group(0).strip()})")
         else:
             # Even if zero-exp keywords were present, hard disqualify if explicit 3+ or 5+ years is demanded
             for disq in ["3+ years", "4+ years", "5+ years", "6+ years", "7+ years", "8+ years", "10+ years", "3+ anos", "4+ anos", "5+ anos", "10+ anos"]:
                 if disq in text:
-                    return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Requer Experiência (>0 anos)", match_reason=f"Exige experiência avançada ({disq})")
+                    return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Requer Experiência (>0 anos)", match_reason=f"Exige experiência avançada ({disq})", ai_reasoning=f"❌ Filtro Automático: Exige experiência avançada ({disq})")
 
 
         # -------------------------------------------------------------
@@ -399,6 +399,7 @@ class JobMatcher:
                         sj.score = 0.0
                         sj.seniority_status = f"Rejeitada por IA ({ai_res.seniority_detected or 'Inadequada'})"
                         sj.match_reason = ai_res.reasoning
+                        sj.ai_reasoning = f"❌ Rejeitada por IA: {ai_res.reasoning}"
                         ai_rejected += 1
                         continue
 
@@ -408,12 +409,13 @@ class JobMatcher:
                         sj.score = 0.0
                         sj.seniority_status = "Score Insuficiente"
                         sj.match_reason = ai_res.reasoning
+                        sj.ai_reasoning = f"❌ Score Insuficiente ({blended_score}%): {ai_res.reasoning}"
                         ai_rejected += 1
                         continue
 
                     sj.score = blended_score
                     sj.ai_evaluated = True
-                    sj.ai_reasoning = ai_res.reasoning
+                    sj.ai_reasoning = f"✅ Adequada ({blended_score}%): {ai_res.reasoning}"
                     if ai_res.seniority_detected and ai_res.seniority_detected != "Desconhecido":
                         sj.seniority_status = ai_res.seniority_detected
                     sj.ai_pros = ai_res.pros

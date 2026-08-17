@@ -208,12 +208,6 @@ def reevaluate_notion_jobs_for_profile(profile_name: str):
                 if analysis_list:
                     analysis = analysis_list[0].get("text", {}).get("content", "")
 
-            # Skip jobs already marked as Desqualificada, Rejeitada, or Não Adequada
-            estado_lower = estado.lower()
-            seniority_lower = seniority_val.lower()
-            if any(disq in estado_lower for disq in ["desqualificada", "rejeitada", "não adequada", "nao adequada"]) or any(disq in seniority_lower for disq in ["desqualificada", "rejeitada", "fora do perfil"]):
-                continue
-
             pages_to_process.append({
                 "page_id": page_id,
                 "title": title,
@@ -227,7 +221,7 @@ def reevaluate_notion_jobs_for_profile(profile_name: str):
         has_more = data.get("has_more", False)
         start_cursor = data.get("next_cursor")
 
-    logger.info(f"📊 Found {len(pages_to_process)} active pages to re-evaluate in Notion for {profile_name} (skipped already disqualified/rejected).")
+    logger.info(f"📊 Found {len(pages_to_process)} total pages to re-evaluate in Notion for {profile_name}.")
 
     # Initialize Matcher and AI Evaluator for this profile
     matcher = JobMatcher(profile=current_config.candidate)
@@ -277,6 +271,7 @@ def reevaluate_notion_jobs_for_profile(profile_name: str):
             disqualified_count += 1
             reason = scored_jobs[0].match_reason if scored_jobs else "Requisitos não adequados para Júnior"
             seniority = scored_jobs[0].seniority_status if scored_jobs else "Desqualificada"
+            ai_reason_text = scored_jobs[0].ai_reasoning if (scored_jobs and scored_jobs[0].ai_reasoning) else f"❌ Rejeitada: {reason}"
             logger.info(f"  ↳ ❌ DISQUALIFIED: {reason} ({seniority})")
 
             patch_props = {}
@@ -284,8 +279,10 @@ def reevaluate_notion_jobs_for_profile(profile_name: str):
                 patch_props["Match Score (%)"] = {"number": 0.0}
             if "Senioridade" in schema:
                 patch_props["Senioridade"] = {"select": {"name": seniority[:100]}}
+            if "Estado" in schema and current_estado not in ["Entrevista", "Candidatado"]:
+                patch_props["Estado"] = {"select": {"name": "Desqualificada"}}
             if "Análise IA" in schema:
-                patch_props["Análise IA"] = {"rich_text": [{"text": {"content": f"❌ Rejeitada: {reason}"}}]}
+                patch_props["Análise IA"] = {"rich_text": [{"text": {"content": ai_reason_text[:1990]}}]}
 
             safe_notion_patch(page_id, patch_props, headers)
             time.sleep(0.3)
@@ -306,7 +303,7 @@ def reevaluate_notion_jobs_for_profile(profile_name: str):
             patch_props["Análise IA"] = {"rich_text": [{"text": {"content": reason_text[:1990]}}]}
 
         # If it was marked as Desqualificada earlier, restore it back to Por Candidatar (preserve Entrevista/Candidatado)
-        if "Estado" in schema and current_estado in ["Desqualificada", "Rejeitada"]:
+        if "Estado" in schema and current_estado in ["Desqualificada", "Rejeitada", "Não Adequada", "Nao Adequada"]:
             patch_props["Estado"] = {"select": {"name": "Por Candidatar"}}
 
         success = safe_notion_patch(page_id, patch_props, headers)

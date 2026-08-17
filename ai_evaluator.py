@@ -325,8 +325,8 @@ class AIEvaluator:
                     target_job = batch[idx]
                     raw_reason = str(item.get("reasoning", "")).strip()
                     words = raw_reason.split()
-                    if len(words) > 11:
-                        raw_reason = " ".join(words[:10]) + "..."
+                    if len(words) > 25:
+                        raw_reason = " ".join(words[:24]) + "..."
 
                     results[target_job.job_id] = AIEvaluationResult(
                         is_suitable=bool(item.get("is_suitable", False)),
@@ -385,6 +385,9 @@ REGRAS DE AVALIAÇÃO PARA CADA VAGA:
 4. Línguas: Exigência de Alemão/Francês/Holandês nativo ou fluente é eliminatória (`is_suitable: false`). Inglês e Português são suportados.
 5. Localização/Residência: O candidato reside em Portugal. Se a vaga for presencial noutro país ou tiver restrição geográfica exclusiva para residentes nos EUA/UK, rejeita (`is_suitable: false`).
 6. Atribui uma pontuação de adequação (`fit_score`) de 0 a 100%. Vagas adequadas para júnior devem ter pontuação entre 60% e 95%.
+7. Justificação (reasoning):
+   - Se for ADEQUADA (`is_suitable: true`): explica de forma concisa em Português o motivo do bom alinhamento (ex: "Forte sobreposição em Python e GenAI para nível júnior").
+   - Se for DESQUALIFICADA (`is_suitable: false`): explica OBRIGATORIAMENTE e de forma CONCRETA o obstáculo factual que levou à rejeição (ex: "Exige 5+ anos de experiência e liderança de equipa", "Função de Vendas/Comercial sem componente técnica", "Exige Alemão fluente obrigatório", "Presencial no estrangeiro sem opção para residentes em Portugal").
 
 Responde APENAS em formato JSON válido contendo um objeto com uma lista "evaluations", onde cada elemento corresponde ao `job_index`:
 {{
@@ -394,7 +397,7 @@ Responde APENAS em formato JSON válido contendo um objeto com uma lista "evalua
       "is_suitable": boolean,
       "fit_score": number,
       "seniority_detected": string (ex: "Júnior", "Recém-licenciado", "Mid-Senior", "Sénior"),
-      "reasoning": string (frase extremamente curta com no máximo 10 palavras em Português a justificar a adequação),
+      "reasoning": string (frase concisa em Português com 10 a 20 palavras a justificar a adequação ou o motivo factual concreto da rejeição),
 
       "pros": array de strings,
       "cons": array de strings
