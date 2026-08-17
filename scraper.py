@@ -519,9 +519,13 @@ class LandingJobsScraper:
         for page in range(1, 4):
             url = f"https://landing.jobs/api/v1/jobs?page={page}"
             try:
-                h = get_random_headers()
-                h["Accept"] = "application/json"
-                resp = self.session.get(url, headers=h, timeout=10)
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                    "Accept": "application/json, text/plain, */*",
+                    "Accept-Language": "en-US,en;q=0.9,pt;q=0.8",
+                }
+                time.sleep(random.uniform(0.3, 0.8))
+                resp = self.session.get(url, headers=headers, timeout=12)
                 if resp.status_code != 200:
                     logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {resp.status_code} for {resp.url}")
                     break
@@ -1104,169 +1108,7 @@ class EuraxessScraper:
         return jobs
 
 
-class IndeedScraper:
-    """Scrapes Indeed Portugal (pt.indeed.com) for tech, AI & Data Science jobs."""
-    def __init__(self, session: Optional[requests.Session] = None, is_seen_func: Optional[Any] = None, queries: Optional[List[str]] = None):
-        self.session = session or get_session()
-        self.is_seen_func = is_seen_func
-        self.queries = queries
-
-    def fetch(self) -> List[Job]:
-        jobs = []
-        queries = self.queries or config.candidate.search_queries or ["Junior AI", "Data Scientist", "Python", "Estagio Data"]
-        seen_links = set()
-        
-        for q in queries:
-            for page in range(0, 3):
-                start = page * 10
-                url = f"https://pt.indeed.com/jobs?q={q.replace(' ', '+')}&l=Portugal&start={start}"
-                try:
-                    headers = get_random_headers()
-                    headers.update({
-                        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-                        "Accept-Language": "pt-PT,pt;q=0.9,en-US;q=0.8,en;q=0.7",
-                    })
-                    time.sleep(random.uniform(0.6, 1.5))
-                    resp = self.session.get(url, headers=headers, timeout=12)
-                    if resp.status_code != 200:
-                        break
-                    soup = BeautifulSoup(resp.text, "html.parser")
-                    cards = soup.find_all("div", class_=lambda c: c and ("job_seen_beacon" in str(c) or "result" in str(c)))
-                    if not cards:
-                        cards = soup.find_all("td", class_="resultContent")
-                    if not cards:
-                        break
-                    
-                    page_added = 0
-                    card_infos = []
-                    for card in cards:
-                        a_tag = card.find("a", href=True)
-                        if not a_tag:
-                            continue
-                        href = a_tag["href"]
-                        clean_link = f"https://pt.indeed.com{href}" if href.startswith("/") else href
-                        clean_link = clean_link.split("&")[0]
-                        if clean_link in seen_links:
-                            continue
-                        
-                        title_elem = card.find("h2") or card.find("span", id=re.compile(r"^jobTitle")) or a_tag
-                        title = title_elem.get_text(separator=" ", strip=True) if title_elem else ""
-                        if not title or not is_valid_job_offer(clean_link, title):
-                            continue
-                        
-                        seen_links.add(clean_link)
-                        company_elem = card.find(class_=lambda c: c and "company" in str(c).lower())
-                        company = company_elem.get_text(separator=" ", strip=True) if company_elem else "Empresa no Indeed"
-                        
-                        if self.is_seen_func and self.is_seen_func(title, company):
-                            continue
-
-                        loc_elem = card.find(class_=lambda c: c and "location" in str(c).lower())
-                        location = loc_elem.get_text(separator=" ", strip=True) if loc_elem else "Portugal"
-                        
-                        initial_desc = card.get_text(separator=" ", strip=True)
-                        card_infos.append({
-                            "title": title, "company": company, "location": location,
-                            "link": clean_link, "initial_desc": initial_desc
-                        })
-                        page_added += 1
-
-                    for c_info in card_infos:
-                        desc = c_info["initial_desc"]
-                        is_truncated = True
-                        try:
-                            time.sleep(random.uniform(0.3, 0.6))
-                            det_resp = self.session.get(c_info["link"], headers=headers, timeout=10)
-                            if det_resp.status_code == 200:
-                                det_soup = BeautifulSoup(det_resp.text, "html.parser")
-                                job_body = det_soup.find("div", id="jobDescriptionText") or det_soup.find("div", class_=lambda c: c and "jobsearch-jobdescriptiontext" in str(c).lower())
-                                if job_body:
-                                    desc = f"{c_info['title']} - " + job_body.get_text(separator=" ", strip=True)
-                                    is_truncated = False
-                        except Exception:
-                            pass
-                            
-                        final_title = f"[TRUNCADO] {c_info['title']}" if is_truncated else c_info["title"]
-                        final_desc = f"[TRUNCADO - LEIA NO SITE PARA VER REQUISITOS] {desc}" if is_truncated else desc
-
-                        jobs.append(Job(
-                            title=final_title, company=c_info["company"], location=c_info["location"],
-                            work_mode="Presencial / Híbrido", link=c_info["link"], description=final_desc,
-                            source="Indeed Portugal", pub_date=datetime.date.today().isoformat()
-                        ))
-                    if page_added == 0:
-                        break
-                except Exception as e:
-                    logger.debug(f"[Indeed Portugal] Error fetching '{q}' page {page+1}: {e}")
-                    break
-        logger.info(f"[Indeed Portugal] Fetched {len(jobs)} jobs.")
-        return jobs
-
-
-class GlassdoorScraper:
-    """Scrapes Glassdoor Portugal portal for AI, ML & Data Science jobs."""
-    def __init__(self, session: Optional[requests.Session] = None, queries: Optional[List[str]] = None):
-        self.session = session or get_session()
-        self.queries = queries
-
-    def fetch(self) -> List[Job]:
-        jobs = []
-        queries = self.queries or config.candidate.search_queries or ["data science", "junior ai", "python", "machine learning"]
-        seen_links = set()
-
-        for q in queries:
-            for page in range(1, 3):
-                url = f"https://www.glassdoor.com/Job/jobs.htm?sc.keyword={q.replace(' ', '%20')}&locT=C&locId=195&p={page}"
-                try:
-                    headers = get_random_headers()
-                    headers.update({
-                        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                        "Accept-Language": "en-US,en;q=0.9,pt-PT;q=0.8",
-                    })
-                    time.sleep(random.uniform(0.7, 1.5))
-                    resp = self.session.get(url, headers=headers, timeout=12)
-                    if resp.status_code != 200:
-                        break
-                    soup = BeautifulSoup(resp.text, "html.parser")
-                    items = soup.find_all("li", class_=lambda c: c and "job" in str(c).lower())
-                    if not items:
-                        items = soup.find_all("div", class_=lambda c: c and "jobListing" in str(c))
-                    if not items:
-                        break
-
-                    page_added = 0
-                    for item in items:
-                        a_tag = item.find("a", href=True)
-                        if not a_tag:
-                            continue
-                        href = a_tag["href"]
-                        clean_link = f"https://www.glassdoor.com{href}" if href.startswith("/") else href
-                        clean_link = clean_link.split("?")[0]
-                        if clean_link in seen_links:
-                            continue
-                        
-                        title = a_tag.get_text(separator=" ", strip=True)
-                        if not title or not is_valid_job_offer(clean_link, title):
-                            continue
-                        
-                        seen_links.add(clean_link)
-                        comp_elem = item.find(class_=lambda c: c and "employer" in str(c).lower())
-                        company = comp_elem.get_text(separator=" ", strip=True) if comp_elem else "Empresa no Glassdoor"
-                        
-                        desc = item.get_text(separator=" ", strip=True)
-                        
-                        jobs.append(Job(
-                            title=title, company=company, location="Portugal",
-                            work_mode="Presencial / Híbrido", link=clean_link, description=desc,
-                            source="Glassdoor Portugal", pub_date=datetime.date.today().isoformat()
-                        ))
-                        page_added += 1
-                    if page_added == 0:
-                        break
-                except Exception as e:
-                    logger.debug(f"[Glassdoor Portugal] Error fetching '{q}' page {page}: {e}")
-                    break
-        logger.info(f"[Glassdoor Portugal] Fetched {len(jobs)} jobs.")
+        logger.info(f"[Euraxess Portal] Fetched {len(jobs)} research fellowships across pages 1-3.")
         return jobs
 
 
@@ -1399,8 +1241,6 @@ class JobIngestionPipeline:
         self.netempregos_scraper = NetEmpregosScraper(session=self.session, is_seen_func=is_seen_func, queries=search_queries)
         self.jobspresso_scraper = JobspressoScraper(session=self.session)
         self.euraxess_scraper = EuraxessScraper(session=self.session, queries=search_queries)
-        self.indeed_scraper = IndeedScraper(session=self.session, is_seen_func=is_seen_func, queries=search_queries)
-        self.glassdoor_scraper = GlassdoorScraper(session=self.session, queries=search_queries)
         self.iefp_scraper = IEFPScraper(session=self.session, is_seen_func=is_seen_func)
 
     def run(self) -> List[Job]:
@@ -1420,8 +1260,6 @@ class JobIngestionPipeline:
             ("Net-Empregos", self.netempregos_scraper.fetch),
             ("Jobspresso", self.jobspresso_scraper.fetch),
             ("Euraxess / Ergas", self.euraxess_scraper.fetch),
-            ("Indeed Portugal", self.indeed_scraper.fetch),
-            ("Glassdoor Portugal", self.glassdoor_scraper.fetch),
             ("IEFP Portal", self.iefp_scraper.fetch),
         ]
 
