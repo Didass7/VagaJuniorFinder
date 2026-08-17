@@ -164,14 +164,10 @@ class AIEvaluator:
         groq_candidates = [
             m for m in dict.fromkeys([
                 self.groq_model_name,
-                "llama-3.3-70b-versatile",
-                "llama-3.1-8b-instant",
                 "openai/gpt-oss-120b",
                 "openai/gpt-oss-20b",
                 "gemma2-9b-it",
                 "deepseek-r1-distill-llama-70b",
-                "llama-3.2-3b-preview",
-                "llama-3.2-1b-preview",
             ]) if m not in self._invalid_groq_models
         ]
 
@@ -230,13 +226,6 @@ class AIEvaluator:
                 "gemini-3.6-flash",
                 "gemini-3.5-flash",
                 "gemini-3.7-flash",
-                "gemini-2.5-flash",
-                "gemini-2.0-flash",
-                "gemini-2.0-flash-lite",
-                "gemini-1.5-flash",
-                "gemini-1.5-flash-8b",
-                "gemini-2.5-pro",
-                "gemini-1.5-pro"
             ]) if m not in self._invalid_gemini_models
         ]
 
