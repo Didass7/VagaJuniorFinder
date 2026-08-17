@@ -172,7 +172,8 @@ class AIEvaluator:
                     continue
 
         if self._gemini_client:
-            logger.info("Groq models unavailable. Falling back to Gemini API...")
+            logger.info("Groq models unavailable. Disabling Groq and switching permanently to Gemini API...")
+            self._groq_client = None
             return self._evaluate_batch_with_gemini(batch, profile)
         return {}
 
