@@ -210,6 +210,7 @@ class AIEvaluator:
                     config=types.GenerateContentConfig(
                         response_mime_type="application/json",
                         temperature=0.2,
+                        automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
                     )
                 )
                 
