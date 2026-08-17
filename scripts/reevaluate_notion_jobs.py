@@ -293,7 +293,16 @@ def reevaluate_notion_jobs_for_profile(profile_name: str):
 
         # 2. Re-evaluate with Matcher & AI
         scored_jobs = matcher.process_jobs([job], include_disqualified=True)
-        if not scored_jobs or scored_jobs[0].score == 0:
+        
+        # A job is qualified ONLY if it passed Stage 1 (>= 55%) and was approved by AI Stage 2 (or score >= 50% if AI is disabled)
+        is_qualified = False
+        if scored_jobs and scored_jobs[0].score >= 50.0:
+            if ai_evaluator.is_available:
+                is_qualified = bool(scored_jobs[0].ai_evaluated and scored_jobs[0].score > 0)
+            else:
+                is_qualified = True
+
+        if not is_qualified:
             # Job is disqualified by heuristic or AI
             disqualified_count += 1
             reason = scored_jobs[0].match_reason if (scored_jobs and scored_jobs[0].match_reason) else "Requisitos não adequados para Júnior"

@@ -239,6 +239,16 @@ class TestMatcherModule(unittest.TestCase):
         scored_jobs = self.matcher.process_jobs([job])
         self.assertEqual(len(scored_jobs), 0)
 
+    def test_support_sysadmin_dba_disqualification(self):
+        """Verifies that Cloud Support Analyst, Sysadmin, and Database Engineer roles are strictly disqualified."""
+        jobs = [
+            Job(title="Cloud Support Analyst", company="Doxis", location="Lisboa", work_mode="Presencial", link="https://example.com/1", description="Suporte técnico cloud", source="ITJobs", pub_date="2026-08-17"),
+            Job(title="Administradores de sistemas - ai driven", company="Olisipo", location="Portugal", work_mode="Remoto", link="https://example.com/2", description="Administração de sistemas e redes", source="Teamlyzer", pub_date="2026-08-15"),
+            Job(title="Database Engineer", company="Ruby Labs", location="Remoto", work_mode="Remoto", link="https://example.com/3", description="Database DBA maintenance", source="Jobicy", pub_date="2026-08-17")
+        ]
+        scored_jobs = self.matcher.process_jobs(jobs)
+        self.assertEqual(len(scored_jobs), 0)
+
     def test_teaching_formador_disqualification(self):
         """Verifies that Professor/Formador/Teaching roles are strictly disqualified."""
         job = Job(
