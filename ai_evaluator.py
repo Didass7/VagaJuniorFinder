@@ -160,15 +160,16 @@ class AIEvaluator:
     def _evaluate_batch_with_groq(self, batch: List[Job], profile: CandidateProfile) -> Dict[str, AIEvaluationResult]:
         prompt = self._build_batch_prompt(batch, profile)
         groq_candidates = list(dict.fromkeys([
-            self.groq_model_name,
-            "openai/gpt-oss-120b",
             "openai/gpt-oss-20b",
-            "qwen/qwen-3.6-27b"
+            "openai/gpt-oss-120b",
+            "qwen/qwen-3.6-27b",
+            "llama-3.3-70b-versatile",
+            self.groq_model_name
         ]))
 
         for model in groq_candidates:
             try:
-                time.sleep(1.0)  # Polite delay between calls
+                time.sleep(0.8)  # Polite delay between calls
                 response = self._groq_client.chat.completions.create(
                     model=model,
                     messages=[
@@ -197,13 +198,14 @@ class AIEvaluator:
             except Exception as e:
                 err_str = str(e).lower()
                 if "rate_limit" in err_str or "429" in err_str:
-                    logger.warning(f"⏳ Groq rate limited (429). Setting Groq cooldown for 60s...")
-                    self._groq_cooldown_until = time.time() + 60.0
-                    return {}
+                    logger.warning(f"⏳ Groq model '{model}' rate limited (429). Trying next candidate model...")
+                    continue
                 else:
                     logger.warning(f"Groq model '{model}' issue ({e}). Trying next Groq model...")
                     continue
 
+        logger.warning("⏳ All Groq candidate models exhausted / rate limited. Setting Groq cooldown for 60s...")
+        self._groq_cooldown_until = time.time() + 60.0
         return {}
 
     def _evaluate_batch_with_gemini(self, batch: List[Job], profile: CandidateProfile) -> Dict[str, AIEvaluationResult]:
