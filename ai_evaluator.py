@@ -168,7 +168,7 @@ class AIEvaluator:
 
         for model in groq_candidates:
             try:
-                time.sleep(1.2)  # Polite delay between batch calls
+                time.sleep(1.0)  # Polite delay between calls
                 response = self._groq_client.chat.completions.create(
                     model=model,
                     messages=[
@@ -199,16 +199,11 @@ class AIEvaluator:
                 if "rate_limit" in err_str or "429" in err_str:
                     logger.warning(f"⏳ Groq rate limited (429). Setting Groq cooldown for 60s...")
                     self._groq_cooldown_until = time.time() + 60.0
-                    if self._gemini_client:
-                        return self._evaluate_batch_with_gemini(batch, profile)
-                    time.sleep(5)
+                    return {}
                 else:
                     logger.warning(f"Groq model '{model}' issue ({e}). Trying next Groq model...")
                     continue
 
-        if self._gemini_client:
-            logger.info("Groq models unavailable. Falling back to Gemini API...")
-            return self._evaluate_batch_with_gemini(batch, profile)
         return {}
 
     def _evaluate_batch_with_gemini(self, batch: List[Job], profile: CandidateProfile) -> Dict[str, AIEvaluationResult]:
@@ -222,6 +217,7 @@ class AIEvaluator:
 
         for model in gemini_candidates:
             try:
+                time.sleep(0.5)
                 response = self._gemini_client.models.generate_content(
                     model=model,
                     contents=prompt,
@@ -242,18 +238,13 @@ class AIEvaluator:
             except Exception as e:
                 err_str = str(e).lower()
                 if "429" in err_str or "resource_exhausted" in err_str or "quota" in err_str:
-                    logger.warning(f"⏳ Gemini quota limit reached (429). Switching immediately to Groq for 60s...")
+                    logger.warning(f"⏳ Gemini quota limit reached (429). Setting Gemini cooldown for 60s...")
                     self._gemini_cooldown_until = time.time() + 60.0
-                    if self._groq_client:
-                        return self._evaluate_batch_with_groq(batch, profile)
                     return {}
                 else:
                     logger.warning(f"⚠️ Gemini model '{model}' issue ({e}). Trying next candidate...")
                     continue
 
-        if self._groq_client:
-            logger.info("Gemini models unavailable. Falling back to Groq API...")
-            return self._evaluate_batch_with_groq(batch, profile)
         return {}
 
     def _parse_batch_json_response(self, raw_json: str, batch: List[Job]) -> Dict[str, AIEvaluationResult]:
