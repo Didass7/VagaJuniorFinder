@@ -116,13 +116,21 @@ class AIEvaluator:
 
     def _evaluate_batch_with_groq(self, batch: List[Job], profile: CandidateProfile) -> Dict[str, AIEvaluationResult]:
         prompt = self._build_batch_prompt(batch, profile)
+        groq_candidates = list(dict.fromkeys([
+            self.groq_model_name,
+            "llama-3.3-70b-versatile",
+            "llama-3.1-70b-versatile",
+            "llama3-70b-8192",
+            "llama3-8b-8192",
+            "mixtral-8x7b-32768",
+            "gemma2-9b-it"
+        ]))
 
-        max_attempts = 3
-        for attempt in range(1, max_attempts + 1):
-            time.sleep(1.5)  # Polite delay between batch calls
+        for model in groq_candidates:
             try:
+                time.sleep(1.2)  # Polite delay between batch calls
                 response = self._groq_client.chat.completions.create(
-                    model=self.groq_model_name,
+                    model=model,
                     messages=[
                         {
                             "role": "system",
@@ -140,56 +148,72 @@ class AIEvaluator:
 
                 content = response.choices[0].message.content
                 if not content:
-                    return {}
-
-                parsed = self._parse_batch_json_response(content, batch)
-                if not parsed and self._gemini_client:
-                    logger.warning("⚠️ Groq response parsing failed or empty. Falling back to Gemini API...")
-                    return self._evaluate_batch_with_gemini(batch, profile)
-                return parsed
-
-            except Exception as e:
-                err_str = str(e).lower()
-                if "rate_limit" in err_str or "429" in err_str or "400" in err_str or "json_validate_failed" in err_str:
-                    if self._gemini_client:
-                        logger.warning(f"⏳ Groq error ({e}). Falling back immediately to Gemini API...")
-                        return self._evaluate_batch_with_gemini(batch, profile)
-                    backoff = 15 * attempt
-                    logger.warning(f"⏳ Groq rate limit/error (attempt {attempt}/{max_attempts}). Waiting {backoff}s before retry...")
-                    time.sleep(backoff)
                     continue
 
-                logger.error(f"Error calling Groq Batch AI Evaluator: {e}")
-                if self._gemini_client:
-                    logger.info("Attempting batch fallback to Gemini API...")
-                    return self._evaluate_batch_with_gemini(batch, profile)
-                return {}
+                parsed = self._parse_batch_json_response(content, batch)
+                if parsed:
+                    self.groq_model_name = model
+                    return parsed
+            except Exception as e:
+                err_str = str(e).lower()
+                if "model_not_found" in err_str or "does not exist" in err_str or "404" in err_str:
+                    logger.warning(f"⚠️ Groq model '{model}' not found or deprecated. Trying next model...")
+                    continue
+                elif "rate_limit" in err_str or "429" in err_str:
+                    if self._gemini_client:
+                        logger.warning(f"⏳ Groq rate limited ({e}). Falling back immediately to Gemini API...")
+                        return self._evaluate_batch_with_gemini(batch, profile)
+                    time.sleep(10)
+                else:
+                    logger.error(f"Error calling Groq model '{model}': {e}")
+                    if self._gemini_client:
+                        logger.info("Attempting batch fallback to Gemini API...")
+                        return self._evaluate_batch_with_gemini(batch, profile)
 
+        if self._gemini_client:
+            logger.info("Groq models unavailable. Falling back to Gemini API...")
+            return self._evaluate_batch_with_gemini(batch, profile)
         return {}
-
 
     def _evaluate_batch_with_gemini(self, batch: List[Job], profile: CandidateProfile) -> Dict[str, AIEvaluationResult]:
         prompt = self._build_batch_prompt(batch, profile)
-        try:
-            from google.genai import types
-            
-            response = self._gemini_client.models.generate_content(
-                model=self.gemini_model_name,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    temperature=0.2,
+        gemini_candidates = list(dict.fromkeys([
+            self.gemini_model_name,
+            "gemini-2.5-flash",
+            "gemini-1.5-flash",
+            "gemini-2.0-flash-exp",
+            "gemini-1.5-pro"
+        ]))
+
+        from google.genai import types
+
+        for model in gemini_candidates:
+            try:
+                response = self._gemini_client.models.generate_content(
+                    model=model,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        temperature=0.2,
+                    )
                 )
-            )
-            
-            if not response.text:
-                return {}
+                
+                if not response.text:
+                    continue
 
-            return self._parse_batch_json_response(response.text, batch)
+                parsed = self._parse_batch_json_response(response.text, batch)
+                if parsed:
+                    self.gemini_model_name = model
+                    return parsed
+            except Exception as e:
+                err_str = str(e).lower()
+                if "not_found" in err_str or "no longer available" in err_str or "404" in err_str:
+                    logger.warning(f"⚠️ Gemini model '{model}' not found or deprecated. Trying next candidate model...")
+                    continue
+                else:
+                    logger.error(f"Error calling Gemini model '{model}': {e}")
 
-        except Exception as e:
-            logger.error(f"Error calling Gemini Batch AI Evaluator: {e}")
-            return {}
+        return {}
 
     def _parse_batch_json_response(self, raw_json: str, batch: List[Job]) -> Dict[str, AIEvaluationResult]:
         results: Dict[str, AIEvaluationResult] = {}

@@ -27,10 +27,10 @@ class AppConfig:
     itjobs_api_key: str = os.getenv("ITJOBS_API_KEY", "")
     gemini_api_key: str = os.getenv("GEMINI_API_KEY", os.getenv("GOOGLE_API_KEY", ""))
     groq_api_key: str = os.getenv("GROQ_API_KEY", "")
-    groq_model_name: str = os.getenv("GROQ_MODEL_NAME", "llama-3.1-8b-instant")
+    groq_model_name: str = os.getenv("GROQ_MODEL_NAME", "llama-3.3-70b-versatile")
     enable_ai_evaluation: bool = os.getenv("ENABLE_AI_EVALUATION", "true").lower() == "true"
 
-    ai_model_name: str = os.getenv("AI_MODEL_NAME", "gemini-2.0-flash")
+    ai_model_name: str = os.getenv("AI_MODEL_NAME", "gemini-2.5-flash")
     
     # Notion Integration Configuration
     notion_token: str = os.getenv("NOTION_TOKEN", os.getenv("NOTION_API_KEY", ""))
