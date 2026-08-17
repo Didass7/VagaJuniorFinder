@@ -249,6 +249,21 @@ class TestMatcherModule(unittest.TestCase):
         scored_jobs = self.matcher.process_jobs(jobs)
         self.assertEqual(len(scored_jobs), 0)
 
+    def test_german_language_c1_disqualification(self):
+        """Verifies that jobs requiring German fluency (e.g. C1 / verhandlungssicher auf Deutsch / Praktikant) are disqualified."""
+        job = Job(
+            title="Praktikant AI Engineer (m/w/d)",
+            company="energized& Company GmbH",
+            location="Munich, Germany / Remote",
+            work_mode="Remoto",
+            link="https://www.arbeitnow.com/jobs/companies/energized-company-gmbh/praktikant-ai-engineer-munich-370373",
+            description="Du kommunizierst verhandlungssicher auf Deutsch in Wort und Schrift (mindestens C1). We build AI agents with Python.",
+            source="Arbeitnow",
+            pub_date="2026-08-17"
+        )
+        scored_jobs = self.matcher.process_jobs([job])
+        self.assertEqual(len(scored_jobs), 0)
+
     def test_teaching_formador_disqualification(self):
         """Verifies that Professor/Formador/Teaching roles are strictly disqualified."""
         job = Job(

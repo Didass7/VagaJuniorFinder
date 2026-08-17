@@ -109,15 +109,19 @@ MANDATORY_OTHER_LANGUAGES_PATTERN = re.compile(
     r"\b(?:native|fluent|fluently|fluency|fluency\s+in|fluent\s+in|proficiency\s+in|proficient\s+in|spoken|speaking|must\s+speak|knowledge\s+of)\s*(?:(?:in\s+)?(?:both\s+)?(?:english\s+(?:and|&|/|or)\s+|inglês\s+(?:e|ou)\s+|ingles\s+(?:e|ou)\s+))?(?:german|deutsch|french|français|francais|spanish|español|espanhol|dutch|nederlands|italian|italiano)\b|"
     r"\b(?:german|deutsch|french|français|francais|spanish|español|espanhol|dutch|nederlands|italian|italiano)\s+(?:native|proficiency|fluent|fluency|language|skills|speaker|speaking|clinics|customers|clients|partners|market|c1|c2|b2)\b|"
     r"\b(?:german|deutsch|french|français|francais|spanish|español|espanhol|dutch|nederlands|italian|italiano)\b(?:\s*(?:and|&|/|or|und|e)?\s*(?:english|inglês|ingles)?)*\s*(?:fluently|fluent|fluency|c1|c2|b2|native|required|mandatory|essential|language|level|nível|nivel|auf\s+c1|auf\s+b2|exigido|obrigatório|fließend|fließendes|fließende|fluente|proficiency)\b|"
-    r"\b(?:sprichst|sprechen|spricht|fließend|fließende|fließendes|gute|sehr\s+gute)\s+(?:deutsch|german)\b|"
-    r"\b(?:deutsch|german|alemão|alemao)\s*(?:und|and|&|/|e)?\s*(?:englisch|english|inglês|ingles)?\s*(?:fließend|fließende|fließendes|kenntnisse|sprichst|sprechen|fluente)\b|"
-    r"\b(?:deutschkenntnisse|sprachkenntnisse)\b",
+    r"\b(?:sprichst|sprechen|spricht|fließend|fließende|fließendes|gute|sehr\s+gute|hervorragende|verhandlungssicher|verhandlungssichere|verhandlungssicheres)\s+(?:in\s+wort\s+und\s+schrift\s+)?(?:deutsch|german|auf\s+deutsch)\b|"
+    r"\b(?:deutsch|german|alemão|alemao)\s*(?:und|and|&|/|e)?\s*(?:englisch|english|inglês|ingles)?\s*(?:fließend|fließende|fließendes|kenntnisse|sprichst|sprechen|fluente|verhandlungssicher)\b|"
+    r"\b(?:deutschkenntnisse|sprachkenntnisse|deutsch\s+in\s+wort\s+und\s+schrift|auf\s+deutsch\s+in\s+wort\s+und\s+schrift)\b|"
+    r"\b(?:verhandlungssicher|verhandlungssichere|verhandlungssicheres)\s+(?:auf\s+deutsch|deutsch)\b|"
+    r"\bauf\s+deutsch\b.*?\b(?:c1|c2|b2|fließend|verhandlungssicher|wort\s+und\s+schrift)\b|"
+    r"\b(?:praktikant|praktikantin|werkstudent|werkstudentin|pflichtpraktikum)\b|"
+    r"\(\s*(?:m/w/d|w/m/d|m/f/d|d/m/w|gn)\s*\)",
     re.IGNORECASE
 )
 
 # Foreign Language Post Pattern
 FOREIGN_JOB_POST_PATTERN = re.compile(
-    r"\b(?:über\s+uns|wir\s+suchen|deine\s+aufgaben|dein\s+profil|das\s+bringst\du\s+mit|unsere\s+anforderungen|in\s+deutschland|du\s+bist|unser\s+team|wir\s+bieten|bewirb\s+dich|standort|vollzeit|teilzeit|mehrparteienhäuser|mehrfamilienhäuser)\b|"
+    r"\b(?:über\s+uns|wir\s+suchen|deine\s+aufgaben|dein\s+profil|das\s+bringst\du\s+mit|unsere\s+anforderungen|in\s+deutschland|du\s+bist|unser\s+team|wir\s+bieten|bewirb\s+dich|standort|vollzeit|teilzeit|mehrparteienhäuser|mehrfamilienhäuser|du\s+kommunizierst|mindestens\s+c1|mindestens\s+b2)\b|"
     r"\b(?:à\s+propos\s+de\s+nous|nous\s+recherchons|vos\s+missions|votre\s+profil|ce\s+que\s+nous\s+offrons)\b|"
     r"\b(?:sobre\s+nosotros|buscamos|tus\s+funciones|tu\s+perfil|requisitos\s+del\s+puesto)\b",
     re.IGNORECASE
