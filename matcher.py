@@ -149,6 +149,15 @@ CROWDSOURCING_MICROTASKS_PATTERN = re.compile(
     re.IGNORECASE
 )
 
+# Disqualify Extreme Senior/Staff Compensation Packages ($120k-$250k+ USD / 120k€+)
+SENIOR_COMPENSATION_PATTERN = re.compile(
+    r"\b(?:\$|€|£|eur|usd|gbp)\s*(?:1[2-9]\d|2\d\d|3\d\d|4\d\d|5\d\d)[,\.]?\d{3}\b|"
+    r"\b(?:1[2-9]\d|2\d\d|3\d\d|4\d\d|5\d\d)\s*k\s*(?:\$|€|£|eur|usd|gbp|\b)|"
+    r"\b(?:\$|€|£|eur|usd|gbp)\s*(?:1[2-9]\d|2\d\d|3\d\d|4\d\d|5\d\d)\s*k\b|"
+    r"\b(?:1[2-9]\d|2\d\d|3\d\d|4\d\d|5\d\d)[,\.]000\s*(?:usd|eur|€|\$)",
+    re.IGNORECASE
+)
+
 # Zero-Experience Indicator Pattern (Strict word boundaries to prevent 'graduates' matching general degree requirements)
 ZERO_EXP_INDICATOR_PATTERN = re.compile(
     r"\b(?:0\s*(?:a|to|-)\s*1\s*(?:ano|anos|year|years)|0\s*(?:anos|years)|sem\s+experi[eê]ncia|n[aã]o\s+[eé]\s+necess[aá]ria\s+experi[eê]ncia|n[aã]o\s+requer\s+experi[eê]ncia|rec[eé]m[- ]licenciad[oa]s?|est[aá]gio\s+profissional|est[aá]gios?|trainees?|internships?|\binterns?\b|\b(?:recém[- ]graduad[oa]s?|recem[- ]graduad[oa]s?|recent\s+graduates?|fresh\s+graduates?|new\s+graduates?|graduate\s+program|graduate\s+scheme)\b)\b",
@@ -245,6 +254,10 @@ class JobMatcher:
         if crowd_match:
             return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Microtarefas / Crowdsourcing", match_reason=f"Oportunidade de crowdsourcing/microtarefas ({crowd_match.group(0).strip()})", ai_reasoning=f"❌ Filtro Automático: Microtarefas/Crowdsourcing não elegível como emprego formal ({crowd_match.group(0).strip()})")
 
+        comp_match = SENIOR_COMPENSATION_PATTERN.search(text)
+        if comp_match:
+            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Remuneração Sénior/Staff", match_reason=f"Faixa salarial de nível sénior/staff ({comp_match.group(0).strip()})", ai_reasoning=f"❌ Filtro Automático: Faixa salarial de nível Sénior/Staff ({comp_match.group(0).strip()})")
+
         for disq, pattern in IRRELEVANT_ROLE_PATTERNS:
             if pattern.search(title_lower):
                 return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Cargo Irrelevante", match_reason=f"Título desqualificado por conter '{disq}'", ai_reasoning=f"❌ Filtro Automático: Cargo irrelevante ({disq})")
@@ -256,28 +269,16 @@ class JobMatcher:
         target_titles_lower = [t.lower() for t in self.profile.target_titles]
         tech_stack_lower = [t.lower() for t in self.profile.tech_stack]
         
-        # Build core domain tokens from candidate profile and standard IT/AI/Data roles
-        target_tokens = set()
-        for tt in target_titles_lower:
-            for token in re.findall(r"\b[a-zA-Z\u00C0-\u00FF]{2,}\b", tt):
-                target_tokens.add(token.lower())
-        for ts in tech_stack_lower:
-            for token in re.findall(r"\b[a-zA-Z\u00C0-\u00FF]{2,}\b", ts):
-                target_tokens.add(token.lower())
+        has_target_title = any(tt in title_lower for tt in target_titles_lower)
+        has_tech_in_title = any(ts in title_lower for ts in tech_stack_lower)
         
+        # Check if title matches domain (AI, Data, Python, ML, IEFP, Estágio)
         core_domain_words = {
             "ai", "ia", "data", "dados", "analytics", "analyst", "analista", "scientist", "cientista",
-            "machine", "learning", "deep", "nlp", "llm", "software", "developer", "desenvolvedor",
-            "programmer", "programador", "engineer", "engenheiro", "engenharia", "python", "backend",
-            "fullstack", "it", "ti", "informática", "informatica", "estágio", "estagio", "intern",
-            "internship", "trainee", "graduate", "tech", "technology", "tecnologia"
+            "machine learning", "nlp", "llm", "rag", "python", "estágio", "estagio", "intern",
+            "internship", "trainee", "iefp", "ativar"
         }
-        all_domain_tokens = target_tokens.union(core_domain_words)
-
-        title_tokens = set(re.findall(r"\b[a-zA-Z\u00C0-\u00FF]{2,}\b", title_lower))
-        has_domain_in_title = bool(title_tokens.intersection(all_domain_tokens))
-        has_target_title = any(tt in title_lower for tt in target_titles_lower) or has_domain_in_title
-        has_tech_in_title = any(ts in title_lower for ts in tech_stack_lower)
+        has_domain_in_title = any(cd in title_lower for cd in core_domain_words)
 
         # Protect against cross-profile leaks (e.g. Data Engineer job slipping into Cybersecurity/DevOps profile)
         data_domain_terms = ["data engineer", "data scientist", "cientista de dados", "bi analyst", "analista de bi", "data architect"]

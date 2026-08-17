@@ -224,6 +224,21 @@ class TestMatcherModule(unittest.TestCase):
         scored_jobs = self.matcher.process_jobs([job])
         self.assertEqual(len(scored_jobs), 0)
 
+    def test_stickermule_senior_compensation_and_stack_disqualification(self):
+        """Verifies that senior full-stack roles with $150k-$250k USD salary and non-Python stack (Go/TypeScript) are strictly disqualified."""
+        job = Job(
+            title="Software engineer",
+            company="Sticker Mule",
+            location="Remoto",
+            work_mode="Remoto",
+            link="https://jobicy.com/jobs/150846-software-engineer-3",
+            description="Sticker Mule is building commerce tools. We use Go, TypeScript, React, Expo, GraphQL, Postgres. You are an exceptional full-stack software engineer. Salary: $150,000–$250,000 USD, $20,000 signing bonus.",
+            source="Jobicy",
+            pub_date="2026-08-16"
+        )
+        scored_jobs = self.matcher.process_jobs([job])
+        self.assertEqual(len(scored_jobs), 0)
+
     def test_teaching_formador_disqualification(self):
         """Verifies that Professor/Formador/Teaching roles are strictly disqualified."""
         job = Job(
