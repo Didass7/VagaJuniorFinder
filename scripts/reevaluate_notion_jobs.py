@@ -257,10 +257,15 @@ def reevaluate_notion_jobs_for_profile(profile_name: str):
         title = item["title"]
         link = item["link"]
         company = item["company"]
+        mode = item.get("mode", "Presencial / Híbrido")
+        current_estado = item.get("estado", "Por Candidatar")
+        
         # If user already applied or is in interview, NEVER touch or overwrite their candidacy score/status
         if current_estado in ["Candidatado", "Entrevista", "Oferta", "Rejeitado Empresa"]:
-            logger.info(f"  ↳ 🛡️ ACTIVE CANDIDACY ({current_estado}): Preserving existing record without modifications.")
+            logger.info(f"[{idx}/{len(pages_to_process)}] 🛡️ ACTIVE CANDIDACY ({current_estado}): Preserving '{title}' @ '{company}' without modifications.")
             continue
+
+        logger.info(f"[{idx}/{len(pages_to_process)}] Processing '{title}' @ '{company}'...")
 
         # 1. Fetch real description (try web first, then Notion page blocks fallback)
         desc = ""
