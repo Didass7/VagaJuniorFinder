@@ -1,14 +1,17 @@
 """
 restore_applied_jobs.py — Restores match scores and positive status for active candidacies in Notion.
 
-Finds all job pages in Notion marked as "Candidatado", "Entrevista", or "Oferta" whose
-scores were inadvertently zeroed out by re-evaluation, and restores them to healthy match scores.
+Iterates over all profiles (diogo_ai, rafael, etc.), finds all job pages in Notion marked as
+"Candidatado", "Entrevista", or "Oferta" whose scores were zeroed out (0.0%), and restores
+them to healthy match scores (75%-85%).
 """
 
 import sys
 import io
 import os
 import re
+import glob
+import json
 import time
 import logging
 import requests
@@ -51,13 +54,11 @@ def safe_notion_patch(page_id: str, properties: Dict[str, Any], headers: Dict[st
                 return False
     return False
 
-def run_restore():
-    token = config.notion_token
-    db_id = config.notion_database_id
-
-    if not token or not db_id:
-        logger.error("❌ Notion token or database ID not configured in environment / .env.")
-        return
+def restore_for_database(db_id: str, profile_name: str, candidate_name: str, token: str):
+    logger.info("==================================================")
+    logger.info(f"🔄 RESTORING ACTIVE CANDIDACIES FOR: {candidate_name} ({profile_name})")
+    logger.info(f"📋 Database ID: {db_id}")
+    logger.info("==================================================")
 
     headers = {
         "Authorization": f"Bearer {token}",
@@ -132,16 +133,18 @@ def run_restore():
             if al:
                 analysis_text = al[0].get("text", {}).get("content", "")
 
-        # Check if this is an active candidacy with 0.0% score or corrupted rejection analysis
+        # Active candidacy check
         is_active_candidacy = estado in ["Candidatado", "Entrevista", "Oferta", "Rejeitado Empresa"]
-        is_zeroed_or_rejected = (current_score == 0.0 or "❌" in analysis_text)
+        is_zeroed_or_rejected = (current_score == 0.0 or current_score is None or "❌" in analysis_text)
 
         if is_active_candidacy and is_zeroed_or_rejected:
             logger.info(f"🔄 Restoring candidacy: '{title}' @ '{company}' (Status: {estado})")
 
             # Try to recover original score if mentioned in text
             score_match = re.search(r"(\d{2}(?:\.\d+)?)%", analysis_text)
-            restored_score = 75.0
+            is_internship = any(term in title.lower() for term in ["internship", "intern", "estágio", "estagio", "iefp", "trainee", "recém-licenciado", "recem-licenciado"])
+            
+            restored_score = 80.0 if is_internship else 75.0
             if score_match:
                 try:
                     val = float(score_match.group(1))
@@ -150,25 +153,56 @@ def run_restore():
                 except ValueError:
                     pass
 
-            restored_analysis = f"✅ Candidatura Ativa ({restored_score}%): Vaga selecionada e candidatada para perfil Júnior em IA / Dados."
+            if "❌" in analysis_text or not analysis_text:
+                restored_analysis = f"✅ Candidatura Ativa ({restored_score}%): Vaga selecionada e candidatada para perfil Júnior em {candidate_name}."
+            else:
+                restored_analysis = analysis_text
+
+            seniority_val = "Recém-licenciado" if is_internship else "Júnior"
 
             patch_props = {}
             if "Match Score (%)" in schema:
                 patch_props["Match Score (%)"] = {"number": restored_score}
             if "Senioridade" in schema:
-                patch_props["Senioridade"] = {"select": {"name": "Júnior"}}
+                patch_props["Senioridade"] = {"select": {"name": seniority_val}}
             if "Análise IA" in schema:
-                patch_props["Análise IA"] = {"rich_text": [{"text": {"content": restored_analysis}}]}
+                patch_props["Análise IA"] = {"rich_text": [{"text": {"content": restored_analysis[:1990]}}]}
 
             success = safe_notion_patch(page_id, patch_props, headers)
             if success:
                 restored_count += 1
-                logger.info(f"  ↳ ✅ Successfully restored to Score {restored_score}%!")
+                logger.info(f"  ↳ ✅ Successfully restored to Score {restored_score}% ({seniority_val})!")
             time.sleep(0.35)
 
-    logger.info("==================================================")
-    logger.info(f"🎉 Restoration Complete! Restored {restored_count} active candidacies.")
-    logger.info("==================================================")
+    logger.info(f"🎉 Restoration Complete for {profile_name}! Restored {restored_count} active candidacies.")
+
+def restore_all_profiles():
+    token = config.notion_token
+    if not token:
+        logger.error("❌ Notion token not configured in environment / .env.")
+        return
+
+    profiles_dir = "profiles"
+    if not os.path.exists(profiles_dir):
+        restore_for_database(config.notion_database_id, "default", config.candidate.name or "Candidato", token)
+        return
+
+    profile_files = sorted(glob.glob(os.path.join(profiles_dir, "*.json")))
+    if not profile_files:
+        restore_for_database(config.notion_database_id, "default", config.candidate.name or "Candidato", token)
+        return
+
+    for p_file in profile_files:
+        p_name = os.path.splitext(os.path.basename(p_file))[0]
+        try:
+            with open(p_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            db_id = data.get("notion_database_id", config.notion_database_id)
+            c_name = data.get("candidate", {}).get("name", p_name)
+            if db_id:
+                restore_for_database(db_id, p_name, c_name, token)
+        except Exception as e:
+            logger.error(f"Failed restoring profile {p_file}: {e}")
 
 if __name__ == "__main__":
-    run_restore()
+    restore_all_profiles()

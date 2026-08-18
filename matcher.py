@@ -87,14 +87,23 @@ def build_strict_pattern(word: str) -> re.Pattern:
 IRRELEVANT_ROLE_PATTERNS = [(disq, build_strict_pattern(disq)) for disq in IRRELEVANT_ROLE_DISQUALIFIERS]
 TITLE_SENIORITY_PATTERNS = [(disq, build_strict_pattern(disq)) for disq in TITLE_SENIORITY_DISQUALIFIERS]
 TEXT_SENIORITY_PATTERNS = [(disq, build_strict_pattern(disq)) for disq in TEXT_SENIORITY_DISQUALIFIERS]
+# Company Longevity / History Pattern (strips company age like 'fundada há 19 anos', '19 years of history/experience in the market')
+COMPANY_HISTORY_PATTERN = re.compile(
+    r"\b(?:(?:fundad[ao]|criada|nascida|estabelecid[ao]|h[aá]|desde|com|about)\s+(?:mais\s+de\s+|over\s+|more\s+than\s+)?\d+\s+(?:anos|years)\s+(?:de\s+(?:hist[oó]ria|exist[eê]ncia|mercado|experi[eê]ncia|atua[cç][aã]o|vida|sucesso)|no\s+mercado|in\s+the\s+market|of\s+history|of\s+experience|in\s+business|in\s+the\s+industry))\b|"
+    r"\b(?:\d+\s+(?:anos|years)\s+(?:de\s+(?:hist[oó]ria|exist[eê]ncia|mercado|atua[cç][aã]o|vida|sucesso)|no\s+mercado|in\s+the\s+market|of\s+history|in\s+business|in\s+the\s+industry))\b|"
+    r"\b(?:(?:comemora|celebra|celebrating|celebrates|marking)\s+(?:mais\s+de\s+)?\d+\s+(?:anos|years))\b|"
+    r"\b(?:h[aá]\s+\d+\s+anos\b)",
+    re.IGNORECASE
+)
+
 YEARS_OF_EXP_PATTERN = re.compile(
     r"(?:(?:\+|\>|mais\s+de|superior\s+a|acima\s+de|pelo\s+menos|no\s+m[ií]nimo|m[ií]nimo\s+de|m[ií]nimo|more\s+than|over|at\s+least|minimum\s+of|minimum)\s*)?"
-    r"(?<!\w)(?:\+|\>)?\s*(?:[1-9]|1[0-9]|one|two|three|four|five|six|seven|eight|nine|ten|um|uma|dois|duas|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez)"
+    r"(?<!\w)(?:\+|\>)?\s*(?:[1-9]|1[0-2]|one|two|three|four|five|six|seven|eight|nine|ten|twelve|um|uma|dois|duas|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez|doze)"
     r"(?:\s*\+|\s+or\s+more|\s+ou\s+mais|\s+plus)?"
-    r"(?:\s*(?:to|-|a)\s*(?:[1-9]|1[0-9]|one|two|three|four|five|six|seven|eight|nine|ten|um|uma|dois|duas|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez)(?:\s*\+|\s+or\s+more|\s+ou\s+mais)?)?"
+    r"(?:\s*(?:to|-|a)\s*(?:[1-9]|1[0-2]|one|two|three|four|five|six|seven|eight|nine|ten|twelve|um|uma|dois|duas|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez|doze)(?:\s*\+|\s+or\s+more|\s+ou\s+mais)?)?"
     r"\s*(?:years?|anos?)"
     r"(?:\s+or\s+more|\s+ou\s+mais|\s+plus|\s+(?:of\s+|de\s+)?(?:[\w\s]{0,40})?experi(?:ence|[eê]ncia))?\b|"
-    r"\bexperi(?:ence|[eê]ncia)\b[\w\s]{0,40}(?:(?:\+|\>|mais\s+de|superior\s+a|pelo\s+menos|no\s+m[ií]nimo|m[ií]nimo\s+de|more\s+than|over|at\s+least|minimum\s+of|minimum)\s*)?(?:[1-9]|1[0-9]|one|two|three|four|five|six|seven|eight|nine|ten|um|uma|dois|duas|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez)\s*(?:\+|\s+or\s+more|\s+ou\s+mais)?\s*(?:years?|anos?)\b",
+    r"\bexperi(?:ence|[eê]ncia)\b[\w\s]{0,40}(?:(?:\+|\>|mais\s+de|superior\s+a|pelo\s+menos|no\s+m[ií]nimo|m[ií]nimo\s+de|more\s+than|over|at\s+least|minimum\s+of|minimum)\s*)?(?:[1-9]|1[0-2]|one|two|three|four|five|six|seven|eight|nine|ten|twelve|um|uma|dois|duas|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez|doze)\s*(?:\+|\s+or\s+more|\s+ou\s+mais)?\s*(?:years?|anos?)\b",
     re.IGNORECASE
 )
 
@@ -174,12 +183,12 @@ ZERO_EXP_INDICATOR_PATTERN = re.compile(
 # Advanced Seniority Experience Hard Disqualifier Pattern (3+, 4+, 5+, 8+ years, +5 years, minimum 3+ years, 8 or more years)
 ADVANCED_EXP_HARD_DISQUALIFIERS_PATTERN = re.compile(
     r"(?:(?:\+|\>|mais\s+de|superior\s+a|acima\s+de|pelo\s+menos|no\s+m[ií]nimo|m[ií]nimo\s+de|m[ií]nimo|more\s+than|over|at\s+least|minimum\s+of|minimum)\s*)?"
-    r"(?<!\w)(?:\+|\>)?\s*(?:[3-9]|1[0-9]|three|four|five|six|seven|eight|nine|ten|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez)"
+    r"(?<!\w)(?:\+|\>)?\s*(?:[3-9]|1[0-2]|three|four|five|six|seven|eight|nine|ten|twelve|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez|doze)"
     r"(?:\s*\+|\s+or\s+more|\s+ou\s+mais|\s+plus)?"
-    r"(?:\s*(?:to|-|a)\s*(?:[3-9]|1[0-9]|three|four|five|six|seven|eight|nine|ten|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez)(?:\s*\+|\s+or\s+more|\s+ou\s+mais)?)?"
+    r"(?:\s*(?:to|-|a)\s*(?:[3-9]|1[0-2]|three|four|five|six|seven|eight|nine|ten|twelve|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez|doze)(?:\s*\+|\s+or\s+more|\s+ou\s+mais)?)?"
     r"\s*(?:years?|anos?)"
     r"(?:\s+or\s+more|\s+ou\s+mais|\s+plus|\s+(?:of\s+|de\s+)?(?:[\w\s]{0,40})?experi(?:ence|[eê]ncia))?\b|"
-    r"\bexperi(?:ence|[eê]ncia)\b[\w\s]{0,40}(?:(?:\+|\>|mais\s+de|superior\s+a|pelo\s+menos|no\s+m[ií]nimo|m[ií]nimo\s+de|more\s+than|over|at\s+least|minimum\s+of|minimum)\s*)?(?:[3-9]|1[0-9]|three|four|five|six|seven|eight|nine|ten|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez)\s*(?:\+|\s+or\s+more|\s+ou\s+mais)?\s*(?:years?|anos?)\b",
+    r"\bexperi(?:ence|[eê]ncia)\b[\w\s]{0,40}(?:(?:\+|\>|mais\s+de|superior\s+a|pelo\s+menos|no\s+m[ií]nimo|m[ií]nimo\s+de|more\s+than|over|at\s+least|minimum\s+of|minimum)\s*)?(?:[3-9]|1[0-2]|three|four|five|six|seven|eight|nine|ten|twelve|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez|doze)\s*(?:\+|\s+or\s+more|\s+ou\s+mais)?\s*(?:years?|anos?)\b",
     re.IGNORECASE
 )
 
@@ -217,7 +226,7 @@ class JobMatcher:
         self.ai_evaluator = AIEvaluator() if config.enable_ai_evaluation else None
 
     def evaluate_job(self, job: Job) -> ScoredJob:
-        text = f"{job.title} {job.location} {job.description}".lower()
+        text = COMPANY_HISTORY_PATTERN.sub(" ", f"{job.title} {job.location} {job.description}").lower()
         title_lower = job.title.lower()
         location_lower = job.location.lower()
         work_mode_lower = job.work_mode.lower()
@@ -226,7 +235,7 @@ class JobMatcher:
         # HARD DISQUALIFICATION FILTERS (Score = 0.0)
         # -------------------------------------------------------------
 
-        clean_desc = job.description.strip()
+        clean_desc = COMPANY_HISTORY_PATTERN.sub(" ", job.description).strip()
         clean_desc_lower = clean_desc.lower()
         incomplete_indicators = [
             "join or sign in to find your next job",
