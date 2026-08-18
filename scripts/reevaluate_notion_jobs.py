@@ -257,10 +257,10 @@ def reevaluate_notion_jobs_for_profile(profile_name: str):
         title = item["title"]
         link = item["link"]
         company = item["company"]
-        mode = item["mode"]
-        current_estado = item.get("estado", "Por Candidatar")
-        
-        logger.info(f"[{idx}/{len(pages_to_process)}] Processing '{title}' @ '{company}'...")
+        # If user already applied or is in interview, NEVER touch or overwrite their candidacy score/status
+        if current_estado in ["Candidatado", "Entrevista", "Oferta", "Rejeitado Empresa"]:
+            logger.info(f"  ↳ 🛡️ ACTIVE CANDIDACY ({current_estado}): Preserving existing record without modifications.")
+            continue
 
         # 1. Fetch real description (try web first, then Notion page blocks fallback)
         desc = ""
@@ -269,15 +269,14 @@ def reevaluate_notion_jobs_for_profile(profile_name: str):
         elif link:
             desc = fetch_generic_job_description(link, session)
         
-        if not desc or len(desc) < 80:
+        if not desc or len(desc) < 150:
             page_text = fetch_notion_page_text(page_id, headers)
-            if page_text and len(page_text) >= 50:
+            if page_text and len(page_text) >= 150:
                 desc = page_text
-            else:
-                desc = f"{title} na empresa {company}. {item.get('analysis', '')}"
         
-        if not desc or len(desc) < 80:
-            logger.info(f"  ↳ Could not fetch fresh full description. Skipping.")
+        # If full description cannot be retrieved, do NOT guess or falsely disqualify — preserve existing score
+        if not desc or len(desc) < 150:
+            logger.info(f"  ↳ ⚠️ Insufficient description text (<150 chars). Preserving existing page score without modification.")
             continue
 
         job = Job(
@@ -315,7 +314,7 @@ def reevaluate_notion_jobs_for_profile(profile_name: str):
                 patch_props["Match Score (%)"] = {"number": 0.0}
             if "Senioridade" in schema:
                 patch_props["Senioridade"] = {"select": {"name": seniority[:100]}}
-            if "Estado" in schema and current_estado not in ["Entrevista", "Candidatado"]:
+            if "Estado" in schema and current_estado not in ["Entrevista", "Candidatado", "Oferta"]:
                 patch_props["Estado"] = {"select": {"name": "Desqualificada"}}
             if "Análise IA" in schema:
                 patch_props["Análise IA"] = {"rich_text": [{"text": {"content": ai_reason_text[:1990]}}]}
