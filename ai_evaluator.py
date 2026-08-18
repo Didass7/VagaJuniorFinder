@@ -350,16 +350,25 @@ class AIEvaluator:
 """)
 
 
+        target_titles_str = ", ".join(profile.target_titles[:8]) if profile.target_titles else "Engenharia / TI"
+        languages_list = [l.lower() for l in profile.languages]
+        speaks_spanish = any("espanhol" in l or "spanish" in l for l in languages_list)
+        unsupported_languages = ["Alemão fluente/profissional (C1/B2)", "Francês", "Holandês"]
+        if not speaks_spanish:
+            unsupported_languages.append("Espanhol")
+        unsupported_languages_str = ", ".join(unsupported_languages)
+
         all_jobs_str = "\n---\n".join(jobs_text_list)
 
         return f"""
-És especialista em recrutamento em Tecnologia (IA, Data Science, Engenharia de Dados e Software).
+És um especialista em recrutamento técnico e matching de perfis de Engenharia / TI.
 Avalia as seguintes {len(batch)} vagas no lote em relação ao perfil do candidato.
 
 PERFIL DO CANDIDATO:
 - Nome: {profile.name}
 - Formação: {profile.degree}
 - Nível de Experiência: Júnior / Recém-licenciado (0 a 1 ano de experiência)
+- Cargos Alvo / Especialização: {target_titles_str}
 - Elegível para Estágio IEFP / ATIVAR.pt: {"Sim" if profile.iefp_eligible else "Não"}
 - Idiomas: {languages_str}
 - Stack Técnica & Competências: {tech_stack_str}
@@ -374,16 +383,16 @@ REGRAS DE AVALIAÇÃO PARA CADA VAGA:
    - REJEIÇÃO OBRIGATÓRIA DE SÉNIOR (+3 / +5 / 8+ ANOS): Se a vaga exigir expressamente 3+ anos, 4+ anos, 5+ anos, 8+ anos, "8 or more years", "+5 years", ou cargos de liderança (Lead, Senior, Principal, Head, Gestor, Staff, redes freelancer sénior como Toptal), DEVES OBRIGATORIAMENTE REJEITÁ-LA (`is_suitable: false`, `fit_score: 0`, `seniority_detected: "Sénior"` ou `"Mid-Senior"`, `reasoning: "❌ Rejeitada por IA: Exige 8+ anos de experiência profissional"`).
    - ATENÇÃO A GRAUS ACADÉMICOS: A menção de "Degree / Master for graduates" refere-se apenas a formação universitária e NÃO torna uma vaga júnior se a mesma exigir simultaneamente anos de experiência prévia (+3 / +5 / +8 anos).
    - Se a vaga NÃO exigir 3+ ou 5+ ou 8+ anos e for de nível de entrada/júnior/pleno acessível, deves considerá-la ADEQUADA (`is_suitable: true`, `seniority_detected: "Júnior"` ou `"Recém-licenciado"`, `fit_score: 65% a 90%`).
-2. Adequação da Área e Tipo de Oportunidade: A vaga deve ser um emprego formal ou estágio técnico (IA, Machine Learning, Data Science, Data Engineering, Python Developer). Rejeita OBRIGATORIAMENTE oportunidades de crowdsourcing/microtarefas/gravação doméstica (Toloka, Appen, Outlier, Remotasks, "not a job", "record daily routine"), cargos de gestão/liderança comercial, e posições com remuneração de nível Sénior/Staff ($120k–$250k+ USD) (`is_suitable: false`, `fit_score: 0`).
-3. Alinhamento Obrigatório com a Stack do Candidato ({tech_stack_str}):
-   - O candidato é especializado em PYTHON, IA GENERATIVA / LLMs / RAG, MACHINE LEARNING, DATA SCIENCE e DATA ENGINEERING.
-   - REJEIÇÃO OBRIGATÓRIA DE OUTRAS STACKS TECNOLÓGICAS: Se a vaga de desenvolvimento exigir primariamente outras linguagens (ex: Go/Golang, Ruby/Rails, PHP, C#/.NET, Java/Spring, Swift/iOS, Kotlin/Android, Rust, C++, ou Frontend puro React/Vue/Angular) e NÃO incluir Python nem componente de IA/Dados, DEVES OBRIGATORIAMENTE REJEITÁ-LA (`is_suitable: false`, `fit_score: 0`, `reasoning: "❌ Rejeitada por IA: Stack incompatível sem foco em Python/IA/Dados"`). NUNCA inventes que uma vaga de Go/TypeScript tem 'forte base em Python' se Python não constar do anúncio!
-   - Se a vaga tiver sobreposição real com a stack do candidato (Python, SQL, ML, IA, FastAPI, Docker), atribui pontuação de 65% a 95%.
-4. Línguas: O candidato domina Português (Nativo) e Inglês (Fluente/C2), mas NÃO domina Alemão (nível básico A2) nem Francês/Holandês/Espanhol. Se a vaga exigir expressamente Alemão fluente/profissional/nativo (ex: "verhandlungssicher auf Deutsch", "Deutsch C1/B2", "fließende Deutschkenntnisse", "in Wort und Schrift", termos como Praktikant/Werkstudent/(m/w/d) em empresas da Alemanha sem opção 100% em inglês) ou Francês/Holandês, deves OBRIGATORIAMENTE REJEITÁ-LA (`is_suitable: false`, `fit_score: 0`, `reasoning: "❌ Rejeitada por IA: Exige Alemão fluente/profissional (C1) obrigatório"`).
+2. Adequação da Área e Tipo de Oportunidade: A vaga deve ser um emprego formal ou estágio técnico alinhado com o perfil do candidato ({target_titles_str}). Rejeita OBRIGATORIAMENTE oportunidades de crowdsourcing/microtarefas/gravação doméstica (Toloka, Appen, Outlier, Remotasks, "not a job", "record daily routine"), cargos de gestão/liderança comercial, e posições com remuneração de nível Sénior/Staff ($120k–$250k+ USD) (`is_suitable: false`, `fit_score: 0`).
+3. Alinhamento Obrigatório com o Perfil e Stack do Candidato ({tech_stack_str}):
+   - O candidato é especializado nas seguintes tecnologias e funções alvo: {target_titles_str}.
+   - REJEIÇÃO OBRIGATÓRIA DE ÁREAS TOTALMENTE INCOMPATÍVEIS: Se a vaga exigir primariamente funções ou stacks totalmente não relacionadas com o perfil do candidato e NÃO tiver sobreposição real com as suas competências, DEVES OBRIGATORIAMENTE REJEITÁ-LA (`is_suitable: false`, `fit_score: 0`, `reasoning: "❌ Rejeitada por IA: Função/Stack incompatível com o perfil do candidato"`). NUNCA inventes tecnologias que não constem do anúncio!
+   - Se a vaga tiver sobreposição real com a área ou tecnologias do candidato, atribui pontuação de 65% a 95%.
+4. Línguas Suportadas: O candidato domina: {languages_str}. Se a vaga exigir expressamente idiomas NÃO falados pelo candidato (ex: {unsupported_languages_str}, "in Wort und Schrift", termos como Praktikant/Werkstudent/(m/w/d) sem opção 100% em inglês), deves OBRIGATORIAMENTE REJEITÁ-LA (`is_suitable: false`, `fit_score: 0`, `reasoning: "❌ Rejeitada por IA: Exige idioma não suportado pelo candidato"`).
 5. Localização/Residência: O candidato reside em Portugal. Se a vaga for presencial noutro país ou tiver restrição geográfica remota exclusiva para residentes noutros países/regiões (ex: EUA, Reino Unido, LATAM, Brasil, México, Peru, Chile, Canadá, Índia, APAC, fuso horário EST/PST sem opção para Portugal/Europa), deves OBRIGATORIAMENTE REJEITÁ-LA (`is_suitable: false`, `fit_score: 0`, `reasoning: "❌ Rejeitada por IA: Vaga remota com restrição geográfica a outros países"`).
 6. Atribui uma pontuação de adequação (`fit_score`) de 0 a 100%. Vagas adequadas para júnior devem ter pontuação entre 60% e 95%.
 7. Justificação (reasoning):
-   - Se for ADEQUADA (`is_suitable: true`): explica de forma concisa em Português o motivo do bom alinhamento (ex: "Forte sobreposição em Python e GenAI para nível júnior").
+   - Se for ADEQUADA (`is_suitable: true`): explica de forma concisa em Português o motivo do bom alinhamento.
    - Se for DESQUALIFICADA (`is_suitable: false`): explica OBRIGATORIAMENTE e de forma CONCRETA o obstáculo factual que levou à rejeição (ex: "Exige 5+ anos de experiência e liderança de equipa", "Função de Vendas/Comercial sem componente técnica", "Exige Alemão fluente obrigatório", "Restrição geográfica exclusiva para residentes em LATAM / EUA").
 
 Responde APENAS em formato JSON válido contendo um objeto com uma lista "evaluations", onde cada elemento corresponde ao `job_index`:

@@ -282,6 +282,40 @@ class TestMatcherModule(unittest.TestCase):
         self.assertEqual(key_f1, key_f2)
         self.assertEqual(key_f2, key_f3)
 
+    def test_rafael_cybersecurity_and_sysadmin_matching(self):
+        """Verifies that Rafael's cybersecurity and sysadmin target jobs match properly and don't get disqualified by global filters."""
+        import json
+        with open("profiles/rafael.json", "r", encoding="utf-8") as f:
+            rafael_data = json.load(f)["candidate"]
+        rafael_prof = CandidateProfile(**rafael_data)
+        matcher_rafael = JobMatcher(profile=rafael_prof)
+
+        job_cyber = Job(
+            title="Junior Cybersecurity Analyst",
+            company="Sonae",
+            location="Porto, Portugal",
+            work_mode="Híbrido",
+            link="https://example.com/cyber1",
+            description="Sonae procura Junior Cybersecurity Analyst para monitorização de alertas SIEM, análise de vulnerabilidades, redes e firewalls Fortinet com Linux e Wireshark.",
+            source="LinkedIn",
+            pub_date="2026-08-18"
+        )
+        scored = matcher_rafael.evaluate_job(job_cyber)
+        self.assertGreaterEqual(scored.score, 60.0)
+
+        job_sysadmin = Job(
+            title="Administrador de Sistemas e Redes",
+            company="Inovação SA",
+            location="Lisboa, Portugal",
+            work_mode="Presencial",
+            link="https://example.com/sysadmin1",
+            description="Procura-se Administrador de Sistemas e Redes Júnior para configuração e manutenção de servidores Windows Server e Linux, redes e firewalls.",
+            source="ITJobs",
+            pub_date="2026-08-18"
+        )
+        scored_sys = matcher_rafael.evaluate_job(job_sysadmin)
+        self.assertGreaterEqual(scored_sys.score, 55.0)
+
     def test_teaching_formador_disqualification(self):
         """Verifies that Professor/Formador/Teaching roles are strictly disqualified."""
         job = Job(
