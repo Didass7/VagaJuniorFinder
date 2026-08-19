@@ -13,7 +13,7 @@ WEB_HEADERS = {
 GENERIC_COMPANY_NAMES = {
     "empresa", "empresa via itjobs", "empresa via net-empregos", "empresa no linkedin",
     "empresa via carga de trabalhos", "empresa confidencial", "desconhecida", "n/a",
-    "landing.jobs company", "remotive company", "arbeitnow company", "weworkremotely company",
+    "landing.jobs company", "remotive company", "arbeitnow company",
     "remoteok company", "jobicy company", ""
 }
 

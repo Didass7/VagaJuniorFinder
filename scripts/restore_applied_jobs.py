@@ -153,8 +153,8 @@ def restore_for_database(db_id: str, profile_name: str, candidate_name: str, tok
                 except ValueError:
                     pass
 
-            if "❌" in analysis_text or not analysis_text:
-                restored_analysis = f"✅ Candidatura Ativa ({restored_score}%): Vaga selecionada e candidatada para perfil Júnior em {candidate_name}."
+            if "❌" in analysis_text or not analysis_text or "Rejeitada" in analysis_text:
+                restored_analysis = f"Candidatura Ativa ({restored_score}%): Vaga selecionada e candidatada para perfil Júnior em {candidate_name}."
             else:
                 restored_analysis = analysis_text
 

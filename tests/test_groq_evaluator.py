@@ -8,7 +8,7 @@ class TestGroqEvaluator(unittest.TestCase):
         self.profile = CandidateProfile()
 
     def test_evaluator_provider_detection(self):
-        evaluator = AIEvaluator(groq_api_key="mock_groq_key")
+        evaluator = AIEvaluator(groq_api_key="mock_groq_key", gemini_api_key="")
         self.assertTrue(evaluator.is_available)
         self.assertIn("Groq", evaluator.active_provider)
 
@@ -19,8 +19,7 @@ class TestGroqEvaluator(unittest.TestCase):
 
     def test_empty_keys(self):
         evaluator = AIEvaluator(groq_api_key="", gemini_api_key="")
-        if not config.groq_api_key and not config.gemini_api_key:
-            self.assertFalse(evaluator.is_available)
+        self.assertFalse(evaluator.is_available)
 
 if __name__ == "__main__":
     unittest.main()

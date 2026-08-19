@@ -1,4 +1,5 @@
 import unittest
+import datetime
 from config import CandidateProfile, config
 from scraper import Job
 from ai_evaluator import AIEvaluator, AIEvaluationResult
@@ -18,7 +19,7 @@ class TestAIEvaluator(unittest.TestCase):
             description="Procuramos Junior AI Engineer recém-licenciado com conhecimentos em Python, SQL e LangChain/RAG para integrar projeto de GenAI. Estágio IEFP elegível.",
             link="https://example.com/job1",
             source="Test",
-            pub_date="2026-08-05"
+            pub_date=datetime.date.today().isoformat()
         )
         
         # Test Stage 1 Heuristic Evaluation
@@ -57,7 +58,7 @@ class TestAIEvaluator(unittest.TestCase):
             description="Vaga para Júnior Python ML.",
             link="https://example.com/job1",
             source="Test",
-            pub_date="2026-08-05"
+            pub_date=datetime.date.today().isoformat()
         )
         
         with patch('time.sleep', return_value=None):
@@ -92,7 +93,7 @@ class TestAIEvaluator(unittest.TestCase):
             description="Vaga para Júnior SQL e Python.",
             link="https://example.com/job2",
             source="Test",
-            pub_date="2026-08-05"
+            pub_date=datetime.date.today().isoformat()
         )
         
         with patch('time.sleep', return_value=None):

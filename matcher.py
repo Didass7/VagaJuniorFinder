@@ -21,6 +21,7 @@ IRRELEVANT_ROLE_DISQUALIFIERS = [
     "sysadmin", "administrador de sistemas", "administradores de sistemas", "system administrator", "systems administrator",
     "database administrator", "dba", "network administrator", "administrador de redes", "database engineer",
     "electronics engineer", "rf engineer", "hardware engineer", "mainframe", "scrum master",
+    "diagram creator", "diagram creators", "digital design", "circuit design", "verilog", "systemverilog", "vhdl", "fpga", "asic", "hardware design", "microelectronics", "microelectrónica",
     "gestor de projeto", "project manager", "blockchain", "consultor funcional",
     "marketing", "social media", "paid media", "growth", "seo", "sem", "crm", "copywriter",
     "content writer", "content manager", "content creator", "content strategist",
@@ -48,9 +49,14 @@ TITLE_SENIORITY_DISQUALIFIERS = [
     "head", "gestor de equipa", "mid-senior", "mid/senior", "level 2", "level ii", "level 3", "level iii", " ii", " iii"
 ]
 
-# Text-level Seniority Disqualifiers (Demanding explicit prior professional experience >0 years)
 TEXT_SENIORITY_DISQUALIFIERS = [
+    "seniority level: mid-senior", "seniority level: senior", "seniority level: director", "seniority level: executive",
     "seniority level mid-senior", "seniority level senior", "seniority level director", "seniority level executive",
+    "seniority levelmid-senior", "seniority levelsenior", "mid-senior level", "senior level",
+    "level of experience: mid", "level of experience: senior", "more than 4y", "more than 5y", "more than 6y",
+    "a few years in", "a few years of", "several years of", "deep experience", "been doing this a long time",
+    "staff/principal", "senior/principal", "mid/senior", "mid-level", "senior-level", "staff-level", "principal-level",
+    "lead-level", "growing into platform ownership", "own the data platform",
     "technical leadership", "leadership experience", "experiência em liderança", "liderança técnica", "experiencia em liderança",
     "senior developer", "senior engineer", "senior backend", "senior software",
     "senior data scientist", "senior data engineer", "sénior developer", "sénior engineer", "sénior backend",
@@ -141,13 +147,14 @@ FOREIGN_GEO_REGIONS = (
     r"uruguay|uruguaio|ecuador|equador|venezuela|costa\s+rica|panama|panam[aá]|guatemala|"
     r"us|usa|united\s+states|estados\s+unidos|canada|canad[aá]|north\s+america|am[eé]rica\s+do\s+norte|"
     r"apac|asia|ásia|asia-pacific|india|[ií]ndia|philippines|filipinas|pakistan|paquist[aã]o|vietnam|singapore|singapura|"
-    r"australia|austr[aá]lia|new\s+zealand|nova\s+zel[aâ]ndia|south\s+africa|[aá]frica\s+do\s+sul|nigeria|nig[eé]ria|kenya|qu[eé]nia"
+    r"australia|austr[aá]lia|new\s+zealand|nova\s+zel[aâ]ndia|south\s+africa|[aá]frica\s+do\s+sul|nigeria|nig[eé]ria|kenya|qu[eé]nia|"
+    r"germany|deutschland|alemanha|uk|united\s+kingdom|reino\s+unido|france|frança|spain|espanha|italy|itália|netherlands|holanda|poland|polónia|switzerland|suíça|austria|áustria|sweden|suécia|denmark|dinamarca|norway|noruega|finland|finlândia|ireland|irlanda|belgium|bélgica|czech|romania|roménia"
 )
 
-# Geo-Restricted Remote Pattern (e.g. LATAM, Brazil, US, Canada, APAC, specific country lists without Portugal)
+# Geo-Restricted Remote Pattern (e.g. LATAM, Brazil, US, Canada, APAC, Germany-only, UK-only, specific country lists without Portugal)
 GEO_RESTRICTED_REMOTE_PATTERN = re.compile(
     rf"\b(?:(?:we\s+are\s+)?(?:looking\s+for|open\s+to|hiring)\s+(?:candidates|people|engineers|talent)?\s*(?:in|from)\s+(?:the\s+)?(?:[a-zA-Z,\s]+)?only\b)|"
-    rf"\b(?:based\s+in|located\s+in|residing\s+in|resident\s+in|must\s+reside\s+in|must\s+be\s+located\s+in|living\s+in|remote\s+in|remote\s+from|remote\s+within|remote\s+only\s+in)\s+(?:the\s+)?(?:{FOREIGN_GEO_REGIONS})\b|"
+    rf"\b(?:based\s+in|located\s+in|residing\s+in|resident\s+in|must\s+reside\s+in|must\s+be\s+located\s+in|living\s+in|remote\s+in|remote\s+from|remote\s+within|remote\s+only\s+in|remote\s+across|work\s+from\s+anywhere\s+in|work\s+anywhere\s+in)\s+(?:the\s+)?(?:{FOREIGN_GEO_REGIONS})\b|"
     rf"\b(?:{FOREIGN_GEO_REGIONS})\s+(?:only|residents\s+only|citizens\s+only|candidates\s+only)\b|"
     rf"\b(?:only\s+open\s+to|only\s+hiring\s+in|only\s+for\s+candidates\s+in)\s+(?:the\s+)?(?:{FOREIGN_GEO_REGIONS})\b|"
     rf"\b(?:right\s+to\s+work\s+in|legally\s+authorized\s+to\s+work\s+in)\s+(?:the\s+)?(?:{FOREIGN_GEO_REGIONS})\b|"
@@ -158,9 +165,10 @@ GEO_RESTRICTED_REMOTE_PATTERN = re.compile(
     re.IGNORECASE
 )
 
-# Disqualify Crowdsourcing / Microtasks / Domestic Video-Audio Recording / Contributor Gigs (e.g. Toloka, Appen, Remotasks, Outlier)
+# Disqualify Crowdsourcing / Microtasks / Domestic Video-Audio Recording / Contributor Gigs (e.g. Toloka, Appen, Remotasks, Outlier, DATAmundi)
 CROWDSOURCING_MICROTASKS_PATTERN = re.compile(
-    r"\b(?:not\s+a\s+job|n[aã]o\s+[eé]\s+um\s+emprego|not\s+an\s+employment|this\s+is\s+not\s+a\s+job|toloka|remotasks|oneforma|clickworker|appen|prolific|mturk|mechanical\s+turk|outlier\s+ai|telus\s+international)\b|"
+    r"\b(?:not\s+a\s+job|n[aã]o\s+[eé]\s+um\s+emprego|not\s+an\s+employment|this\s+is\s+not\s+a\s+job|toloka|remotasks|oneforma|clickworker|appen|prolific|mturk|mechanical\s+turk|outlier\s+ai|telus\s+international|datamundi|summa\s+linguae)\b|"
+    r"\b(?:dataset\s+project|expert\s+pool|onboard\s+approximately|creating\s+a\s+dataset|dataset\s+creator|diagram\s+creators?|hourly\s+rate\s*:\s*~\s*\d+|~\s*\d+\s*usd/h|usd\s*/\s*h\b)\b|"
     r"\b(?:record\s+(?:your|everyday|point-of-view|household|routine|videos?)|mount\s+your\s+smartphone|household\s+chores|earn\s+while\s+you|get\s+paid\s+(?:just\s+)?for\s+recording|micro-?tasks?|microtarefas?|crowdsourcing|data\s+collector|video\s+recording\s+contributor|audio\s+recording\s+task|voice\s+recording\s+task)\b",
     re.IGNORECASE
 )
@@ -180,8 +188,9 @@ ZERO_EXP_INDICATOR_PATTERN = re.compile(
     re.IGNORECASE
 )
 
-# Advanced Seniority Experience Hard Disqualifier Pattern (3+, 4+, 5+, 8+ years, +5 years, minimum 3+ years, 8 or more years)
+# Advanced Seniority Experience Hard Disqualifier Pattern (3+, 4+, 5+, 8+ years, +5 years, minimum 3+ years, 8 or more years, a few years in)
 ADVANCED_EXP_HARD_DISQUALIFIERS_PATTERN = re.compile(
+    r"\b(?:a\s+few\s+years(?:\s+in|\s+of)?|several\s+years(?:\s+of)?|deep\s+experience|staff/principal|senior/principal|been\s+doing\s+this\s+a\s+long\s+time)\b|"
     r"(?:(?:\+|\>|mais\s+de|superior\s+a|acima\s+de|pelo\s+menos|no\s+m[ií]nimo|m[ií]nimo\s+de|m[ií]nimo|more\s+than|over|at\s+least|minimum\s+of|minimum)\s*)?"
     r"(?<!\w)(?:\+|\>)?\s*(?:[3-9]|1[0-2]|three|four|five|six|seven|eight|nine|ten|twelve|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez|doze)"
     r"(?:\s*\+|\s+or\s+more|\s+ou\s+mais|\s+plus)?"
@@ -207,6 +216,22 @@ def parse_job_date(date_str: str) -> datetime.date:
         pass
     return datetime.date.today()
 
+def clean_analysis_text(text: str) -> str:
+    """Removes all emojis and repetitive prefix markers (e.g. 'Adequada (71%): Adequada:') returning clean natural text."""
+    if not text:
+        return ""
+    cleaned = re.sub(r'[\U00010000-\U0010ffff]|[\u2600-\u27bf]|[\u2300-\u23ff]', '', text)
+    pattern = r'^\s*(?:Adequada|Inadequada|Aprovada|Rejeitada(?:\s*por\s*IA)?|Filtro\s*Automático)?(?:\s*\([^)]*\))?\s*:\s*'
+    for _ in range(5):
+        new_cleaned = re.sub(pattern, '', cleaned, count=1, flags=re.IGNORECASE).strip()
+        if new_cleaned == cleaned:
+            break
+        cleaned = new_cleaned
+    cleaned = cleaned.strip()
+    if cleaned:
+        cleaned = cleaned[0].upper() + cleaned[1:]
+    return cleaned
+
 @dataclass
 class ScoredJob:
     job: Job
@@ -221,9 +246,20 @@ class ScoredJob:
     ai_cons: List[str] = field(default_factory=lambda: [])
 
 class JobMatcher:
-    def __init__(self, profile: CandidateProfile):
+    def __init__(
+        self,
+        profile: CandidateProfile,
+        ai_evaluator: Optional[AIEvaluator] = None,
+        enable_ai: Optional[bool] = None
+    ):
         self.profile = profile
-        self.ai_evaluator = AIEvaluator() if config.enable_ai_evaluation else None
+        should_enable = enable_ai if enable_ai is not None else config.enable_ai_evaluation
+        if not should_enable:
+            self.ai_evaluator = None
+        elif ai_evaluator is not None:
+            self.ai_evaluator = ai_evaluator
+        else:
+            self.ai_evaluator = AIEvaluator()
 
     def evaluate_job(self, job: Job) -> ScoredJob:
         text = COMPANY_HISTORY_PATTERN.sub(" ", f"{job.title} {job.location} {job.description}").lower()
@@ -244,15 +280,15 @@ class JobMatcher:
         ]
         
         if len(clean_desc) < 100 or any(ind in clean_desc_lower for ind in incomplete_indicators):
-            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Descrição Incompleta / Bloqueada", match_reason="Descrição indisponível", ai_reasoning="❌ Filtro Automático: Descrição indisponível ou protegida por login")
+            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Descrição Incompleta / Bloqueada", match_reason="Descrição indisponível", ai_reasoning="Filtro Automático: Descrição indisponível ou protegida por login")
 
         if any(exp_term in clean_desc_lower for exp_term in ["oferta expirada", "vaga expirada", "anúncio expirado", "job no longer available", "no longer accepting applications", "this job is no longer available"]):
-            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Oferta Expirada", match_reason="Anúncio marcado como expirado", ai_reasoning="❌ Filtro Automático: Anúncio de vaga já expirado")
+            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Oferta Expirada", match_reason="Anúncio marcado como expirado", ai_reasoning="Filtro Automático: Anúncio de vaga já expirado")
 
         today = datetime.date.today()
         job_date = parse_job_date(job.pub_date)
         if (today - job_date).days > 14:
-            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Vaga Antiga (> 14 dias)", match_reason="Oferta expirada (> 14 dias)", ai_reasoning="❌ Filtro Automático: Publicada há mais de 14 dias")
+            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Vaga Antiga (> 14 dias)", match_reason="Oferta expirada (> 14 dias)", ai_reasoning="Filtro Automático: Publicada há mais de 14 dias")
 
         profile_locs = [l.lower() for l in getattr(self.profile, 'locations', []) if l.lower() not in ["remoto", "remote", "hybrid", "híbrido", "hibrido"]]
         allowed_locations = set(PORTUGAL_LOCATIONS + profile_locs)
@@ -260,19 +296,19 @@ class JobMatcher:
         is_strictly_remote = (work_mode_lower == "remoto") or ("remoto" in location_lower) or ("remote" in location_lower) or ("teletrabalho" in location_lower)
 
         if not is_portugal and not is_strictly_remote:
-            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Fora do Âmbito Geográfico", match_reason="Presencial/Híbrido no Estrangeiro", ai_reasoning="❌ Filtro Automático: Vaga presencial/híbrida no estrangeiro")
+            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Fora do Âmbito Geográfico", match_reason="Presencial/Híbrido no Estrangeiro", ai_reasoning="Filtro Automático: Vaga presencial/híbrida no estrangeiro")
 
         geo_match = GEO_RESTRICTED_REMOTE_PATTERN.search(text)
         if is_strictly_remote and geo_match:
-            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Remoto Geobloqueado", match_reason=f"Vaga remota restrita ({geo_match.group(0).strip()})", ai_reasoning=f"❌ Filtro Automático: Vaga remota com restrição geográfica a outros países ({geo_match.group(0).strip()})")
+            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Remoto Geobloqueado", match_reason=f"Vaga remota restrita ({geo_match.group(0).strip()})", ai_reasoning=f"Filtro Automático: Vaga remota com restrição geográfica a outros países ({geo_match.group(0).strip()})")
 
         crowd_match = CROWDSOURCING_MICROTASKS_PATTERN.search(text)
         if crowd_match:
-            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Microtarefas / Crowdsourcing", match_reason=f"Oportunidade de crowdsourcing/microtarefas ({crowd_match.group(0).strip()})", ai_reasoning=f"❌ Filtro Automático: Microtarefas/Crowdsourcing não elegível como emprego formal ({crowd_match.group(0).strip()})")
+            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Microtarefas / Crowdsourcing", match_reason=f"Oportunidade de crowdsourcing/microtarefas ({crowd_match.group(0).strip()})", ai_reasoning=f"Filtro Automático: Microtarefas/Crowdsourcing não elegível como emprego formal ({crowd_match.group(0).strip()})")
 
         comp_match = SENIOR_COMPENSATION_PATTERN.search(text)
         if comp_match:
-            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Remuneração Sénior/Staff", match_reason=f"Faixa salarial de nível sénior/staff ({comp_match.group(0).strip()})", ai_reasoning=f"❌ Filtro Automático: Faixa salarial de nível Sénior/Staff ({comp_match.group(0).strip()})")
+            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Remuneração Sénior/Staff", match_reason=f"Faixa salarial de nível sénior/staff ({comp_match.group(0).strip()})", ai_reasoning=f"Filtro Automático: Faixa salarial de nível Sénior/Staff ({comp_match.group(0).strip()})")
 
         target_titles_lower = [t.lower() for t in self.profile.target_titles]
         tech_stack_lower = [t.lower() for t in self.profile.tech_stack]
@@ -284,10 +320,10 @@ class JobMatcher:
             if any(disq in tt for tt in target_titles_lower) or any(disq in ts for ts in tech_stack_lower):
                 continue
             if pattern.search(title_lower):
-                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Cargo Irrelevante", match_reason=f"Título desqualificado por conter '{disq}'", ai_reasoning=f"❌ Filtro Automático: Cargo irrelevante ({disq})")
+                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Cargo Irrelevante", match_reason=f"Título desqualificado por conter '{disq}'", ai_reasoning=f"Filtro Automático: Cargo irrelevante ({disq})")
 
         if any(k in text for k in ["crianças", "criancas", "adolescentes", "pós-letivo", "pos-letivo", "sharkcoders"]):
-            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Ensino Infantil", match_reason="Ensino de crianças/adolescentes", ai_reasoning="❌ Filtro Automático: Ensino de crianças/adolescentes")
+            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Ensino Infantil", match_reason="Ensino de crianças/adolescentes", ai_reasoning="Filtro Automático: Ensino de crianças/adolescentes")
 
         # Dynamic Core Domain Check based on profile's target titles and tech stack
         has_target_title = any(tt in title_lower for tt in target_titles_lower)
@@ -322,17 +358,17 @@ class JobMatcher:
 
         if is_security_profile and not is_data_profile:
             if any(dt in title_lower for dt in data_domain_terms):
-                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Fora do Perfil", match_reason="Vaga de Engenharia/Ciência de Dados fora do perfil de Cibersegurança/DevOps", ai_reasoning="❌ Filtro Automático: Cargo de Dados/IA fora do perfil de Cibersegurança")
+                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Fora do Perfil", match_reason="Vaga de Engenharia/Ciência de Dados fora do perfil de Cibersegurança/DevOps", ai_reasoning="Filtro Automático: Cargo de Dados/IA fora do perfil de Cibersegurança")
 
         if is_data_profile and not is_security_profile:
             if any(st in title_lower for st in security_net_terms):
-                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Fora do Perfil", match_reason="Vaga de Cibersegurança/Redes fora do perfil de IA/Data", ai_reasoning="❌ Filtro Automático: Cargo de Cibersegurança/Redes fora do perfil de IA/Data")
+                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Fora do Perfil", match_reason="Vaga de Cibersegurança/Redes fora do perfil de IA/Data", ai_reasoning="Filtro Automático: Cargo de Cibersegurança/Redes fora do perfil de IA/Data")
 
         if not has_domain_in_title and not has_target_title and not has_tech_in_title:
-            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Fora do Perfil", match_reason="Título não corresponde às funções ou tecnologias alvo do candidato", ai_reasoning="❌ Filtro Automático: Título não corresponde às funções alvo do candidato")
+            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Fora do Perfil", match_reason="Título não corresponde às funções ou tecnologias alvo do candidato", ai_reasoning="Filtro Automático: Título não corresponde às funções alvo do candidato")
 
         if PHD_REQUIREMENT_PATTERN.search(title_lower) or PHD_REQUIREMENT_PATTERN.search(text):
-            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Requer Doutoramento", match_reason="Exige PhD ou Doutoramento", ai_reasoning="❌ Filtro Automático: Exige Doutoramento (PhD)")
+            return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Requer Doutoramento", match_reason="Exige PhD ou Doutoramento", ai_reasoning="Filtro Automático: Exige Doutoramento (PhD)")
 
         # Language Disqualification (exempt Spanish if candidate speaks Spanish)
         lang_match = MANDATORY_OTHER_LANGUAGES_PATTERN.search(text)
@@ -340,14 +376,14 @@ class JobMatcher:
             matched_str = lang_match.group(0).lower()
             is_spanish_match = any(sp in matched_str for sp in ["spanish", "español", "espanhol"])
             if not (speaks_spanish and is_spanish_match):
-                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Idioma Não Suportado", match_reason=f"Exige outro idioma ({matched_str})", ai_reasoning=f"❌ Filtro Automático: Exige outro idioma ({matched_str})")
+                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Idioma Não Suportado", match_reason=f"Exige outro idioma ({matched_str})", ai_reasoning=f"Filtro Automático: Exige outro idioma ({matched_str})")
 
         foreign_post_match = FOREIGN_JOB_POST_PATTERN.search(text)
         if foreign_post_match:
             matched_post = foreign_post_match.group(0).lower()
             is_spanish_post = any(sp in matched_post for sp in ["sobre nosotros", "buscamos", "tus funciones", "tu perfil", "requisitos del puesto"])
             if not (speaks_spanish and is_spanish_post):
-                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Idioma Não Suportado", match_reason=f"Anúncio noutro idioma ({matched_post})", ai_reasoning=f"❌ Filtro Automático: Anúncio noutro idioma ({matched_post})")
+                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Idioma Não Suportado", match_reason=f"Anúncio noutro idioma ({matched_post})", ai_reasoning=f"Filtro Automático: Anúncio noutro idioma ({matched_post})")
 
         is_explicit_junior = any(j_term in title_lower for j_term in ["junior", "jr", "estágio", "estagio", "trainee", "graduate program", "entry level", "intern"])
         is_explicit_zero_to_one = any(b in text for b in ["recém-licenciado", "recem licenciado", "recém licenciado", "0-1", "recent graduate", "fresh graduate", "recém-graduado", "recem-graduado", "0 a 1 ano", "0 to 1 year"])
@@ -358,7 +394,7 @@ class JobMatcher:
 
         for disq, pattern in TITLE_SENIORITY_PATTERNS:
             if pattern.search(title_lower):
-                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Sénior / Liderança", match_reason=f"Título sénior ({disq})", ai_reasoning=f"❌ Filtro Automático: Título sénior ({disq})")
+                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Sénior / Liderança", match_reason=f"Título sénior ({disq})", ai_reasoning=f"Filtro Automático: Título sénior ({disq})")
 
         # Hard Disqualification: Any explicit 3+, 4+, 5+ years requirement is definitively senior / not junior
         adv_exp_match = ADVANCED_EXP_HARD_DISQUALIFIERS_PATTERN.search(text)
@@ -367,18 +403,18 @@ class JobMatcher:
                 job=job, score=0.0, matched_skills=[], missing_skills=[],
                 seniority_status="Requer Experiência (>0 anos)",
                 match_reason=f"Exige experiência sénior ({adv_exp_match.group(0).strip()})",
-                ai_reasoning=f"❌ Filtro Automático: Exige experiência sénior ({adv_exp_match.group(0).strip()})"
+                ai_reasoning=f"Filtro Automático: Exige experiência sénior ({adv_exp_match.group(0).strip()})"
             )
 
         # If not explicitly marked as a 0-experience / internship position, check for other experience requirements
         if not is_explicit_zero_exp:
             for disq, pattern in TEXT_SENIORITY_PATTERNS:
                 if pattern.search(text):
-                    return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Requer Experiência (>0 anos)", match_reason=f"Exige experiência prévia ({disq})", ai_reasoning=f"❌ Filtro Automático: Exige experiência prévia ({disq})")
+                    return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Requer Experiência (>0 anos)", match_reason=f"Exige experiência prévia ({disq})", ai_reasoning=f"Filtro Automático: Exige experiência prévia ({disq})")
                     
             exp_match = YEARS_OF_EXP_PATTERN.search(text)
             if exp_match:
-                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Requer Experiência (>0 anos)", match_reason=f"Exige experiência prévia ({exp_match.group(0).strip()})", ai_reasoning=f"❌ Filtro Automático: Exige experiência prévia ({exp_match.group(0).strip()})")
+                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Requer Experiência (>0 anos)", match_reason=f"Exige experiência prévia ({exp_match.group(0).strip()})", ai_reasoning=f"Filtro Automático: Exige experiência prévia ({exp_match.group(0).strip()})")
 
 
         # -------------------------------------------------------------
@@ -482,12 +518,14 @@ class JobMatcher:
                     is_clearly_senior = any(s in seniority_det_lower for s in ["senior", "sénior", "sênior", "lead", "principal", "director", "executive", "head of"])
                     is_demanding_3plus_years = ("exige" in reason_lower and any(yr in reason_lower for yr in ["3 anos", "4 anos", "5 anos", "6 anos", "7 anos", "8 anos", "10 anos", "superior a 2", "superior a 3"]))
 
+                    clean_reason = clean_analysis_text(ai_res.reasoning)
+                    
                     # If AI explicitly marked the job as unsuitable, 0 fit score, or non-junior/senior
                     if not ai_res.is_suitable or ai_res.fit_score == 0 or is_clearly_senior or is_demanding_3plus_years:
                         sj.score = 0.0
                         sj.seniority_status = f"Rejeitada por IA ({ai_res.seniority_detected or 'Inadequada'})"
-                        sj.match_reason = ai_res.reasoning
-                        sj.ai_reasoning = f"❌ Rejeitada por IA: {ai_res.reasoning}"
+                        sj.match_reason = clean_reason
+                        sj.ai_reasoning = f"Rejeitada por IA: {clean_reason}"
                         ai_rejected += 1
                         if include_disqualified:
                             final_scored_jobs.append(sj)
@@ -498,8 +536,8 @@ class JobMatcher:
                     if blended_score < 50.0:
                         sj.score = 0.0
                         sj.seniority_status = "Score Insuficiente"
-                        sj.match_reason = ai_res.reasoning
-                        sj.ai_reasoning = f"❌ Score Insuficiente ({blended_score}%): {ai_res.reasoning}"
+                        sj.match_reason = clean_reason
+                        sj.ai_reasoning = f"Score Insuficiente ({blended_score}%): {clean_reason}"
                         ai_rejected += 1
                         if include_disqualified:
                             final_scored_jobs.append(sj)
@@ -507,7 +545,7 @@ class JobMatcher:
 
                     sj.score = blended_score
                     sj.ai_evaluated = True
-                    sj.ai_reasoning = f"✅ Adequada ({blended_score}%): {ai_res.reasoning}"
+                    sj.ai_reasoning = clean_reason if clean_reason else f"Vaga alinhada com perfil júnior ({', '.join(sj.matched_skills[:3]) if sj.matched_skills else 'Target Role'})."
                     if ai_res.seniority_detected and ai_res.seniority_detected != "Desconhecido":
                         sj.seniority_status = ai_res.seniority_detected
                     sj.ai_pros = ai_res.pros

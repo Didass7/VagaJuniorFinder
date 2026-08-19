@@ -4,7 +4,7 @@ import datetime
 import requests
 from typing import List, Set, Optional, Dict, Any
 from config import config
-from matcher import ScoredJob
+from matcher import ScoredJob, clean_analysis_text
 from company_extractor import extract_company_from_link
 
 logger = logging.getLogger("NotionStore")
@@ -218,7 +218,7 @@ class NotionStore:
         company_name = extract_company_from_link(job.link, job.title, job.company)
 
         # Map properties dynamically if present in user's database schema
-        raw_reason_text = sj.ai_reasoning if sj.ai_reasoning else sj.match_reason
+        raw_reason_text = clean_analysis_text(sj.ai_reasoning if sj.ai_reasoning else sj.match_reason)
         # Normalize values to match exact Notion schema options
         modo_clean = "Remoto" if "remoto" in job.work_mode.lower() else "Presencial / Híbrido"
         seniority_clean = "Recém-licenciado" if any(t in sj.seniority_status.lower() for t in ["recém", "recem", "0-1", "estágio", "estagio", "iefp", "ativar"]) else "Júnior"

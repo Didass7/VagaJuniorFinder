@@ -8,7 +8,7 @@ from config import config, CandidateProfile
 from scraper import (
     Job, is_valid_job_offer,
     LinkedInScraper, ITJobsScraper, LandingJobsScraper, RemotiveScraper,
-    ArbeitnowScraper, WeWorkRemotelyScraper, RemoteOKScraper, CargaDeTrabalhosScraper,
+    ArbeitnowScraper, RemoteOKScraper, CargaDeTrabalhosScraper,
     JobicyScraper, NetEmpregosScraper,
     JobspressoScraper, EuraxessScraper,
     IEFPScraper, JobIngestionPipeline
@@ -42,7 +42,7 @@ class TestScraperModule(unittest.TestCase):
             link="https://example.com/job1",
             description="Vaga para recém-licenciado com bolsa de estágio profissional IEFP em Python e SQL com mais de 120 caracteres de detalhe de descrição exigida pelo matcher.",
             source="Test",
-            pub_date="2026-08-05"
+            pub_date=datetime.date.today().isoformat()
         )
         # Check automatic job_id SHA-256 hash generation
         self.assertTrue(len(job1.job_id) == 16)
@@ -59,30 +59,42 @@ class TestScraperModule(unittest.TestCase):
             link="https://example.com/job2",
             description="Trabalho 100% remoto em qualquer parte do mundo com pelo menos 120 caracteres de descrição completa para ser uma vaga válida.",
             source="Test",
-            pub_date="2026-08-05"
+            pub_date=datetime.date.today().isoformat()
         )
         self.assertEqual(job2.work_mode, "Remoto")
 
     def test_scrapers_instantiation(self):
-        """Verifies that all 13 active scrapers can be instantiated without errors."""
+        """Verifies that all 12 active scrapers can be instantiated without errors."""
         scrapers = [
             LinkedInScraper(), ITJobsScraper(), LandingJobsScraper(),
-            RemotiveScraper(), ArbeitnowScraper(), WeWorkRemotelyScraper(),
+            RemotiveScraper(), ArbeitnowScraper(),
             RemoteOKScraper(), CargaDeTrabalhosScraper(), JobicyScraper(),
             NetEmpregosScraper(),
             JobspressoScraper(), EuraxessScraper(),
             IEFPScraper()
         ]
-        self.assertEqual(len(scrapers), 13)
+        self.assertEqual(len(scrapers), 12)
         for s in scrapers:
             self.assertTrue(hasattr(s, "fetch"))
+
+    def test_scrapers_package_modular_exports(self):
+        """Verifies direct imports from the scrapers/ package and BaseScraper inheritance."""
+        import scrapers
+        from scrapers.base import BaseScraper
+        from scrapers.pipeline import JobIngestionPipeline
+        from scrapers.itjobs import ITJobsScraper as DirectITJobsScraper
+
+        self.assertTrue(issubclass(DirectITJobsScraper, BaseScraper))
+        self.assertTrue(hasattr(scrapers, "JobIngestionPipeline"))
+        self.assertTrue(hasattr(scrapers, "Job"))
+        self.assertTrue(hasattr(scrapers, "clean_job_description"))
 
 
 class TestMatcherModule(unittest.TestCase):
     """Unit tests for candidate profile matching and scoring logic."""
 
     def setUp(self):
-        self.matcher = JobMatcher(profile=config.candidate)
+        self.matcher = JobMatcher(profile=config.candidate, enable_ai=False)
 
     def test_junior_ai_job_scoring(self):
         job = Job(
@@ -93,7 +105,7 @@ class TestMatcherModule(unittest.TestCase):
             link="https://example.com/ai-jr",
             description="Procuramos Junior AI Engineer para desenvolver pipelines RAG com Python, LangChain, FastAPI e DuckDB. Elegível para estágio profissional IEFP e recém-licenciado.",
             source="Test",
-            pub_date="2026-08-05"
+            pub_date=datetime.date.today().isoformat()
         )
         scored_jobs = self.matcher.process_jobs([job])
         self.assertEqual(len(scored_jobs), 1)
@@ -114,7 +126,7 @@ class TestMatcherModule(unittest.TestCase):
             link="https://example.com/senior-ds",
             description="Requer 10 anos de experiência em gestão de equipas de Data Science com mais de 120 caracteres de descrição completa.",
             source="Test",
-            pub_date="2026-08-05"
+            pub_date=datetime.date.today().isoformat()
         )
         scored_jobs = self.matcher.process_jobs([job])
         self.assertEqual(len(scored_jobs), 0)
@@ -129,7 +141,7 @@ class TestMatcherModule(unittest.TestCase):
             link="https://www.net-empregos.com/15787371/responsavel-pela-transformacao-digital-automacao-e-inteligencia-artificial/",
             description="Responsável pela Transformação Digital, Automação e Inteligência Artificial. Experiência mínima de 5 anos em transformação digital de empresas.",
             source="Net-Empregos",
-            pub_date="2026-08-05"
+            pub_date=datetime.date.today().isoformat()
         )
         scored_jobs = self.matcher.process_jobs([job])
         self.assertEqual(len(scored_jobs), 0)
@@ -144,7 +156,7 @@ class TestMatcherModule(unittest.TestCase):
             link="https://pt.linkedin.com/jobs/view/ai-engineer-at-itsector-4448529944",
             description="Degree in Computer Engineering, Artificial Intelligence or similar; Minimum 2 years of professional experience developing AI-based solutions; Hands-on experience with state-of-the-art LLMs such as GPT.",
             source="LinkedIn",
-            pub_date="2026-08-05"
+            pub_date=datetime.date.today().isoformat()
         )
         scored_jobs = self.matcher.process_jobs([job])
         self.assertEqual(len(scored_jobs), 0)
@@ -171,10 +183,10 @@ class TestMatcherModule(unittest.TestCase):
             company="Toptal",
             location="Remoto",
             work_mode="Remoto",
-            link="https://weworkremotely.com/remote-jobs/toptal-python-backend-development-talent-with-rag-and-agentic-ai-experience",
+            link="https://remoteok.com/remote-jobs/toptal-python-backend-development-talent",
             description="Toptal is looking for Python Backend Development Talent. Required: 8 or more years of professional Python backend development experience. Strong skills in Python, FastAPI, RAG, LangChain.",
-            source="WeWorkRemotely",
-            pub_date="2026-08-17"
+            source="RemoteOK",
+            pub_date=datetime.date.today().isoformat()
         )
         scored_jobs = self.matcher.process_jobs([job])
         self.assertEqual(len(scored_jobs), 0)
@@ -190,6 +202,66 @@ class TestMatcherModule(unittest.TestCase):
             description="Location Preference: 100% remote in Mexico, Brasil, Peru, Chile working EST Time Zone OR onsite in Washington, D.C. Python, LLMs, GenAI.",
             source="Jobicy",
             pub_date="2026-08-16"
+        )
+        scored_jobs = self.matcher.process_jobs([job])
+        self.assertEqual(len(scored_jobs), 0)
+
+    def test_datamundi_diagram_creator_crowdsourcing_disqualification(self):
+        """Verifies that crowdsourcing/dataset annotation gigs (e.g. DATAmundi Digital Design Diagram Creators) are disqualified."""
+        job = Job(
+            title="Digital Design Diagram Creators",
+            company="Summa Linguae Technologies",
+            location="Remoto",
+            work_mode="Remoto",
+            link="https://example.com/listings/summa-linguae-technologies-digital-design-diagram-creators",
+            description="DATAmundi.ai is preparing for an upcoming large-scale dataset project. We expect to onboard approximately 50–100 experts within a short timeframe. The project involves creating a dataset of diagram images paired with Verilog/SystemVerilog HDL code. Estimated hourly rate: ~20 USD/h. Ideal profile: recent graduates.",
+            source="RemoteOK",
+            pub_date=datetime.date.today().isoformat()
+        )
+        scored_jobs = self.matcher.process_jobs([job])
+        self.assertEqual(len(scored_jobs), 0)
+
+    def test_primeit_linkedin_mid_senior_criteria_disqualification(self):
+        """Verifies that LinkedIn roles marked with Seniority level: Mid-Senior level or 4+ years are disqualified."""
+        job = Job(
+            title="AI Engineer",
+            company="PrimeIT",
+            location="Lisboa, Portugal",
+            work_mode="Presencial / Híbrido",
+            link="https://pt.linkedin.com/jobs/view/ai-engineer-at-primeit-4448011394",
+            description="AI Engineer - Seniority level: Mid-Senior level | Employment type: Full-time - Imagine working for a company where your growth is monitored every day. We are looking for an AI Engineer with experience in AI/ML, Python, LLMs.",
+            source="LinkedIn",
+            pub_date=datetime.date.today().isoformat()
+        )
+        scored_jobs = self.matcher.process_jobs([job])
+        self.assertEqual(len(scored_jobs), 0)
+
+    def test_germany_restricted_remote_disqualification(self):
+        """Verifies that remote positions restricted to Germany (e.g. Work from anywhere in Germany, Berlin office) are disqualified for Portugal candidate."""
+        job = Job(
+            title="Junior AI/ML Engineer, Data and Evaluation",
+            company="RedMimicry GmbH",
+            location="Europe / Remote",
+            work_mode="Remoto",
+            link="https://www.arbeitnow.com/jobs/companies/redmimicry-gmbh/junior-ai-ml-engineer-data-and-evaluation-berlin-438979",
+            description="As an AI/ML Engineer at RedMimicry, you will build datasets. Requirements: Python, PyTorch. Benefits: Work from anywhere in Germany, and use our Berlin office as often as you like. Company-paid Deutschlandticket.",
+            source="Arbeitnow",
+            pub_date=datetime.date.today().isoformat()
+        )
+        scored_jobs = self.matcher.process_jobs([job])
+        self.assertEqual(len(scored_jobs), 0)
+
+    def test_dojo_ai_experience_levels_disqualification(self):
+        """Verifies that non-hierarchical/leveled postings starting at mid-level (e.g. A few years in) are disqualified."""
+        job = Job(
+            title="Data Engineer",
+            company="DOJO AI",
+            location="Lisboa, Portugal",
+            work_mode="Presencial / Híbrido",
+            link="https://pt.linkedin.com/jobs/view/data-engineer-at-dojo-ai-4452237785",
+            description="Experience Levels: A few years in (mid-level) - You’re building pipelines. Deep experience (senior-level) - You own the platform. Been doing this a long time (staff/principal-level) - You define the architecture. Tech: Python, SQL.",
+            source="LinkedIn",
+            pub_date=datetime.date.today().isoformat()
         )
         scored_jobs = self.matcher.process_jobs([job])
         self.assertEqual(len(scored_jobs), 0)
@@ -288,7 +360,7 @@ class TestMatcherModule(unittest.TestCase):
         with open("profiles/rafael.json", "r", encoding="utf-8") as f:
             rafael_data = json.load(f)["candidate"]
         rafael_prof = CandidateProfile(**rafael_data)
-        matcher_rafael = JobMatcher(profile=rafael_prof)
+        matcher_rafael = JobMatcher(profile=rafael_prof, enable_ai=False)
 
         job_cyber = Job(
             title="Junior Cybersecurity Analyst",
@@ -326,7 +398,7 @@ class TestMatcherModule(unittest.TestCase):
             link="https://www.net-empregos.com/15034091/recrutamos-formador-a/",
             description="Procuramos um(a) Professor/a para dar aulas de programação, robótica e inteligência artificial a crianças e adolescentes com mais de 120 caracteres de texto.",
             source="Net-Empregos",
-            pub_date="2026-08-05"
+            pub_date=datetime.date.today().isoformat()
         )
         scored_jobs = self.matcher.process_jobs([job])
         self.assertEqual(len(scored_jobs), 0)
@@ -378,7 +450,7 @@ class TestSeenStoreModule(unittest.TestCase):
             job = Job(
                 title="Python Developer", company="Test Co", location="Remote",
                 work_mode="Remoto", link="https://test.com/1", description="Python SQL",
-                source="Test", pub_date="2026-08-05"
+                source="Test", pub_date=datetime.date.today().isoformat()
             )
             
             # First time: job is new
@@ -432,7 +504,7 @@ class TestRobustnessImprovements(unittest.TestCase):
         self.assertIn("Title Text with HTML tags.", cleaned)
 
     def test_clean_and_extract_json(self):
-        evaluator = AIEvaluator()
+        evaluator = AIEvaluator(groq_api_key="", gemini_api_key="")
         raw_markdown = '```json\n{\n  "evaluations": [\n    {"job_index": 0, "is_suitable": true, "fit_score": 85}\n  ]\n}\n```'
         cleaned = evaluator._clean_and_extract_json(raw_markdown)
         self.assertTrue(cleaned.startswith("{"))
@@ -463,7 +535,7 @@ class TestRobustnessImprovements(unittest.TestCase):
                 os.remove(temp_path)
 
     def test_dynamic_location_matching(self):
-        matcher = JobMatcher(profile=self.profile)
+        matcher = JobMatcher(profile=self.profile, enable_ai=False)
         # Test Portuguese municipality that is not in the old hardcoded 8 cities (e.g. Pombal, Cascais, Guimarães)
         job_pombal = Job(
             title="Junior Data Scientist", company="Tech SA", location="Pombal, Portugal",
@@ -486,7 +558,7 @@ class TestRobustnessImprovements(unittest.TestCase):
         self.assertEqual(scored_madrid.seniority_status, "Fora do Âmbito Geográfico")
 
     def test_ai_evaluator_resilience_partial_json(self):
-        evaluator = AIEvaluator()
+        evaluator = AIEvaluator(groq_api_key="", gemini_api_key="")
         dummy_job = Job(
             title="Junior Python", company="AI Corp", location="Lisboa",
             work_mode="Presencial", link="https://example.com/1",
@@ -505,6 +577,18 @@ class TestRobustnessImprovements(unittest.TestCase):
         self.assertEqual(comp, "Super Ai Labs")
         self.assertIn(test_url, _COMPANY_CACHE)
         self.assertEqual(_COMPANY_CACHE[test_url], "Super Ai Labs")
+
+    def test_clean_analysis_text_emojis_and_prefixes(self):
+        from matcher import clean_analysis_text
+        dirty_samples = [
+            ("✅ Adequada (71.0%): ✅ Adequada: Posição de Especialista em IA.", "Posição de Especialista em IA."),
+            ("✅ ✅ Adequada: Alinhamento perfeito com IA Engineer.", "Alinhamento perfeito com IA Engineer."),
+            ("✅ Boa oportunidade de Data Scientist na área de finanças.", "Boa oportunidade de Data Scientist na área de finanças."),
+            ("❌ Rejeitada por IA: Exige 8+ anos de experiência.", "Exige 8+ anos de experiência."),
+            ("Filtro Automático: Exige Doutoramento", "Exige Doutoramento")
+        ]
+        for dirty, expected in dirty_samples:
+            self.assertEqual(clean_analysis_text(dirty), expected)
 
 
 if __name__ == "__main__":

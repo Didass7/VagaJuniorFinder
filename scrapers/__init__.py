@@ -1,10 +1,6 @@
-"""
-Backward-compatibility shim.
-All scraping logic has been modularized into the `scrapers/` package.
-"""
 from __future__ import annotations
 
-from scrapers import (
+from .base import (
     Job,
     BaseScraper,
     USER_AGENTS,
@@ -21,20 +17,20 @@ from scrapers import (
     normalize_title_name,
     get_job_dedup_key,
     normalize_title_company_for_hash,
-    LinkedInScraper,
-    ITJobsScraper,
-    LandingJobsScraper,
-    RemotiveScraper,
-    ArbeitnowScraper,
-    RemoteOKScraper,
-    CargaDeTrabalhosScraper,
-    JobicyScraper,
-    NetEmpregosScraper,
-    JobspressoScraper,
-    EuraxessScraper,
-    IEFPScraper,
-    JobIngestionPipeline,
 )
+from .linkedin import LinkedInScraper
+from .itjobs import ITJobsScraper
+from .landingjobs import LandingJobsScraper
+from .remotive import RemotiveScraper
+from .arbeitnow import ArbeitnowScraper
+from .remoteok import RemoteOKScraper
+from .cargadetrabalhos import CargaDeTrabalhosScraper
+from .jobicy import JobicyScraper
+from .netempregos import NetEmpregosScraper
+from .jobspresso import JobspressoScraper
+from .euraxess import EuraxessScraper
+from .iefp import IEFPScraper
+from .pipeline import JobIngestionPipeline
 
 __all__ = [
     "Job",

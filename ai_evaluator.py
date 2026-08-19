@@ -9,6 +9,22 @@ from scraper import Job
 
 logger = logging.getLogger(__name__)
 
+def clean_analysis_text(text: str) -> str:
+    """Removes all emojis and repetitive prefix markers (e.g. 'Adequada (71%): Adequada:') returning clean natural text."""
+    if not text:
+        return ""
+    cleaned = re.sub(r'[\U00010000-\U0010ffff]|[\u2600-\u27bf]|[\u2300-\u23ff]', '', text)
+    pattern = r'^\s*(?:Adequada|Inadequada|Aprovada|Rejeitada(?:\s*por\s*IA)?|Filtro\s*Automático)?(?:\s*\([^)]*\))?\s*:\s*'
+    for _ in range(5):
+        new_cleaned = re.sub(pattern, '', cleaned, count=1, flags=re.IGNORECASE).strip()
+        if new_cleaned == cleaned:
+            break
+        cleaned = new_cleaned
+    cleaned = cleaned.strip()
+    if cleaned:
+        cleaned = cleaned[0].upper() + cleaned[1:]
+    return cleaned
+
 @dataclass
 class AIEvaluationResult:
     is_suitable: bool
@@ -312,7 +328,7 @@ class AIEvaluator:
                 idx = item.get("job_index")
                 if idx is not None and 0 <= idx < len(batch):
                     target_job = batch[idx]
-                    raw_reason = str(item.get("reasoning", "")).strip()
+                    raw_reason = clean_analysis_text(str(item.get("reasoning", "")))
                     words = raw_reason.split()
                     if len(words) > 25:
                         raw_reason = " ".join(words[:24]) + "..."
@@ -380,20 +396,22 @@ REGRAS DE AVALIAÇÃO PARA CADA VAGA:
 1. Nível de Senioridade e Experiência:
    - O candidato é Júnior / Recém-licenciado com sólida formação e projetos práticos (0 a 1 ano de experiência profissional).
    - Em Portugal e no setor tecnológico, termos como "experienced", "proven experience", "experiência em desenvolvimento", "conhecimento prático" ou "1 a 2 anos" referem-se a projetos académicos ou estágio inicial. NÃO rejeites vagas júnior apenas por usarem a palavra "experienced" ou por pedirem até 2 anos de experiência.
-   - REJEIÇÃO OBRIGATÓRIA DE SÉNIOR (+3 / +5 / 8+ ANOS): Se a vaga exigir expressamente 3+ anos, 4+ anos, 5+ anos, 8+ anos, "8 or more years", "+5 years", ou cargos de liderança (Lead, Senior, Principal, Head, Gestor, Staff, redes freelancer sénior como Toptal), DEVES OBRIGATORIAMENTE REJEITÁ-LA (`is_suitable: false`, `fit_score: 0`, `seniority_detected: "Sénior"` ou `"Mid-Senior"`, `reasoning: "❌ Rejeitada por IA: Exige 8+ anos de experiência profissional"`).
+   - REJEIÇÃO OBRIGATÓRIA DE SÉNIOR (+3 / +5 / 8+ ANOS): Se a vaga exigir expressamente 3+ anos, 4+ anos, 5+ anos, 8+ anos, "8 or more years", "+5 years", ou cargos de liderança (Lead, Senior, Principal, Head, Gestor, Staff, redes freelancer sénior como Toptal), DEVES OBRIGATORIAMENTE REJEITÁ-LA (`is_suitable: false`, `fit_score: 0`, `seniority_detected: "Sénior"` ou `"Mid-Senior"`, `reasoning: "Exige experiência profissional de nível sénior"`).
    - ATENÇÃO A GRAUS ACADÉMICOS: A menção de "Degree / Master for graduates" refere-se apenas a formação universitária e NÃO torna uma vaga júnior se a mesma exigir simultaneamente anos de experiência prévia (+3 / +5 / +8 anos).
    - Se a vaga NÃO exigir 3+ ou 5+ ou 8+ anos e for de nível de entrada/júnior/pleno acessível, deves considerá-la ADEQUADA (`is_suitable: true`, `seniority_detected: "Júnior"` ou `"Recém-licenciado"`, `fit_score: 65% a 90%`).
 2. Adequação da Área e Tipo de Oportunidade: A vaga deve ser um emprego formal ou estágio técnico alinhado com o perfil do candidato ({target_titles_str}). Rejeita OBRIGATORIAMENTE oportunidades de crowdsourcing/microtarefas/gravação doméstica (Toloka, Appen, Outlier, Remotasks, "not a job", "record daily routine"), cargos de gestão/liderança comercial, e posições com remuneração de nível Sénior/Staff ($120k–$250k+ USD) (`is_suitable: false`, `fit_score: 0`).
 3. Alinhamento Obrigatório com o Perfil e Stack do Candidato ({tech_stack_str}):
    - O candidato é especializado nas seguintes tecnologias e funções alvo: {target_titles_str}.
-   - REJEIÇÃO OBRIGATÓRIA DE ÁREAS TOTALMENTE INCOMPATÍVEIS: Se a vaga exigir primariamente funções ou stacks totalmente não relacionadas com o perfil do candidato e NÃO tiver sobreposição real com as suas competências, DEVES OBRIGATORIAMENTE REJEITÁ-LA (`is_suitable: false`, `fit_score: 0`, `reasoning: "❌ Rejeitada por IA: Função/Stack incompatível com o perfil do candidato"`). NUNCA inventes tecnologias que não constem do anúncio!
+   - REJEIÇÃO OBRIGATÓRIA DE ÁREAS TOTALMENTE INCOMPATÍVEIS: Se a vaga exigir primariamente funções ou stacks totalmente não relacionadas com o perfil do candidato e NÃO tiver sobreposição real com as suas competências, DEVES OBRIGATORIAMENTE REJEITÁ-LA (`is_suitable: false`, `fit_score: 0`, `reasoning: "Função ou stack tecnológica incompatível com o perfil do candidato"`). NUNCA inventes tecnologias que não constem do anúncio!
    - Se a vaga tiver sobreposição real com a área ou tecnologias do candidato, atribui pontuação de 65% a 95%.
-4. Línguas Suportadas: O candidato domina: {languages_str}. Se a vaga exigir expressamente idiomas NÃO falados pelo candidato (ex: {unsupported_languages_str}, "in Wort und Schrift", termos como Praktikant/Werkstudent/(m/w/d) sem opção 100% em inglês), deves OBRIGATORIAMENTE REJEITÁ-LA (`is_suitable: false`, `fit_score: 0`, `reasoning: "❌ Rejeitada por IA: Exige idioma não suportado pelo candidato"`).
-5. Localização/Residência: O candidato reside em Portugal. Se a vaga for presencial noutro país ou tiver restrição geográfica remota exclusiva para residentes noutros países/regiões (ex: EUA, Reino Unido, LATAM, Brasil, México, Peru, Chile, Canadá, Índia, APAC, fuso horário EST/PST sem opção para Portugal/Europa), deves OBRIGATORIAMENTE REJEITÁ-LA (`is_suitable: false`, `fit_score: 0`, `reasoning: "❌ Rejeitada por IA: Vaga remota com restrição geográfica a outros países"`).
+4. Línguas Suportadas: O candidato domina: {languages_str}. Se a vaga exigir expressamente idiomas NÃO falados pelo candidato (ex: {unsupported_languages_str}, "in Wort und Schrift", termos como Praktikant/Werkstudent/(m/w/d) sem opção 100% em inglês), deves OBRIGATORIAMENTE REJEITÁ-LA (`is_suitable: false`, `fit_score: 0`, `reasoning: "Exige idioma não falado pelo candidato"`).
+5. Localização/Residência: O candidato reside em Portugal. Se a vaga for presencial noutro país ou tiver restrição geográfica remota exclusiva para residentes noutros países/regiões (ex: EUA, Reino Unido, LATAM, Brasil, México, Peru, Chile, Canadá, Índia, APAC, fuso horário EST/PST sem opção para Portugal/Europa), deves OBRIGATORIAMENTE REJEITÁ-LA (`is_suitable: false`, `fit_score: 0`, `reasoning: "Vaga remota com restrição geográfica a outros países"`).
 6. Atribui uma pontuação de adequação (`fit_score`) de 0 a 100%. Vagas adequadas para júnior devem ter pontuação entre 60% e 95%.
 7. Justificação (reasoning):
-   - Se for ADEQUADA (`is_suitable: true`): explica de forma concisa em Português o motivo do bom alinhamento.
-   - Se for DESQUALIFICADA (`is_suitable: false`): explica OBRIGATORIAMENTE e de forma CONCRETA o obstáculo factual que levou à rejeição (ex: "Exige 5+ anos de experiência e liderança de equipa", "Função de Vendas/Comercial sem componente técnica", "Exige Alemão fluente obrigatório", "Restrição geográfica exclusiva para residentes em LATAM / EUA").
+   - Escreve uma frase direta, concisa e profissional em Português (10 a 20 palavras).
+   - NUNCA uses emojis (como ✅, ❌, 🎯, etc.) nem prefixos como 'Adequada:', 'Rejeitada:' ou 'Aprovada:'.
+   - Exemplo de boa justificação: "Posição de Engenharia de IA focada em LLMs e Python, alinhada com o perfil júnior."
+   - Exemplo de boa rejeição: "Exige mais de 5 anos de experiência e liderança de equipa."
 
 Responde APENAS em formato JSON válido contendo um objeto com uma lista "evaluations", onde cada elemento corresponde ao `job_index`:
 {{
@@ -403,8 +421,7 @@ Responde APENAS em formato JSON válido contendo um objeto com uma lista "evalua
       "is_suitable": boolean,
       "fit_score": number,
       "seniority_detected": string (ex: "Júnior", "Recém-licenciado", "Mid-Senior", "Sénior"),
-      "reasoning": string (frase concisa em Português com 10 a 20 palavras a justificar a adequação ou o motivo factual concreto da rejeição),
-
+      "reasoning": string (frase concisa em Português sem emojis e sem prefixos com 10 a 20 palavras),
       "pros": array de strings,
       "cons": array de strings
     }}, ...

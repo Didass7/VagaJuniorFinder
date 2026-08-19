@@ -44,10 +44,10 @@ class AppConfig:
     top_match_threshold: float = 75.0
     promising_match_threshold: float = 55.0
 
-def load_config() -> AppConfig:
+def load_config(profile_name: Optional[str] = None) -> AppConfig:
     cfg = AppConfig()
     
-    active_profile = os.getenv("ACTIVE_PROFILE", "diogo_ai")
+    active_profile = profile_name or os.getenv("ACTIVE_PROFILE", "diogo_ai")
     profile_path = os.path.join("profiles", f"{active_profile}.json")
     
     # Make cache file specific to the profile
