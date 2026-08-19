@@ -101,16 +101,54 @@ class IEFPScraper(BaseScraper):
             logger.debug(f"[IEFP Portal] Error searching '{query}' (tipo={tipo}): {e}")
         return jobs
 
+    def _fetch_detail(self, job: Job) -> Job:
+        """Fetches the detail page of an IEFP offer to extract qualification level, requirements, and conditions."""
+        try:
+            resp = self.session.get(job.link, headers=get_random_headers(), timeout=(4.0, 15.0))
+            if resp.status_code == 200:
+                soup = BeautifulSoup(resp.text, "html.parser")
+                for s in soup(["script", "style", "header", "footer"]):
+                    s.decompose()
+
+                sections = []
+                for elem in soup.find_all(["table", "div", "p"]):
+                    txt = elem.get_text(separator=" ", strip=True)
+                    if any(k in txt.lower() for k in ["habilita", "nível", "nivel", "formação", "formacao", "condições", "condicoes", "estágio", "estagio", "requisitos"]):
+                        if 15 < len(txt) < 350 and txt not in sections:
+                            sections.append(txt)
+
+                if sections:
+                    job.description = f"{job.title} - Oferta IEFP. " + " | ".join(sections[:8])
+                else:
+                    body_txt = soup.get_text(separator=" ", strip=True)[:1500]
+                    if body_txt:
+                        job.description = f"{job.title} - Oferta IEFP. {body_txt}"
+        except Exception as e:
+            logger.debug(f"[IEFP Portal] Error fetching detail for {job.link}: {e}")
+        return job
+
     def fetch(self) -> List[Job]:
-        jobs = []
+        raw_candidates: List[Job] = []
         seen_links: set = set()
         queries = ["informatica", "data", "python", "inteligencia artificial", "estagio programador", "software"]
 
         for q in queries:
             for tipo in ["OFERTA_EMPREGO", "OFERTA_ESTAGIO"]:
                 found = self._search_offers(q, tipo, seen_links)
-                jobs.extend(found)
-                time.sleep(random.uniform(1.0, 2.0))
+                raw_candidates.extend(found)
+                time.sleep(random.uniform(0.5, 1.2))
 
-        logger.info(f"[IEFP Portal] Fetched {len(jobs)} job/internship offers.")
-        return jobs
+        # Enrich candidate offers concurrently with full detail requirements
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        enriched_jobs: List[Job] = []
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            future_to_job = {executor.submit(self._fetch_detail, job): job for job in raw_candidates}
+            for future in as_completed(future_to_job):
+                try:
+                    res = future.result()
+                    enriched_jobs.append(res)
+                except Exception:
+                    enriched_jobs.append(future_to_job[future])
+
+        logger.info(f"[IEFP Portal] Fetched {len(enriched_jobs)} job/internship offers with full qualification details.")
+        return enriched_jobs

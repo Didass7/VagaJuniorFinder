@@ -281,6 +281,21 @@ class TestMatcherModule(unittest.TestCase):
         scored_jobs = self.matcher.process_jobs([job])
         self.assertEqual(len(scored_jobs), 0)
 
+    def test_iefp_mestrado_nivel_7_disqualification(self):
+        """Verifies that IEFP internship offers requiring Mestrado / Nível 7 are disqualified for Licenciatura candidate."""
+        job = Job(
+            title="Programador de Software (M/F)",
+            company="Empresa via IEFP",
+            location="BRAGA",
+            work_mode="Presencial / Híbrido",
+            link="https://iefponline.iefp.pt/IEFP/pesquisas/detalheOfertasEstagio.do?idOferta=1086235",
+            description="Programador de Software (M/F) - Oferta IEFP. Condições Requeridas: Habilitações Escolares e Profissionais: Habilitação Base: Mestrado | Área de Formação: Informática | Nível 7 | Contrato de Estágio: Duração: 6 (meses)",
+            source="IEFP Portal (Estágio)",
+            pub_date=datetime.date.today().isoformat()
+        )
+        scored_jobs = self.matcher.process_jobs([job])
+        self.assertEqual(len(scored_jobs), 0)
+
     def test_adentis_5_anos_exp_disqualification(self):
         """Verifies that AI Engineer demanding Mais de 5 anos de experiência profissional is strictly disqualified."""
         job = Job(

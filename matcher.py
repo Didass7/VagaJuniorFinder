@@ -378,6 +378,14 @@ class JobMatcher:
         if PHD_REQUIREMENT_PATTERN.search(title_lower) or PHD_REQUIREMENT_PATTERN.search(text):
             return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Requer Doutoramento", match_reason="Exige PhD ou Doutoramento", ai_reasoning="Filtro Automático: Exige Doutoramento (PhD)")
 
+        # Academic Degree Requirement Check: If offer requires Masters/Nível 7 and candidate has Licenciatura (Nível 6)
+        candidate_degree = getattr(self.profile, 'degree', '').lower()
+        has_masters = "mestrado" in candidate_degree or "master" in candidate_degree
+        if not has_masters:
+            masters_match = re.search(r"\b(?:habilita[cç][aã]o\s+base\s*:\s*mestrado|n[ií]vel\s+7\b|exige\s+mestrado|mestrado\s+(?:obrigat[oó]rio|completo|exigido))\b", text, re.IGNORECASE)
+            if masters_match:
+                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Requer Mestrado", match_reason="Oferta exige Mestrado (Nível 7), incompatível com Licenciatura", ai_reasoning="Filtro Automático: Exige Mestrado (Nível 7)")
+
         # Language Disqualification (exempt Spanish if candidate speaks Spanish)
         lang_match = MANDATORY_OTHER_LANGUAGES_PATTERN.search(text)
         if lang_match:
