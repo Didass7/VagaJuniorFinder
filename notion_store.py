@@ -174,6 +174,7 @@ class NotionStore:
             except Exception as e:
                 logger.error(f"Error syncing job '{job.title}' to Notion: {e}")
 
+        self.last_synced_count = synced_count
         if synced_count > 0:
             logger.info(f"✅ Notion Store: Successfully synced {synced_count} new jobs to Notion Database!")
         else:

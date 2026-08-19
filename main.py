@@ -66,7 +66,9 @@ def run_pipeline(dry_run: bool = False):
         if config.enable_notion_sync:
             notion_store = NotionStore()
             successful_job_ids = notion_store.sync_jobs(scored_jobs)
-            logger.info(f"📝 Synced {len(successful_job_ids)} new jobs to Notion.")
+            synced_new = getattr(notion_store, 'last_synced_count', len(successful_job_ids))
+            already_in_db = max(0, len(successful_job_ids) - synced_new)
+            logger.info(f"📝 Synced {synced_new} brand-new jobs to Notion ({already_in_db} were already in Notion database).")
         else:
             logger.info("ℹ️ Notion sync disabled.")
             successful_job_ids = {sj.job.job_id for sj in scored_jobs}
