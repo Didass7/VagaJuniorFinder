@@ -16,6 +16,7 @@ from .netempregos import NetEmpregosScraper
 from .jobspresso import JobspressoScraper
 from .euraxess import EuraxessScraper
 from .iefp import IEFPScraper
+from .indeed import IndeedScraper
 
 logger = logging.getLogger("Scraper")
 
@@ -41,6 +42,7 @@ class JobIngestionPipeline:
         self.jobspresso_scraper = JobspressoScraper(session=self.session)
         self.euraxess_scraper = EuraxessScraper(session=self.session, queries=search_queries)
         self.iefp_scraper = IEFPScraper(session=self.session, is_seen_func=is_seen_func)
+        self.indeed_scraper = IndeedScraper(session=self.session, is_seen_func=is_seen_func, queries=search_queries)
 
     def run(self) -> List[Job]:
         logger.info("🚀 Starting resilient & concurrent job portal ingestion pipeline...")
@@ -49,6 +51,7 @@ class JobIngestionPipeline:
         scrapers = [
             ("LinkedIn", self.linkedin_scraper.fetch),
             ("ITJobs", lambda: self.itjobs_scraper.fetch(self.itjobs_api_key)),
+            ("Indeed", self.indeed_scraper.fetch),
             ("Carga de Trabalhos", self.carga_scraper.fetch),
             ("Landing.jobs", self.landing_scraper.fetch),
             ("Remotive", self.remotive_scraper.fetch),

@@ -22,6 +22,8 @@ scratch/
 
 # Reports & HTML dumps
 *.html
+*.log
+downloaded_files/
 reports/*.md
 reports/*.html
 reports/*.xlsx

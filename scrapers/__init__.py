@@ -30,6 +30,7 @@ from .netempregos import NetEmpregosScraper
 from .jobspresso import JobspressoScraper
 from .euraxess import EuraxessScraper
 from .iefp import IEFPScraper
+from .indeed import IndeedScraper
 from .pipeline import JobIngestionPipeline
 
 __all__ = [
@@ -51,6 +52,7 @@ __all__ = [
     "normalize_title_company_for_hash",
     "LinkedInScraper",
     "ITJobsScraper",
+    "IndeedScraper",
     "LandingJobsScraper",
     "RemotiveScraper",
     "ArbeitnowScraper",

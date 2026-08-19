@@ -7,7 +7,7 @@ import unittest
 from config import config, CandidateProfile
 from scraper import (
     Job, is_valid_job_offer,
-    LinkedInScraper, ITJobsScraper, LandingJobsScraper, RemotiveScraper,
+    LinkedInScraper, ITJobsScraper, IndeedScraper, LandingJobsScraper, RemotiveScraper,
     ArbeitnowScraper, RemoteOKScraper, CargaDeTrabalhosScraper,
     JobicyScraper, NetEmpregosScraper,
     JobspressoScraper, EuraxessScraper,
@@ -64,18 +64,38 @@ class TestScraperModule(unittest.TestCase):
         self.assertEqual(job2.work_mode, "Remoto")
 
     def test_scrapers_instantiation(self):
-        """Verifies that all 12 active scrapers can be instantiated without errors."""
+        """Verifies that all 13 active scrapers can be instantiated without errors."""
         scrapers = [
-            LinkedInScraper(), ITJobsScraper(), LandingJobsScraper(),
+            LinkedInScraper(), ITJobsScraper(), IndeedScraper(), LandingJobsScraper(),
             RemotiveScraper(), ArbeitnowScraper(),
             RemoteOKScraper(), CargaDeTrabalhosScraper(), JobicyScraper(),
             NetEmpregosScraper(),
             JobspressoScraper(), EuraxessScraper(),
             IEFPScraper()
         ]
-        self.assertEqual(len(scrapers), 12)
+        self.assertEqual(len(scrapers), 13)
         for s in scrapers:
             self.assertTrue(hasattr(s, "fetch"))
+
+    def test_indeed_html_parser(self):
+        """Verifies that IndeedScraper parses job cards, links, companies, and work modes correctly."""
+        scraper = IndeedScraper()
+        html = '''
+        <div class="job_seen_beacon">
+            <h2 class="jobTitle"><a class="jcs-JobTitle" href="/viewjob?jk=indeed123"><span>Junior AI Engineer (Remote)</span></a></h2>
+            <span data-testid="company-name">DataTech Solutions</span>
+            <div data-testid="text-location">Lisboa, Portugal</div>
+            <div class="job-snippet">Desenvolvimento de modelos com Python e Machine Learning 100% remoto.</div>
+        </div>
+        '''
+        jobs = scraper._parse_indeed_html(html)
+        self.assertEqual(len(jobs), 1)
+        self.assertEqual(jobs[0].title, "Junior AI Engineer (Remote)")
+        self.assertEqual(jobs[0].company, "DataTech Solutions")
+        self.assertEqual(jobs[0].location, "Lisboa, Portugal")
+        self.assertEqual(jobs[0].work_mode, "Remoto")
+        self.assertEqual(jobs[0].link, "https://pt.indeed.com/viewjob?jk=indeed123")
+        self.assertEqual(jobs[0].source, "Indeed")
 
     def test_scrapers_package_modular_exports(self):
         """Verifies direct imports from the scrapers/ package and BaseScraper inheritance."""

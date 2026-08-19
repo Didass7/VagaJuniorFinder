@@ -41,6 +41,12 @@ class AppConfig:
     # Data Storage Paths
     cache_file: str = os.getenv("CACHE_FILE", os.path.join("data", "jobs_cache.json"))
     
+    # Extra Scrapers & API Configurations
+    indeed_cookies: str = os.getenv("INDEED_COOKIES", "")
+    indeed_proxy: str = os.getenv("INDEED_PROXY", "")
+    jooble_api_key: str = os.getenv("JOOBLE_API_KEY", "")
+    rapidapi_key: str = os.getenv("RAPIDAPI_KEY", os.getenv("JSEARCH_API_KEY", ""))
+
     # Scoring Thresholds
     top_match_threshold: float = 75.0
     promising_match_threshold: float = 55.0
