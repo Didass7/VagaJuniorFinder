@@ -56,7 +56,11 @@ TEXT_SENIORITY_DISQUALIFIERS = [
     "level of experience: mid", "level of experience: senior", "more than 4y", "more than 5y", "more than 6y",
     "a few years in", "a few years of", "several years of", "deep experience", "been doing this a long time",
     "staff/principal", "senior/principal", "mid/senior", "mid-level", "senior-level", "staff-level", "principal-level",
-    "lead-level", "growing into platform ownership", "own the data platform",
+    "lead-level", "growing into platform ownership", "own the data platform", "competence matters more than years",
+    "3+ of experience", "4+ of experience", "5+ of experience", "8+ of experience",
+    "3+ de experiência", "4+ de experiência", "5+ de experiência", "8+ de experiência",
+    "3+ de experiencia", "4+ de experiencia", "5+ de experiencia", "8+ de experiencia",
+    "+3 of experience", "+4 of experience", "+5 of experience", "+8 of experience",
     "technical leadership", "leadership experience", "experiência em liderança", "liderança técnica", "experiencia em liderança",
     "senior developer", "senior engineer", "senior backend", "senior software",
     "senior data scientist", "senior data engineer", "sénior developer", "sénior engineer", "sénior backend",
@@ -103,6 +107,8 @@ COMPANY_HISTORY_PATTERN = re.compile(
 )
 
 YEARS_OF_EXP_PATTERN = re.compile(
+    r"\b(?:[1-9]|1[0-2])\+?\s*(?:years?|anos?)?\s*(?:of\s+|de\s+)?experi(?:ence|[eê]ncia)\b|"
+    r"\bexperi(?:ence|[eê]ncia)\b[\w\s]{0,20}\b(?:[1-9]|1[0-2])\+?\s*(?:years?|anos?)?\b|"
     r"(?:(?:\+|\>|mais\s+de|superior\s+a|acima\s+de|pelo\s+menos|no\s+m[ií]nimo|m[ií]nimo\s+de|m[ií]nimo|more\s+than|over|at\s+least|minimum\s+of|minimum)\s*)?"
     r"(?<!\w)(?:\+|\>)?\s*(?:[1-9]|1[0-2]|one|two|three|four|five|six|seven|eight|nine|ten|twelve|um|uma|dois|duas|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez|doze)"
     r"(?:\s*\+|\s+or\s+more|\s+ou\s+mais|\s+plus)?"
@@ -188,9 +194,11 @@ ZERO_EXP_INDICATOR_PATTERN = re.compile(
     re.IGNORECASE
 )
 
-# Advanced Seniority Experience Hard Disqualifier Pattern (3+, 4+, 5+, 8+ years, +5 years, minimum 3+ years, 8 or more years, a few years in)
+# Advanced Seniority Experience Hard Disqualifier Pattern (3+, 4+, 5+, 8+ years, +5 years, minimum 3+ years, 8 or more years, a few years in, 3+ of experience)
 ADVANCED_EXP_HARD_DISQUALIFIERS_PATTERN = re.compile(
     r"\b(?:a\s+few\s+years(?:\s+in|\s+of)?|several\s+years(?:\s+of)?|deep\s+experience|staff/principal|senior/principal|been\s+doing\s+this\s+a\s+long\s+time)\b|"
+    r"\b(?:[3-9]|1[0-2])\+?\s*(?:years?|anos?)?\s*(?:of\s+|de\s+)?experi(?:ence|[eê]ncia)\b|"
+    r"\bexperi(?:ence|[eê]ncia)\b[\w\s]{0,20}\b(?:[3-9]|1[0-2])\+?\s*(?:years?|anos?)?\b|"
     r"(?:(?:\+|\>|mais\s+de|superior\s+a|acima\s+de|pelo\s+menos|no\s+m[ií]nimo|m[ií]nimo\s+de|m[ií]nimo|more\s+than|over|at\s+least|minimum\s+of|minimum)\s*)?"
     r"(?<!\w)(?:\+|\>)?\s*(?:[3-9]|1[0-2]|three|four|five|six|seven|eight|nine|ten|twelve|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez|doze)"
     r"(?:\s*\+|\s+or\s+more|\s+ou\s+mais|\s+plus)?"

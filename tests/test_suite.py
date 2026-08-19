@@ -266,6 +266,21 @@ class TestMatcherModule(unittest.TestCase):
         scored_jobs = self.matcher.process_jobs([job])
         self.assertEqual(len(scored_jobs), 0)
 
+    def test_jta_3_plus_of_experience_disqualification(self):
+        """Verifies that postings demanding 3+ of experience (even with disclaimers like competence matters more than years) are disqualified."""
+        job = Job(
+            title="Data Engineer",
+            company="JTA: The Data Scientists",
+            location="Lisboa, Portugal",
+            work_mode="Presencial / Híbrido",
+            link="https://pt.linkedin.com/jobs/view/data-engineer-at-jta-the-data-scientists-4450274685",
+            description="- 3+ of experience in data engineering (a reference point: at JTA, competence matters more than years). Technologies: Python, SQL, Cloud.",
+            source="LinkedIn",
+            pub_date=datetime.date.today().isoformat()
+        )
+        scored_jobs = self.matcher.process_jobs([job])
+        self.assertEqual(len(scored_jobs), 0)
+
     def test_adentis_5_anos_exp_disqualification(self):
         """Verifies that AI Engineer demanding Mais de 5 anos de experiência profissional is strictly disqualified."""
         job = Job(
