@@ -1,7 +1,8 @@
+from __future__ import annotations
 import os
 import json
 from dataclasses import dataclass, field
-from typing import List, Dict
+from typing import List, Dict, Optional, Any
 from dotenv import load_dotenv
 
 load_dotenv()
