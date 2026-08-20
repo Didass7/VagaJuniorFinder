@@ -46,6 +46,8 @@ class AppConfig:
     indeed_proxy: str = os.getenv("INDEED_PROXY", "")
     jooble_api_key: str = os.getenv("JOOBLE_API_KEY", "")
     rapidapi_key: str = os.getenv("RAPIDAPI_KEY", os.getenv("JSEARCH_API_KEY", ""))
+    adzuna_app_id: str = os.getenv("ADZUNA_APP_ID", "")
+    adzuna_app_key: str = os.getenv("ADZUNA_APP_KEY", "")
 
     # Scoring Thresholds
     top_match_threshold: float = 75.0
