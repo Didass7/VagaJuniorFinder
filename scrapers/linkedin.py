@@ -34,8 +34,8 @@ class LinkedInScraper(BaseScraper):
                     "Sec-Fetch-User": "?1",
                     "Upgrade-Insecure-Requests": "1"
                 })
-                time.sleep(random.uniform(0.8, 1.5))
-                resp = self.session.get(url, headers=headers, timeout=(3.5, 12.0))
+                time.sleep(random.uniform(0.2, 0.4))
+                resp = self.session.get(url, headers=headers, timeout=(3.5, 10.0))
 
                 if resp.status_code != 200:
                     if resp.status_code == 429:
@@ -152,12 +152,12 @@ class LinkedInScraper(BaseScraper):
 
     def fetch(self) -> List[Job]:
         queries = self.queries or config.candidate.search_queries or ["Junior AI", "Junior Data Scientist", "Machine Learning Trainee", "Data Engineer Trainee", "Entry level AI", "Entry level Data"]
-        target_queries = queries[:8]
+        target_queries = queries[:12]
         all_cards: List[Dict] = []
         seen_links: Set[str] = set()
         
         # 1. Fetch query cards concurrently
-        with ThreadPoolExecutor(max_workers=min(len(target_queries), 4)) as executor:
+        with ThreadPoolExecutor(max_workers=min(len(target_queries), 5)) as executor:
             future_to_q = {executor.submit(self._fetch_query_cards, q, 2): q for q in target_queries}
             for future in as_completed(future_to_q):
                 try:
@@ -169,11 +169,11 @@ class LinkedInScraper(BaseScraper):
                 except Exception as e:
                     logger.debug(f"[LinkedIn Portal] Error fetching query cards: {e}")
 
-        # 2. Fetch full detail bodies concurrently (capped to avoid rate limits)
+        # 2. Fetch full detail bodies concurrently (up to 200 jobs)
         jobs: List[Job] = []
-        cards_to_fetch = all_cards[:60]
+        cards_to_fetch = all_cards[:200]
         if cards_to_fetch:
-            with ThreadPoolExecutor(max_workers=6) as executor:
+            with ThreadPoolExecutor(max_workers=10) as executor:
                 future_to_detail = {executor.submit(self._fetch_detail_job, card): card for card in cards_to_fetch}
 
                 for future in as_completed(future_to_detail):
@@ -186,4 +186,5 @@ class LinkedInScraper(BaseScraper):
 
         logger.info(f"[LinkedIn Portal] Safely fetched {len(jobs)} fresh jobs with full detail body parsing.")
         return jobs
+
 
