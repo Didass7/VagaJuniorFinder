@@ -57,28 +57,57 @@ class CargaDeTrabalhosScraper(BaseScraper):
         title = card_info["title"]
         link = card_info["link"]
         text = card_info["summary_text"]
+        company = "Empresa via Carga de Trabalhos"
 
         try:
             det_resp = self.session.get(link, headers=get_random_headers(), timeout=(3.5, 12.0))
-            if det_resp.status_code != 200:
-                logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {det_resp.status_code} for {det_resp.url}")
             if det_resp.status_code == 200:
                 det_soup = BeautifulSoup(det_resp.text, "html.parser")
                 is_closed = bool(det_soup.find(class_=lambda c: c and ("closed-job" in c or "job-closed" in c)))
                 if is_closed:
                     text = f"{title} - Oferta Expirada"
                 else:
-                    main_div = det_soup.find("div", class_="noo-main") or det_soup.find("div", class_="entry-content")
+                    # Clean title from detail page if available
+                    h1_tag = det_soup.find("h1", class_=lambda c: c and ("title" in str(c) or "page" in str(c))) or det_soup.find("h1")
+                    if h1_tag:
+                        h1_txt = h1_tag.get_text(separator=' ', strip=True)
+                        if h1_txt and len(h1_txt) > 3 and not any(h1_txt.lower().startswith(x) for x in ["ofertas", "candidatos", "pesquisa"]):
+                            title = h1_txt
+
+                    # Extract real company name
+                    company_elem = (
+                        det_soup.find(class_="company-title")
+                        or det_soup.find(itemprop="hiringOrganization")
+                        or det_soup.find(class_="job-company")
+                    )
+                    if company_elem:
+                        c_txt = company_elem.get_text(strip=True)
+                        if c_txt and len(c_txt) > 1 and not any(c_txt.lower().startswith(x) for x in ["principais responsabilidades", "perfil pretendido", "requisitos"]):
+                            company = c_txt
+                    else:
+                        for a in det_soup.find_all("a", href=True):
+                            if "/empresas/" in a["href"]:
+                                a_txt = a.get_text(strip=True)
+                                if a_txt and len(a_txt) > 1 and a_txt.lower() not in ["empresas", "empresa", "ver todas"]:
+                                    company = a_txt
+                                    break
+
+                    main_div = (
+                        det_soup.find(class_="job-desc")
+                        or det_soup.find("div", class_="noo-main")
+                        or det_soup.find("div", class_="entry-content")
+                    )
                     if main_div:
                         text = f"{title} - " + main_div.get_text(separator=" ", strip=True)
         except Exception:
             pass
 
         return Job(
-            title=title, company="Empresa via Carga de Trabalhos", location="Portugal",
+            title=title, company=company, location="Portugal",
             work_mode="Presencial / Híbrido", link=link, description=text,
             source="Carga de Trabalhos", pub_date=datetime.date.today().isoformat()
         )
+
 
     def fetch(self) -> List[Job]:
         queries = self.queries or config.candidate.search_queries or ["data", "python", "inteligencia", "machine learning", "ai"]

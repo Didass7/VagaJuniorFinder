@@ -12,16 +12,19 @@ WEB_HEADERS = {
 
 GENERIC_COMPANY_NAMES = {
     "empresa", "empresa via itjobs", "empresa via net-empregos", "empresa no linkedin",
-    "empresa via carga de trabalhos", "empresa confidencial", "desconhecida", "n/a",
+    "empresa via carga de trabalhos", "empresa via iefp", "empresa confidencial", "desconhecida", "n/a",
     "landing.jobs company", "remotive company", "arbeitnow company",
-    "remoteok company", "jobicy company", ""
+    "remoteok company", "jobicy company", "detalhe oferta", "detalhe de oferta", "detalhe da oferta",
+    "oferta de emprego", "oferta", "principais responsabilidades", "responsabilidades",
+    "perfil pretendido", "perfil do candidato", "requisitos", "sobre a empresa", "o que oferecemos",
+    "candidaturas", "descrição da função", "descrição da vaga", "funções", "habilitações", ""
 }
 
 def is_generic_company(name: Optional[str]) -> bool:
     if not name:
         return True
     clean = name.strip().lower()
-    return clean in GENERIC_COMPANY_NAMES or clean.startswith("empresa via") or clean.startswith("empresa no")
+    return clean in GENERIC_COMPANY_NAMES or clean.startswith("empresa via") or clean.startswith("empresa no") or any(clean.startswith(x) for x in ["detalhe oferta", "principais responsabilidades", "perfil pretendido", "requisitos"])
 
 _COMPANY_CACHE = {}
 
@@ -80,11 +83,23 @@ def extract_company_from_link(link: str, title: str = "", current_company: str =
 
                 # Carga de Trabalhos
                 elif 'cargadetrabalhos.pt' in link_lower:
-                    for tag in soup.find_all(['strong', 'b', 'h2', 'h3']):
-                        txt = tag.get_text(strip=True)
-                        if txt and not is_generic_company(txt) and 2 < len(txt) < 50:
-                            result = txt
-                            break
+                    company_elem = (
+                        soup.find(class_='company-title')
+                        or soup.find(itemprop='hiringOrganization')
+                        or soup.find(class_='job-company')
+                    )
+                    if company_elem:
+                        c_txt = company_elem.get_text(strip=True)
+                        if c_txt and not is_generic_company(c_txt):
+                            result = c_txt
+                    if not result:
+                        for a in soup.find_all('a', href=True):
+                            if '/empresas/' in a['href']:
+                                txt = a.get_text(strip=True)
+                                if not is_generic_company(txt) and len(txt) > 1 and txt.lower() not in ['empresas', 'empresa', 'ver todas']:
+                                    result = txt
+                                    break
+
 
                 # Generic HTML title parsing: "Job Title - Company Name" or "Job Title at Company Name"
                 if not result and soup.title:
