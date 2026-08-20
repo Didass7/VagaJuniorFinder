@@ -19,6 +19,8 @@ class CandidateProfile:
     tech_stack: List[str] = field(default_factory=list)
     junior_boosters: List[str] = field(default_factory=list)
     locations: List[str] = field(default_factory=list)
+    preferred_locations: List[str] = field(default_factory=list)
+    preferred_location_bonus: float = 15.0
 
 @dataclass
 class AppConfig:

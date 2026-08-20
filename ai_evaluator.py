@@ -375,6 +375,9 @@ class AIEvaluator:
         unsupported_languages_str = ", ".join(unsupported_languages)
 
         all_jobs_str = "\n---\n".join(jobs_text_list)
+        pref_locs = getattr(profile, 'preferred_locations', [])
+        pref_locs_str = ", ".join(pref_locs[:10]) if pref_locs else ""
+        pref_loc_line = f"- Localizações de Máxima Preferência (Bónus Extra): {pref_locs_str}\n" if pref_locs_str else ""
 
         return f"""
 És um especialista em recrutamento técnico e matching de perfis de Engenharia / TI.
@@ -388,7 +391,7 @@ PERFIL DO CANDIDATO:
 - Elegível para Estágio IEFP / ATIVAR.pt: {"Sim" if profile.iefp_eligible else "Não"}
 - Idiomas: {languages_str}
 - Stack Técnica & Competências: {tech_stack_str}
-
+{pref_loc_line}
 VAGAS NO LOTE A AVALIAR:
 {all_jobs_str}
 
@@ -405,9 +408,10 @@ REGRAS DE AVALIAÇÃO PARA CADA VAGA:
    - REJEIÇÃO OBRIGATÓRIA DE ÁREAS TOTALMENTE INCOMPATÍVEIS: Se a vaga exigir primariamente funções ou stacks totalmente não relacionadas com o perfil do candidato e NÃO tiver sobreposição real com as suas competências, DEVES OBRIGATORIAMENTE REJEITÁ-LA (`is_suitable: false`, `fit_score: 0`, `reasoning: "Função ou stack tecnológica incompatível com o perfil do candidato"`). NUNCA inventes tecnologias que não constem do anúncio!
    - Se a vaga tiver sobreposição real com a área ou tecnologias do candidato, atribui pontuação de 65% a 95%.
 4. Línguas Suportadas: O candidato domina: {languages_str}. Se a vaga exigir expressamente idiomas NÃO falados pelo candidato (ex: {unsupported_languages_str}, "in Wort und Schrift", termos como Praktikant/Werkstudent/(m/w/d) sem opção 100% em inglês), deves OBRIGATORIAMENTE REJEITÁ-LA (`is_suitable: false`, `fit_score: 0`, `reasoning: "Exige idioma não falado pelo candidato"`).
-5. Localização/Residência: O candidato reside em Portugal. Se a vaga for presencial noutro país ou tiver restrição geográfica remota exclusiva para residentes noutros países/regiões (ex: EUA, Reino Unido, LATAM, Brasil, México, Peru, Chile, Canadá, Índia, APAC, fuso horário EST/PST sem opção para Portugal/Europa), deves OBRIGATORIAMENTE REJEITÁ-LA (`is_suitable: false`, `fit_score: 0`, `reasoning: "Vaga remota com restrição geográfica a outros países"`).
-6. Atribui uma pontuação de adequação (`fit_score`) de 0 a 100%. Vagas adequadas para júnior devem ter pontuação entre 60% e 95%.
+5. Localização/Residência: O candidato reside em Portugal. Se a vaga for presencial noutro país ou tiver restrição geográfica remota exclusiva para residentes noutros países/regiões (ex: EUA, Reino Unido, LATAM, Brasil, México, Peru, Chile, Canadá, Índia, APAC, fuso horário EST/PST sem opção para Portugal/Europa), deves OBRIGATORIAMENTE REJEITÁ-LA (`is_suitable: false`, `fit_score: 0`, `reasoning: "Vaga remota com restrição geográfica a outros países"`). Se a vaga for nas zonas de preferência do candidato (ex: Alentejo, Évora, Borba, etc.), atribui um bónus de +10% a +15% no `fit_score`.
+6. Atribui uma pontuação de adequação (`fit_score`) de 0 a 100%. Vagas adequadas para júnior devem ter pontuação entre 60% e 95% (ou até 100% se tiver localização preferencial/Alentejo ou IEFP).
 7. Justificação (reasoning):
+
    - Escreve uma frase direta, concisa e profissional em Português (10 a 20 palavras).
    - NUNCA uses emojis (como ✅, ❌, 🎯, etc.) nem prefixos como 'Adequada:', 'Rejeitada:' ou 'Aprovada:'.
    - Exemplo de boa justificação: "Posição de Engenharia de IA focada em LLMs e Python, alinhada com o perfil júnior."

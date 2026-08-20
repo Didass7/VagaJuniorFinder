@@ -473,12 +473,26 @@ class JobMatcher:
             booster_score = 10.0
             seniority_status = "Nível Geral (Requer Verificação)"
 
-        # C. Location & Work Mode Match (Max 15.0 pts)
+        # C. Location & Work Mode Match (Max 15.0 pts standard + Preferred Location Bonus)
         location_score = 0.0
+        preferred_loc_match = False
+        preferred_loc_name = ""
+
+        # Check preferred locations (e.g. Alentejo, Évora, Borba for Tiago)
+        pref_locs = getattr(self.profile, 'preferred_locations', [])
+        for pl in pref_locs:
+            pl_lower = pl.lower()
+            if len(pl_lower) > 2 and (pl_lower in location_lower or re.search(rf"\b{re.escape(pl_lower)}\b", text)):
+                preferred_loc_match = True
+                preferred_loc_name = pl.title()
+                break
+
+        bonus_amount = getattr(self.profile, 'preferred_location_bonus', 15.0) if preferred_loc_match else 0.0
+
         if is_portugal:
-            location_score = 15.0
+            location_score = 15.0 + bonus_amount
         elif is_strictly_remote:
-            location_score = 12.0
+            location_score = 12.0 + (bonus_amount if preferred_loc_match else 0.0)
 
         # D. Tech Stack Skill Matching (Max 15.0 pts - 3.0 pts per matched skill)
         matched_skills = []
@@ -503,14 +517,23 @@ class JobMatcher:
         else:
             final_score = min(100.0, raw_score)
 
+        reason_parts = []
+        if preferred_loc_match:
+            reason_parts.append(f"Localização Preferencial ({preferred_loc_name}) (+{bonus_amount:.0f} pts)")
+        if matched_skills:
+            reason_parts.append(f"Skills: {', '.join(matched_skills)}")
+        else:
+            reason_parts.append("Skills: Nenhuma")
+
         return ScoredJob(
             job=job,
             score=round(final_score, 1),
             matched_skills=matched_skills,
             missing_skills=[],
             seniority_status=seniority_status,
-            match_reason=f"Avaliação Heurística. Skills: {', '.join(matched_skills) if matched_skills else 'Nenhuma'}."
+            match_reason=f"Avaliação Heurística. {' | '.join(reason_parts)}."
         )
+
 
     def process_jobs(self, jobs: List[Job], include_disqualified: bool = False) -> List[ScoredJob]:
         # Stage 1: Fast Heuristic Pre-filter

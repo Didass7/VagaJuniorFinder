@@ -478,8 +478,9 @@ class TestMatcherModule(unittest.TestCase):
             link="https://www.net-empregos.com/15316798/machine-learning-engineer/",
             description="Formação superior em TI. Experiência profissional comprovada na automação de infraestrutura de Machine Learning e workloads de Generative AI com mais de 120 caracteres de texto.",
             source="Net-Empregos",
-            pub_date="2026-08-06"
+            pub_date=datetime.date.today().isoformat()
         )
+
         scored_jobs = self.matcher.process_jobs([job])
         self.assertEqual(len(scored_jobs), 1)
         self.assertGreater(scored_jobs[0].score, 50.0)
@@ -679,8 +680,25 @@ class TestRobustnessImprovements(unittest.TestCase):
         self.assertGreaterEqual(scored_laravel.score, 75.0)
         self.assertIn("laravel", scored_laravel.matched_skills)
 
+        # Test Alentejo / Évora preferred location bonus
+        job_alentejo = Job(
+            title="Junior Web Developer",
+            company="AlentejoTech",
+            location="Évora, Alentejo, Portugal",
+            work_mode="Presencial",
+            link="https://example.com/tiago-alentejo",
+            description="Desenvolvedor Web júnior com conhecimentos sólidos em PHP e MySQL para estágio profissional IEFP em Évora, Alentejo, com foco em desenvolvimento web.",
+            source="Test",
+            pub_date=datetime.date.today().isoformat()
+        )
+        scored_alentejo = matcher.evaluate_job(job_alentejo)
+        self.assertGreaterEqual(scored_alentejo.score, 85.0)
+        self.assertIn("Localização Preferencial", scored_alentejo.match_reason)
+
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
 
