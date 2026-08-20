@@ -66,7 +66,8 @@ VagaJuniorFinder/
 ├── README.md                 # Documentação do projeto
 ├── profiles/                 # Perfis de candidatos em formato JSON
 │   ├── diogo_ai.json
-│   └── rafael.json
+│   ├── rafael.json
+│   └── tiago.json
 ├── scripts/                  # Scripts utilitários de manutenção e reavaliação Notion
 └── .github/
     └── workflows/

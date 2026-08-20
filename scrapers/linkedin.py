@@ -149,23 +149,26 @@ class LinkedInScraper(BaseScraper):
 
     def fetch(self) -> List[Job]:
         queries = self.queries or config.candidate.search_queries or ["Junior AI", "Junior Data Scientist", "Machine Learning Trainee", "Data Engineer Trainee", "Entry level AI", "Entry level Data"]
+        target_queries = queries[:8]
         all_cards: List[Dict] = []
         seen_links: Set[str] = set()
         
         # 1. Fetch query cards with polite sequential spacing
-        for q in queries:
-            res = self._fetch_query_cards(q)
+        for q in target_queries:
+            res = self._fetch_query_cards(q, max_pages=2)
             for card in res:
                 if card["clean_link"] not in seen_links:
                     seen_links.add(card["clean_link"])
                     all_cards.append(card)
-            time.sleep(random.uniform(0.4, 0.8))
+            time.sleep(random.uniform(0.3, 0.6))
 
-        # 2. Fetch full detail bodies concurrently
+        # 2. Fetch full detail bodies concurrently (capped to avoid rate limits)
         jobs: List[Job] = []
-        if all_cards:
+        cards_to_fetch = all_cards[:50]
+        if cards_to_fetch:
             with ThreadPoolExecutor(max_workers=6) as executor:
-                future_to_detail = {executor.submit(self._fetch_detail_job, card): card for card in all_cards}
+                future_to_detail = {executor.submit(self._fetch_detail_job, card): card for card in cards_to_fetch}
+
                 for future in as_completed(future_to_detail):
                     try:
                         job = future.result()

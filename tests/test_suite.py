@@ -640,7 +640,47 @@ class TestRobustnessImprovements(unittest.TestCase):
         for dirty, expected in dirty_samples:
             self.assertEqual(clean_analysis_text(dirty), expected)
 
+    def test_tiago_profile_matching(self):
+        from config import load_config
+        cfg = load_config("tiago")
+        self.assertEqual(cfg.candidate.name, "Tiago Alves")
+        self.assertEqual(cfg.notion_database_id, "3c24e649adbe806aa60edbacc063d60d")
+        self.assertTrue(cfg.candidate.iefp_eligible)
+        
+        matcher = JobMatcher(profile=cfg.candidate, enable_ai=False)
+        
+        # Test Cloud / DevOps / Data / Web matching
+        job_cloud = Job(
+            title="Junior Cloud Engineer",
+            company="CloudTech",
+            location="Castelo Branco, Portugal",
+            work_mode="Presencial",
+            link="https://example.com/tiago-cloud",
+            description="Recém-licenciado com conhecimentos em AWS, Terraform e Docker. Elegível para estágio IEFP com mais de 120 caracteres de descrição.",
+            source="Test",
+            pub_date=datetime.date.today().isoformat()
+        )
+        scored_cloud = matcher.evaluate_job(job_cloud)
+        self.assertGreaterEqual(scored_cloud.score, 75.0)
+        self.assertIn("aws", scored_cloud.matched_skills)
+        
+        # Test Laravel / PHP matching
+        job_laravel = Job(
+            title="Junior Laravel Developer",
+            company="WebStudio",
+            location="Lisboa, Portugal",
+            work_mode="Híbrido",
+            link="https://example.com/tiago-web",
+            description="Desenvolvedor júnior PHP e Laravel com MySQL e Git para desenvolvimento web com mais de 120 caracteres de descrição.",
+            source="Test",
+            pub_date=datetime.date.today().isoformat()
+        )
+        scored_laravel = matcher.evaluate_job(job_laravel)
+        self.assertGreaterEqual(scored_laravel.score, 75.0)
+        self.assertIn("laravel", scored_laravel.matched_skills)
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
