@@ -151,17 +151,17 @@ FOREIGN_JOB_POST_PATTERN = re.compile(
 FOREIGN_GEO_REGIONS = (
     r"latam|latin\s+america|am[eé]rica\s+latina|mexico|m[eé]xico|brasil|brazil|peru|chile|argentina|colombia|colômbia|"
     r"uruguay|uruguaio|ecuador|equador|venezuela|costa\s+rica|panama|panam[aá]|guatemala|"
-    r"us|usa|united\s+states|estados\s+unidos|canada|canad[aá]|north\s+america|am[eé]rica\s+do\s+norte|"
+    r"usa|u\.s\.|u\.s\.a\.|united\s+states|estados\s+unidos|canada|canad[aá]|north\s+america|am[eé]rica\s+do\s+norte|"
     r"apac|asia|ásia|asia-pacific|india|[ií]ndia|philippines|filipinas|pakistan|paquist[aã]o|vietnam|singapore|singapura|"
     r"australia|austr[aá]lia|new\s+zealand|nova\s+zel[aâ]ndia|south\s+africa|[aá]frica\s+do\s+sul|nigeria|nig[eé]ria|kenya|qu[eé]nia|"
-    r"germany|deutschland|alemanha|uk|united\s+kingdom|reino\s+unido|france|frança|spain|espanha|italy|itália|netherlands|holanda|poland|polónia|switzerland|suíça|austria|áustria|sweden|suécia|denmark|dinamarca|norway|noruega|finland|finlândia|ireland|irlanda|belgium|bélgica|czech|romania|roménia"
+    r"germany|deutschland|alemanha|uk|u\.k\.|united\s+kingdom|reino\s+unido|france|frança|spain|espanha|italy|itália|netherlands|holanda|poland|polónia|switzerland|suíça|austria|áustria|sweden|suécia|denmark|dinamarca|norway|noruega|finland|finlândia|ireland|irlanda|belgium|bélgica|czech|romania|roménia"
 )
 
 # Geo-Restricted Remote Pattern (e.g. LATAM, Brazil, US, Canada, APAC, Germany-only, UK-only, specific country lists without Portugal)
 GEO_RESTRICTED_REMOTE_PATTERN = re.compile(
     rf"\b(?:(?:we\s+are\s+)?(?:looking\s+for|open\s+to|hiring)\s+(?:candidates|people|engineers|talent)?\s*(?:in|from)\s+(?:the\s+)?(?:[a-zA-Z,\s]+)?only\b)|"
-    rf"\b(?:based\s+in|located\s+in|residing\s+in|resident\s+in|must\s+reside\s+in|must\s+be\s+located\s+in|living\s+in|remote\s+in|remote\s+from|remote\s+within|remote\s+only\s+in|remote\s+across|work\s+from\s+anywhere\s+in|work\s+anywhere\s+in)\s+(?:the\s+)?(?:{FOREIGN_GEO_REGIONS})\b|"
-    rf"\b(?:{FOREIGN_GEO_REGIONS})\s+(?:only|residents\s+only|citizens\s+only|candidates\s+only)\b|"
+    rf"\b(?:based\s+in|located\s+in|residing\s+in|resident\s+in|must\s+reside\s+in|must\s+be\s+located\s+in|living\s+in|remote\s+in|remote\s+from|remote\s+within|remote\s+only\s+in|remote\s+across|work\s+from\s+anywhere\s+in|work\s+anywhere\s+in)\s+(?:the\s+)?(?:{FOREIGN_GEO_REGIONS}|us\s+only)\b|"
+    rf"\b(?:{FOREIGN_GEO_REGIONS}|us)\s+(?:only|residents\s+only|citizens\s+only|candidates\s+only)\b|"
     rf"\b(?:only\s+open\s+to|only\s+hiring\s+in|only\s+for\s+candidates\s+in)\s+(?:the\s+)?(?:{FOREIGN_GEO_REGIONS})\b|"
     rf"\b(?:right\s+to\s+work\s+in|legally\s+authorized\s+to\s+work\s+in)\s+(?:the\s+)?(?:{FOREIGN_GEO_REGIONS})\b|"
     rf"\b(?:location\s+preference|location\s+requirement|location\s+restrictions?|work\s+location)\s*:\s*(?:[^\n\.\;]{{0,60}})?(?:{FOREIGN_GEO_REGIONS})\b|"
@@ -337,18 +337,24 @@ class JobMatcher:
         has_target_title = any(tt in title_lower for tt in target_titles_lower)
         has_tech_in_title = any(ts in title_lower for ts in tech_stack_lower)
         
-        # Build dynamic domain tokens from candidate's profile
-        core_domain_words = {"estágio", "estagio", "intern", "internship", "trainee", "iefp", "ativar"}
+        # Build dynamic domain tokens from candidate's profile + general tech & junior entry-level roles
+        core_domain_words = {
+            "estágio", "estagio", "intern", "internship", "trainee", "iefp", "ativar",
+            "developer", "software", "programador", "desenvolvedor", "consultor", "consultant",
+            "graduate", "fellowship", "bolsa", "investigador", "engenharia", "engineering",
+            "informática", "informatica", "junior", "júnior", "tech", "tecnologia"
+        }
         for tt in target_titles_lower:
             for w in tt.split():
-                if len(w) >= 3 and w not in ["junior", "júnior", "engineer", "analyst", "developer", "engenheiro", "programador", "analista", "técnico", "tecnico"]:
+                if len(w) >= 3 and w not in ["engineer", "analyst", "engenheiro", "analista", "técnico", "tecnico"]:
                     core_domain_words.add(w)
         for ts in tech_stack_lower:
             for w in ts.split():
                 if len(w) >= 3:
                     core_domain_words.add(w)
 
-        has_domain_in_title = any(cd in title_lower for cd in core_domain_words)
+        has_it_role = bool(re.search(r"\b(?:it|ti)\b", title_lower)) and bool(re.search(r"\b(?:junior|júnior|trainee|graduate|consultor|consultant|developer|support|suporte|estagio|estágio)\b", title_lower))
+        has_domain_in_title = any(cd in title_lower for cd in core_domain_words) or has_it_role
 
         # Protect against cross-profile leaks (e.g. Data Engineer job slipping into Cybersecurity/DevOps profile)
         data_domain_terms = [
@@ -405,8 +411,12 @@ class JobMatcher:
         is_explicit_zero_to_one = any(b in text for b in ["recém-licenciado", "recem licenciado", "recém licenciado", "0-1", "recent graduate", "fresh graduate", "recém-graduado", "recem-graduado", "0 a 1 ano", "0 to 1 year"])
         has_verified_junior_indicator = is_explicit_junior or job.iefp_mentioned or is_explicit_zero_to_one
 
-        # Check if the job is explicitly targeted at 0 years / Entry-Level / Estágio / Recém-Licenciado
-        is_explicit_zero_exp = bool(ZERO_EXP_INDICATOR_PATTERN.search(text)) or job.iefp_mentioned or any(t in title_lower for t in ["estágio", "estagio", "trainee", "recém-licenciado", "recem-licenciado"])
+        # Check if the job is explicitly targeted at 0-2 years / Entry-Level / Estágio / Recém-Licenciado / Júnior
+        is_explicit_zero_exp = (
+            bool(ZERO_EXP_INDICATOR_PATTERN.search(text))
+            or job.iefp_mentioned
+            or any(t in title_lower for t in ["estágio", "estagio", "trainee", "recém-licenciado", "recem-licenciado", "junior", "júnior", "entry level", "entry-level", "graduate", "bolsa", "fellowship"])
+        )
 
         for disq, pattern in TITLE_SENIORITY_PATTERNS:
             if pattern.search(title_lower):

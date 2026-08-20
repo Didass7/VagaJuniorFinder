@@ -379,61 +379,63 @@ class IndeedScraper(BaseScraper):
                 logger.debug(f"[Indeed RapidAPI] Error fetching '{q}': {r_err}")
 
     def _fetch_via_adzuna_api(self, queries: List[str]) -> List[Job]:
-        """Fetches Portugal tech jobs from Adzuna API (aggregates Indeed and Portuguese sources)."""
+        """Fetches remote tech and AI jobs from Adzuna API (aggregates Indeed and major job boards)."""
         jobs: List[Job] = []
         app_id = getattr(config, "adzuna_app_id", "") or os.getenv("ADZUNA_APP_ID", "")
         app_key = getattr(config, "adzuna_app_key", "") or os.getenv("ADZUNA_APP_KEY", "")
         if not app_id or not app_key:
             return jobs
 
-        for q in queries:
-            try:
-                url = f"https://api.adzuna.com/v1/api/jobs/pt/search/1"
-                params = {
-                    "app_id": app_id,
-                    "app_key": app_key,
-                    "what": q,
-                    "where": "Portugal",
-                    "content-type": "application/json"
-                }
-                resp = self.session.get(url, params=params, timeout=(4.0, 12.0))
-                if resp.status_code == 200:
-                    data = resp.json()
-                    for item in data.get("results", []):
-                        title = item.get("title", "")
-                        link = item.get("redirect_url", "")
-                        company_info = item.get("company", {})
-                        company = company_info.get("display_name", "Empresa no Indeed / Adzuna")
-                        loc_info = item.get("location", {})
-                        loc = loc_info.get("display_name", "Portugal")
-                        desc = item.get("description", "")
-                        pub_date = item.get("created", datetime.date.today().isoformat())[:10]
+        # Query supported regional endpoints for remote/EU/Portugal tech opportunities
+        target_countries = ["es", "gb"]
 
-                        clean_desc = clean_job_description(f"{title} - {company} ({loc}). {desc}")
-                        if not is_valid_job_offer(link, title):
-                            continue
-                        if self.is_seen_func and self.is_seen_func(title, company):
-                            continue
+        for country in target_countries:
+            for q in queries:
+                try:
+                    url = f"https://api.adzuna.com/v1/api/jobs/{country}/search/1"
+                    params = {
+                        "app_id": app_id,
+                        "app_key": app_key,
+                        "what": f"{q} remote",
+                        "content-type": "application/json",
+                        "results_per_page": 20
+                    }
+                    resp = self.session.get(url, params=params, timeout=(4.0, 12.0))
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        for item in data.get("results", []):
+                            title = item.get("title", "")
+                            link = item.get("redirect_url", "")
+                            company_info = item.get("company", {})
+                            company = company_info.get("display_name", "Empresa no Indeed / Adzuna")
+                            loc_info = item.get("location", {})
+                            loc = loc_info.get("display_name", "Remote / Europe")
+                            desc = item.get("description", "")
+                            pub_date = item.get("created", datetime.date.today().isoformat())[:10]
 
-                        work_mode = "Presencial / Híbrido"
-                        text_l = f"{title} {loc} {clean_desc}".lower()
-                        if "remoto" in text_l or "remote" in text_l:
+                            clean_desc = clean_job_description(f"{title} - {company} ({loc}). {desc}")
+                            if not is_valid_job_offer(link, title):
+                                continue
+                            if self.is_seen_func and self.is_seen_func(title, company):
+                                continue
+
                             work_mode = "Remoto"
-                        elif "híbrido" in text_l or "hybrid" in text_l:
-                            work_mode = "Híbrido"
+                            text_l = f"{title} {loc} {clean_desc}".lower()
+                            if "híbrido" in text_l or "hybrid" in text_l:
+                                work_mode = "Híbrido"
 
-                        jobs.append(Job(
-                            title=title,
-                            company=company,
-                            location=loc,
-                            work_mode=work_mode,
-                            link=link,
-                            description=clean_desc,
-                            source="Indeed / Adzuna",
-                            pub_date=pub_date
-                        ))
-            except Exception as a_err:
-                logger.debug(f"[Indeed/Adzuna API] Error fetching '{q}': {a_err}")
+                            jobs.append(Job(
+                                title=title,
+                                company=company,
+                                location=loc,
+                                work_mode=work_mode,
+                                link=link,
+                                description=clean_desc,
+                                source="Indeed / Adzuna",
+                                pub_date=pub_date
+                            ))
+                except Exception as a_err:
+                    logger.debug(f"[Indeed/Adzuna API] Error fetching '{q}' in {country}: {a_err}")
 
         return jobs
 
@@ -446,7 +448,7 @@ class IndeedScraper(BaseScraper):
         )
         all_jobs: List[Job] = []
 
-        # Tier 1: Saved Cookie session / Direct HTTP (fastest if session is available)
+        # Tier 1: Saved Cookie session / Direct HTTP (if cookies are configured)
         cookies_file = os.path.join("data", "indeed_cookies.json")
         if config.indeed_cookies or os.path.isfile(cookies_file):
             try:
@@ -456,14 +458,14 @@ class IndeedScraper(BaseScraper):
             except Exception as e:
                 logger.debug(f"[Indeed Portal] Saved HTTP session error: {e}")
 
-        # Tier 2: Undetected Browser / SeleniumBase UC (if no saved cookies or yielded 0)
-        if not all_jobs:
+        # Tier 2: Adzuna API (High-speed & 100% reliable on GitHub Actions / cloud runners)
+        if not all_jobs and ((getattr(config, "adzuna_app_id", "") and getattr(config, "adzuna_app_key", "")) or (os.getenv("ADZUNA_APP_ID") and os.getenv("ADZUNA_APP_KEY"))):
             try:
-                uc_jobs = self._fetch_via_seleniumbase(queries[:4])
-                if uc_jobs:
-                    all_jobs.extend(uc_jobs)
+                adzuna_jobs = self._fetch_via_adzuna_api(queries)
+                if adzuna_jobs:
+                    all_jobs.extend(adzuna_jobs)
             except Exception as e:
-                logger.debug(f"[Indeed Portal] Browser strategy error: {e}")
+                logger.debug(f"[Indeed Portal] Adzuna API fallback error: {e}")
 
         # Tier 3: Jooble API Fallback
         if not all_jobs and (getattr(config, "jooble_api_key", "") or os.getenv("JOOBLE_API_KEY")):
@@ -474,16 +476,7 @@ class IndeedScraper(BaseScraper):
             except Exception as e:
                 logger.debug(f"[Indeed Portal] Jooble API fallback error: {e}")
 
-        # Tier 4: Adzuna API Fallback
-        if not all_jobs and ((getattr(config, "adzuna_app_id", "") and getattr(config, "adzuna_app_key", "")) or (os.getenv("ADZUNA_APP_ID") and os.getenv("ADZUNA_APP_KEY"))):
-            try:
-                adzuna_jobs = self._fetch_via_adzuna_api(queries)
-                if adzuna_jobs:
-                    all_jobs.extend(adzuna_jobs)
-            except Exception as e:
-                logger.debug(f"[Indeed Portal] Adzuna API fallback error: {e}")
-
-        # Tier 5: RapidAPI / JSearch Fallback
+        # Tier 4: RapidAPI / JSearch Fallback
         if not all_jobs and (getattr(config, "rapidapi_key", "") or os.getenv("RAPIDAPI_KEY")):
             try:
                 rapid_jobs = self._fetch_via_rapidapi(queries)
@@ -491,6 +484,15 @@ class IndeedScraper(BaseScraper):
                     all_jobs.extend(rapid_jobs)
             except Exception as e:
                 logger.debug(f"[Indeed Portal] RapidAPI fallback error: {e}")
+
+        # Tier 5: Undetected Browser / SeleniumBase UC (Desktop fallback when no API keys are provided)
+        if not all_jobs:
+            try:
+                uc_jobs = self._fetch_via_seleniumbase(queries[:4])
+                if uc_jobs:
+                    all_jobs.extend(uc_jobs)
+            except Exception as e:
+                logger.debug(f"[Indeed Portal] Browser strategy error: {e}")
 
         # Deduplicate
         unique_jobs: Dict[str, Job] = {}
