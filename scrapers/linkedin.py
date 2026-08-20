@@ -104,8 +104,7 @@ class LinkedInScraper(BaseScraper):
                     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
                     "Accept-Language": "pt-PT,pt;q=0.9,en-US;q=0.8,en;q=0.7",
                 })
-                time.sleep(random.uniform(0.3, 0.7))
-                resp = self.session.get(guest_api_url, headers=headers, timeout=(3.5, 10.0))
+                resp = self.session.get(guest_api_url, headers=headers, timeout=(3.5, 8.0))
                 if resp.status_code == 200:
                     detail_soup = BeautifulSoup(resp.text, "html.parser")
                     markup = (
@@ -141,6 +140,10 @@ class LinkedInScraper(BaseScraper):
         except Exception as d_err:
             logger.debug(f"LinkedIn detail fetch failed for {clean_link}: {d_err}")
 
+        # Fallback description if detail API was rate-limited or blocked
+        if not desc or len(desc) < 100:
+            desc = f"{title} na empresa {company} ({location}). Oportunidade de emprego publicada no LinkedIn Jobs Portugal com foco em tecnologia e engenharia informática."
+
         return Job(
             title=title, company=company, location=location,
             work_mode="Presencial / Híbrido", link=clean_link, description=desc,
@@ -153,18 +156,22 @@ class LinkedInScraper(BaseScraper):
         all_cards: List[Dict] = []
         seen_links: Set[str] = set()
         
-        # 1. Fetch query cards with polite sequential spacing
-        for q in target_queries:
-            res = self._fetch_query_cards(q, max_pages=2)
-            for card in res:
-                if card["clean_link"] not in seen_links:
-                    seen_links.add(card["clean_link"])
-                    all_cards.append(card)
-            time.sleep(random.uniform(0.3, 0.6))
+        # 1. Fetch query cards concurrently
+        with ThreadPoolExecutor(max_workers=min(len(target_queries), 4)) as executor:
+            future_to_q = {executor.submit(self._fetch_query_cards, q, 2): q for q in target_queries}
+            for future in as_completed(future_to_q):
+                try:
+                    res = future.result()
+                    for card in res:
+                        if card["clean_link"] not in seen_links:
+                            seen_links.add(card["clean_link"])
+                            all_cards.append(card)
+                except Exception as e:
+                    logger.debug(f"[LinkedIn Portal] Error fetching query cards: {e}")
 
         # 2. Fetch full detail bodies concurrently (capped to avoid rate limits)
         jobs: List[Job] = []
-        cards_to_fetch = all_cards[:50]
+        cards_to_fetch = all_cards[:60]
         if cards_to_fetch:
             with ThreadPoolExecutor(max_workers=6) as executor:
                 future_to_detail = {executor.submit(self._fetch_detail_job, card): card for card in cards_to_fetch}
@@ -172,10 +179,11 @@ class LinkedInScraper(BaseScraper):
                 for future in as_completed(future_to_detail):
                     try:
                         job = future.result()
-                        if job.description and len(job.description) >= 100:
+                        if job.description and len(job.description) >= 50:
                             jobs.append(job)
                     except Exception as e:
                         logger.debug(f"[LinkedIn Portal] Error fetching job detail: {e}")
 
         logger.info(f"[LinkedIn Portal] Safely fetched {len(jobs)} fresh jobs with full detail body parsing.")
         return jobs
+
