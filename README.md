@@ -124,7 +124,13 @@ ITJOBS_API_KEY=
 
 ## ⚡ Como Executar
 
-### 1. Teste de Validação (Modo `--dry-run`)
+### 1. Interface Web Interativa (Streamlit) 🖥️
+Lança a aplicação gráfica no browser com dashboard de vagas, editor de perfis, métricas de mercado e execução on-demand:
+```bash
+streamlit run app.py
+```
+
+### 2. Teste de Validação em Linha de Comandos (Modo `--dry-run`)
 Executa a ingestão e avaliação sem enviar registos para o Notion (ideal para inspecionar os scores na consola):
 ```bash
 python main.py --dry-run

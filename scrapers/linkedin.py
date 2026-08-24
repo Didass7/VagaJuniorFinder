@@ -97,6 +97,7 @@ class LinkedInScraper(BaseScraper):
             # Extract numeric job ID from LinkedIn URL
             id_match = re.search(r"(\d{8,12})", clean_link)
             if id_match:
+                time.sleep(random.uniform(0.15, 0.35))
                 job_posting_id = id_match.group(1)
                 guest_api_url = f"https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/{job_posting_id}"
                 headers = get_random_headers()
@@ -173,7 +174,7 @@ class LinkedInScraper(BaseScraper):
         jobs: List[Job] = []
         cards_to_fetch = all_cards[:200]
         if cards_to_fetch:
-            with ThreadPoolExecutor(max_workers=10) as executor:
+            with ThreadPoolExecutor(max_workers=4) as executor:
                 future_to_detail = {executor.submit(self._fetch_detail_job, card): card for card in cards_to_fetch}
 
                 for future in as_completed(future_to_detail):

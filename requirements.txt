@@ -9,4 +9,6 @@ playwright>=1.40.0
 playwright-stealth>=2.0.0
 seleniumbase>=4.50.0
 pyautogui>=0.9.50
+streamlit>=1.35.0
+plotly>=5.20.0
 

@@ -53,7 +53,16 @@ TEXT_SENIORITY_DISQUALIFIERS = [
     "seniority level: mid-senior", "seniority level: senior", "seniority level: director", "seniority level: executive",
     "seniority level mid-senior", "seniority level senior", "seniority level director", "seniority level executive",
     "seniority levelmid-senior", "seniority levelsenior", "mid-senior level", "senior level",
-    "level of experience: mid", "level of experience: senior", "more than 4y", "more than 5y", "more than 6y",
+    "level of experience: mid", "level of experience: senior",
+    "nível de experiência: pleno-sênior", "nível de experiência: pleno-senior", "nível de experiência: pleno sênior", "nível de experiência: pleno senior",
+    "nível de experiência: sénior", "nível de experiência: sênior", "nível de experiência: senior", "nível de experiência: diretor", "nível de experiência: executivo",
+    "nivel de experiencia: pleno-senior", "nivel de experiencia: senior", "nivel de experiencia: diretor", "nivel de experiencia: executivo",
+    "pleno-sênior", "pleno-senior", "pleno sênior", "pleno senior", "nível pleno", "nivel pleno", "nível sênior", "nivel senior", "nível sénior",
+    "requisitos adicionados pelo anunciante", "requisitos adicionados pelo anunciante da vaga",
+    "mais de 2 anos de experiência", "mais de 2 anos de experiencia", "mais de 3 anos de experiência", "mais de 3 anos de experiencia",
+    "mais de 2 anos", "mais de 3 anos", "mais de 4 anos", "mais de 5 anos",
+    "more than 2 years of experience", "more than 3 years of experience", "more than 2 years", "more than 3 years",
+    "more than 4y", "more than 5y", "more than 6y",
     "a few years in", "a few years of", "several years of", "deep experience", "been doing this a long time",
     "staff/principal", "senior/principal", "mid/senior", "mid-level", "senior-level", "staff-level", "principal-level",
     "lead-level", "growing into platform ownership", "own the data platform", "competence matters more than years",
@@ -75,6 +84,8 @@ TEXT_SENIORITY_DISQUALIFIERS = [
     "1 year of experience", "2 years of experience", "3 years of experience", "4 years of experience", "5 years of experience",
     "1-2 years", "1-2 anos", "1 a 2 anos", "1 to 2 years", "1 to 3 years", "1 a 3 anos",
     "2 to 5 years", "2 a 5 anos", "2 a 3 anos", "2 to 3 years", "2 to 4 years", "2 a 4 anos", "3 to 5 years", "3 a 5 anos",
+    "between 2 and 5 years", "between 2 and 4 years", "between 2 and 3 years", "between 3 and 5 years", "between 3 and 6 years", "between 3 and 7 years", "between 4 and 6 years", "between 5 and 7 years",
+    "entre 2 e 5 anos", "entre 2 e 4 anos", "entre 2 e 3 anos", "entre 3 e 5 anos", "entre 3 e 6 anos", "entre 4 e 6 anos", "entre 5 e 7 anos",
     "mínimo de 1 ano", "minimo de 1 ano", "mínimo de 2 anos", "minimo de 2 anos", "mínimo de 3 anos", "minimo de 3 anos",
     "minimum 1 year", "minimum 2 years", "minimum 3 years", "minimum of 1 year", "minimum of 2 years"
 ]
@@ -190,13 +201,16 @@ SENIOR_COMPENSATION_PATTERN = re.compile(
 
 # Zero-Experience Indicator Pattern (Strict word boundaries to prevent 'graduates' matching general degree requirements)
 ZERO_EXP_INDICATOR_PATTERN = re.compile(
-    r"\b(?:0\s*(?:a|to|-)\s*1\s*(?:ano|anos|year|years)|0\s*(?:anos|years)|sem\s+experi[eê]ncia|n[aã]o\s+[eé]\s+necess[aá]ria\s+experi[eê]ncia|n[aã]o\s+requer\s+experi[eê]ncia|rec[eé]m[- ]licenciad[oa]s?|est[aá]gio\s+profissional|est[aá]gios?|trainees?|internships?|\binterns?\b|\b(?:recém[- ]graduad[oa]s?|recem[- ]graduad[oa]s?|recent\s+graduates?|fresh\s+graduates?|new\s+graduates?|graduate\s+program|graduate\s+scheme)\b)\b",
+    r"\b(?:0\s*(?:a|to|-)\s*1\s*(?:ano|anos|year|years)|0\s*(?:anos|years)|sem\s+experi[eê]ncia|n[aã]o\s+[eé]\s+necess[aá]ria\s+experi[eê]ncia|n[aã]o\s+requer\s+experi[eê]ncia|rec[eé]m[- ]licenciad[oa]s?|est[aá]gio\s+profissional|est[aá]gio\s+curricular|est[aá]gio\s+iefp|est[aá]gio\s+ativar|programa\s+de\s+est[aá]gios?|estagi[aá]ri[oa]s?|trainees?|internships?|\binterns?\b|\b(?:recém[- ]graduad[oa]s?|recem[- ]graduad[oa]s?|recent\s+graduates?|fresh\s+graduates?|new\s+graduates?|graduate\s+program|graduate\s+scheme)\b)\b",
     re.IGNORECASE
 )
 
-# Advanced Seniority Experience Hard Disqualifier Pattern (3+, 4+, 5+, 8+ years, +5 years, minimum 3+ years, 8 or more years, a few years in, 3+ of experience)
+# Advanced Seniority Experience Hard Disqualifier Pattern (3+, 4+, 5+, 8+ years, +5 years, minimum 3+ years, 8 or more years, a few years in, 3+ of experience, pleno-senior, pelo menos 2 anos)
 ADVANCED_EXP_HARD_DISQUALIFIERS_PATTERN = re.compile(
     r"\b(?:a\s+few\s+years(?:\s+in|\s+of)?|several\s+years(?:\s+of)?|deep\s+experience|staff/principal|senior/principal|been\s+doing\s+this\s+a\s+long\s+time)\b|"
+    r"\b(?:pleno[- ]s[eê]nior|mid[- ]senior|n[ií]vel\s+de\s+experi[eê]ncia\s*:\s*pleno[- ]s[eê]nior)\b|"
+    r"\b(?:between\s+|entre\s+)(?:[2-9]|1[0-2]|two|three|four|five|dois|duas|tr[eê]s|quatro|cinco)\s*(?:and|e|to|-|a)\s*(?:[3-9]|1[0-2]|three|four|five|six|seven|eight|nine|ten|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez)\s*(?:years?|anos?)\b|"
+    r"\b(?:experi[eê]ncia\s+de\s+)?(?:pelo\s+menos|no\s+m[ií]nimo|m[ií]nimo\s+de|mais\s+de|superior\s+a|acima\s+de|at\s+least|minimum\s+of|more\s+than|over)\s*2\s*(?:anos|years)(?:\s+(?:de\s+|of\s+)?experi[eê]ncia)?\b|"
     r"\b(?:[3-9]|1[0-2])\+?\s*(?:years?|anos?)?\s*(?:of\s+|de\s+)?experi(?:ence|[eê]ncia)\b|"
     r"\bexperi(?:ence|[eê]ncia)\b[\w\s]{0,20}\b(?:[3-9]|1[0-2])\+?\s*(?:years?|anos?)?\b|"
     r"(?:(?:\+|\>|mais\s+de|superior\s+a|acima\s+de|pelo\s+menos|no\s+m[ií]nimo|m[ií]nimo\s+de|m[ií]nimo|more\s+than|over|at\s+least|minimum\s+of|minimum)\s*)?"
@@ -284,7 +298,9 @@ class JobMatcher:
         incomplete_indicators = [
             "join or sign in to find your next job",
             "sign in to view", "sign in to apply", "log in to view", "faça login",
-            "entre para ver", "registar para ver", "crie uma conta", "sign in to see more"
+            "entre para ver", "registar para ver", "crie uma conta", "sign in to see more",
+            "oportunidade de emprego publicada no linkedin",
+            "oportunidade de emprego publicada no linkedin jobs"
         ]
         
         if len(clean_desc) < 100 or any(ind in clean_desc_lower for ind in incomplete_indicators):
@@ -388,9 +404,19 @@ class JobMatcher:
         candidate_degree = getattr(self.profile, 'degree', '').lower()
         has_masters = "mestrado" in candidate_degree or "master" in candidate_degree
         if not has_masters:
-            masters_match = re.search(r"\b(?:habilita[cç][aã]o\s+base\s*:\s*mestrado|n[ií]vel\s+7\b|exige\s+mestrado|mestrado\s+(?:obrigat[oó]rio|completo|exigido))\b", text, re.IGNORECASE)
-            if masters_match:
-                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Requer Mestrado", match_reason="Oferta exige Mestrado (Nível 7), incompatível com Licenciatura", ai_reasoning="Filtro Automático: Exige Mestrado (Nível 7)")
+            has_bachelor_option = bool(re.search(r"\b(?:licenciatura|licenciad[oa]s?|bachelor'?s?|bsc)\b", text))
+            masters_pattern = re.compile(
+                r"\b(?:habilita[cç][aã]o\s+base\s*:\s*mestrado|n[ií]vel\s+7\b|exige\s+mestrado|mestrado\s+(?:obrigat[oó]rio|completo|exigido))\b|"
+                r"\b(?:qualifica[cç][oõ]es\s+(?:acad[eé]micas?|m[ií]nimas?)?|requisitos\s+acad[eé]micos?|forma[cç][aã]o\s+(?:acad[eé]mica|base)?|perfil)\s*:\s*mestrado\b|"
+                r"\bqualifica[cç][oõ]es\s+acad[eé]micas\s+mestrado\b|"
+                r"\bmestrado\s+em\s+(?:eng(?:enharia|\.)?|ci[eê]ncia|inform[aá]tica|data|matem[aá]tica|f[ií]sica|ia|intelig[eê]ncia)\b|"
+                r"\bmaster'?s?\s+degree\s+(?:in\s+[\w\s]+)?required\b|"
+                r"\bmsc\s+(?:in\s+[\w\s]+)?required\b",
+                re.IGNORECASE
+            )
+            masters_match = masters_pattern.search(text)
+            if masters_match and not has_bachelor_option:
+                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Requer Mestrado", match_reason=f"Oferta exige Mestrado ({masters_match.group(0).strip()}), incompatível com Licenciatura", ai_reasoning=f"Filtro Automático: Exige Mestrado ({masters_match.group(0).strip()})")
 
         # Language Disqualification (exempt Spanish if candidate speaks Spanish)
         lang_match = MANDATORY_OTHER_LANGUAGES_PATTERN.search(text)
