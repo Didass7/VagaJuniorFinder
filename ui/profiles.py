@@ -33,8 +33,16 @@ def save_profile_data(profile_name: str, data: dict) -> bool:
         return False
 
 def render_profiles():
-    st.header("👤 Gestor de Perfis de Candidatos")
-    st.markdown("Configura critérios de pesquisa personalizados, títulos-alvo, *stack* técnica e preferências para cada candidato.")
+    st.markdown(
+        """
+        <div style="margin-bottom: 8px;">
+            <h1 style="font-size: 26px; font-weight: 800; margin: 0; color: #F8FAFC; letter-spacing: -0.5px;">👤 Gestor de Perfis de Candidatos</h1>
+            <div style="font-size: 13px; color: #94A3B8;">Configura critérios de pesquisa personalizados, títulos-alvo, stack técnica e credenciais dedicadas.</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    st.divider()
 
     profiles = get_available_profiles()
     
@@ -42,7 +50,7 @@ def render_profiles():
     
     with col_sel:
         selected_profile = st.selectbox(
-            "Selecionar Perfil para Editar:",
+            "Selecionar Perfil:",
             options=profiles if profiles else ["diogo_ai"],
             index=0 if profiles else 0,
             key="profile_select_box"
@@ -50,12 +58,11 @@ def render_profiles():
 
     with col_new:
         st.write("")
-        st.write("")
-        with st.popover("➕ Novo Perfil"):
-            new_name = st.text_input("ID do Novo Perfil (ex: maria_data):", key="new_profile_name").strip().lower().replace(" ", "_")
-            clone_from = st.selectbox("Copiar definições de:", options=["Em Branco"] + profiles, key="clone_from_profile")
+        with st.popover("➕ Criar Novo Perfil"):
+            new_name = st.text_input("ID do Perfil (ex: sara_ml):", key="new_profile_name").strip().lower().replace(" ", "_")
+            clone_from = st.selectbox("Copiar base de:", options=["Em Branco"] + profiles, key="clone_from_profile")
             
-            if st.button("Criar Perfil", use_container_width=True):
+            if st.button("Criar e Salvar Perfil", use_container_width=True):
                 if new_name and f"{new_name}.json" not in [os.path.basename(p) for p in glob.glob(os.path.join(PROFILES_DIR, "*.json"))]:
                     if clone_from != "Em Branco":
                         base_data = load_profile_data(clone_from)
@@ -64,14 +71,14 @@ def render_profiles():
                             "candidate": {
                                 "name": "Novo Candidato",
                                 "email": "candidato@email.com",
-                                "degree": "Licenciatura",
+                                "degree": "Licenciatura em Engenharia Informática",
                                 "iefp_eligible": True,
                                 "languages": ["Português (Nativo)", "Inglês (B2)"],
-                                "search_queries": ["python", "junior"],
-                                "target_titles": ["Junior Developer"],
-                                "tech_stack": ["python", "git", "sql"],
-                                "junior_boosters": ["junior", "estágio", "trainee"],
-                                "locations": ["portugal", "remoto"]
+                                "search_queries": ["python", "junior", "data"],
+                                "target_titles": ["Junior AI Engineer", "Junior Data Scientist"],
+                                "tech_stack": ["python", "git", "sql", "pandas"],
+                                "junior_boosters": ["junior", "estágio", "trainee", "iefp"],
+                                "locations": ["portugal", "lisboa", "porto", "remoto"]
                             },
                             "notion_database_id": ""
                         }
@@ -90,66 +97,66 @@ def render_profiles():
     data = load_profile_data(selected_profile)
     candidate = data.get("candidate", {})
 
-    st.divider()
-
     with st.form(f"edit_profile_form_{selected_profile}"):
-        st.subheader(f"📝 Editar Perfil: `{selected_profile}`")
+        st.markdown(f"<div style='font-size: 18px; font-weight: 700; color: #F8FAFC; margin-bottom: 12px;'>📝 Definições do Perfil: <span style='color: #3B82F6;'>{selected_profile}</span></div>", unsafe_allow_html=True)
 
-        # 1. Informações Pessoais
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            name = st.text_input("Nome Completo:", value=candidate.get("name", ""))
-            degree = st.text_input("Grau Académico / Formação:", value=candidate.get("degree", ""))
-        with c2:
-            email = st.text_input("Email de Contacto:", value=candidate.get("email", ""))
-            iefp_eligible = st.checkbox("Elegível para Estágio IEFP / ATIVAR.pt", value=candidate.get("iefp_eligible", False))
-        with c3:
-            notion_id = st.text_input("Notion Database ID (Opcional):", value=data.get("notion_database_id", ""), help="Deixa em branco para usar o ID global do .env")
-            languages_str = st.text_input("Idiomas (separados por vírgula):", value=", ".join(candidate.get("languages", [])))
+        with st.container(border=True):
+            st.markdown("<div style='font-size: 14px; font-weight: 700; color: #CBD5E1; margin-bottom: 8px;'>1. Identificação & Formação</div>", unsafe_allow_html=True)
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                name = st.text_input("Nome Completo:", value=candidate.get("name", ""))
+                degree = st.text_input("Grau Académico / Universidade:", value=candidate.get("degree", ""))
+            with c2:
+                email = st.text_input("Email de Contacto:", value=candidate.get("email", ""))
+                st.write("")
+                iefp_eligible = st.checkbox("✅ Elegível para Estágio IEFP / ATIVAR.pt", value=candidate.get("iefp_eligible", False))
+            with c3:
+                notion_id = st.text_input("Notion Database ID (Opcional):", value=data.get("notion_database_id", ""), help="Deixa em branco para usar a base padrão do .env")
+                languages_str = st.text_input("Idiomas (separados por vírgula):", value=", ".join(candidate.get("languages", [])))
 
-        st.markdown("---")
-        
-        # 2. Critérios de Busca e Correspondência
-        st.subheader("🎯 Critérios de Filtro e Matching")
-        
-        c4, c5 = st.columns(2)
-        with c4:
-            search_queries_text = st.text_area(
-                "🔍 Termos de Pesquisa nos Scrapers (um por linha):",
-                value="\n".join(candidate.get("search_queries", [])),
-                height=130,
-                help="Termos usados nas APIs e pesquisas públicas (ex: python, data, machine learning, estagio iefp)"
-            )
-            
-            target_titles_text = st.text_area(
-                "💼 Cargos-Alvo / Títulos Válidos (um por linha):",
-                value="\n".join(candidate.get("target_titles", [])),
-                height=200,
-                help="Títulos aceites pelo filtro heurístico (ex: Junior AI Engineer, Cientista de Dados, Python Developer)"
-            )
+        st.write("")
 
-        with c5:
-            tech_stack_text = st.text_area(
-                "⚡ Tech Stack / Tecnologias Relevantes (uma por linha):",
-                value="\n".join(candidate.get("tech_stack", [])),
-                height=130,
-                help="Tecnologias que aumentam a pontuação da vaga (ex: python, sql, fastapi, langchain, duckdb)"
-            )
+        with st.container(border=True):
+            st.markdown("<div style='font-size: 14px; font-weight: 700; color: #CBD5E1; margin-bottom: 8px;'>2. Critérios de Correspondência (Matching Engine)</div>", unsafe_allow_html=True)
+            c4, c5 = st.columns(2)
+            with c4:
+                search_queries_text = st.text_area(
+                    "🔍 Termos de Pesquisa nos Scrapers (um por linha):",
+                    value="\n".join(candidate.get("search_queries", [])),
+                    height=130,
+                    help="Palavras-chave pesquisadas nos portais (ex: python, data, machine learning)"
+                )
+                
+                target_titles_text = st.text_area(
+                    "💼 Cargos-Alvo Permitidos (um por linha):",
+                    value="\n".join(candidate.get("target_titles", [])),
+                    height=180,
+                    help="Títulos aceites pelo filtro heurístico (ex: Junior AI Engineer, Cientista de Dados)"
+                )
 
-            junior_boosters_text = st.text_area(
-                "🎓 Palavras-Chave de Nível Júnior (uma por linha):",
-                value="\n".join(candidate.get("junior_boosters", [])),
-                height=130,
-                help="Termos que identificam nível inicial (ex: junior, entry level, trainee, estagio, iefp, recem-licenciado)"
-            )
+            with c5:
+                tech_stack_text = st.text_area(
+                    "⚡ Tech Stack / Tecnologias Relevantes (uma por linha):",
+                    value="\n".join(candidate.get("tech_stack", [])),
+                    height=130,
+                    help="Tecnologias valorizadas na pontuação (ex: python, sql, fastapi, langchain, duckdb)"
+                )
 
-            locations_text = st.text_area(
-                "📍 Localizações e Modalidades Permitidas (uma por linha):",
-                value="\n".join(candidate.get("locations", [])),
-                height=100,
-                help="Cidades ou modalidades válidas (ex: portugal, lisboa, porto, remoto, hybrid)"
-            )
+                junior_boosters_text = st.text_area(
+                    "🎓 Palavras-Chave de Nível Júnior (uma por linha):",
+                    value="\n".join(candidate.get("junior_boosters", [])),
+                    height=90,
+                    help="Termos identificadores de nível inicial (ex: junior, entry level, trainee, estagio, iefp)"
+                )
 
+                locations_text = st.text_area(
+                    "📍 Localizações Permitidas (uma por linha):",
+                    value="\n".join(candidate.get("locations", [])),
+                    height=75,
+                    help="Cidades ou modalidades válidas (ex: portugal, lisboa, porto, remoto)"
+                )
+
+        st.write("")
         submitted = st.form_submit_button("💾 Guardar Alterações do Perfil", type="primary", use_container_width=True)
 
         if submitted:

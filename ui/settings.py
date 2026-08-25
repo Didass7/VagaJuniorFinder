@@ -4,67 +4,78 @@ import streamlit as st
 from config import config, load_config
 
 def render_settings():
-    st.header("⚙️ Diagnóstico & Configurações")
-    st.markdown("Verifica o estado das variáveis de ambiente, integrações de APIs e configurações ativas do sistema.")
+    st.markdown(
+        """
+        <div style="margin-bottom: 8px;">
+            <h1 style="font-size: 26px; font-weight: 800; margin: 0; color: #F8FAFC; letter-spacing: -0.5px;">⚙️ Diagnóstico & Configurações</h1>
+            <div style="font-size: 13px; color: #94A3B8;">Monitorização do estado das variáveis de ambiente, integrações de APIs e storage local.</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    st.divider()
 
     col1, col2 = st.columns(2)
 
     with col1:
-        st.subheader("🔑 Estado das Credenciais (API Keys)")
-        
-        # Notion
-        has_notion_token = bool(config.notion_token)
-        has_notion_db = bool(config.notion_database_id)
-        if has_notion_token and has_notion_db:
-            st.success("🟢 **Notion API**: Configurado (Token & Database ID presentes)")
-        elif has_notion_token:
-            st.warning("🟡 **Notion API**: Token configurado, mas Database ID em falta")
-        else:
-            st.error("🔴 **Notion API**: Não configurado")
+        with st.container(border=True):
+            st.markdown("<div style='font-size: 16px; font-weight: 700; color: #F8FAFC; margin-bottom: 12px;'>🔑 Estado das Credenciais de APIs</div>", unsafe_allow_html=True)
+            
+            # Notion
+            has_notion_token = bool(config.notion_token)
+            has_notion_db = bool(config.notion_database_id)
+            if has_notion_token and has_notion_db:
+                st.markdown("<div style='display:flex; justify-content:space-between; align-items:center; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 10px 14px; border-radius: 8px; margin-bottom: 8px;'><span style='font-weight:700; color:#34D399;'>🟢 Notion API</span><span style='font-size:12px; color:#A7F3D0;'>Token & DB Configurados</span></div>", unsafe_allow_html=True)
+            else:
+                st.markdown("<div style='display:flex; justify-content:space-between; align-items:center; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); padding: 10px 14px; border-radius: 8px; margin-bottom: 8px;'><span style='font-weight:700; color:#F87171;'>🔴 Notion API</span><span style='font-size:12px; color:#FECACA;'>Não Configurado</span></div>", unsafe_allow_html=True)
 
-        # Groq
-        if config.groq_api_key:
-            st.success(f"🟢 **Groq LLM**: Configurado (Modelo: `{config.groq_model_name}`)")
-        else:
-            st.warning("🟡 **Groq LLM**: Sem chave de API (usará Gemini como fallback)")
+            # Groq
+            if config.groq_api_key:
+                st.markdown(f"<div style='display:flex; justify-content:space-between; align-items:center; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 10px 14px; border-radius: 8px; margin-bottom: 8px;'><span style='font-weight:700; color:#34D399;'>🟢 Groq LLM</span><span style='font-size:12px; color:#A7F3D0;'>{config.groq_model_name}</span></div>", unsafe_allow_html=True)
+            else:
+                st.markdown("<div style='display:flex; justify-content:space-between; align-items:center; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); padding: 10px 14px; border-radius: 8px; margin-bottom: 8px;'><span style='font-weight:700; color:#FBBF24;'>🟡 Groq LLM</span><span style='font-size:12px; color:#FDE68A;'>Sem chave (Fallback ativo)</span></div>", unsafe_allow_html=True)
 
-        # Gemini
-        if config.gemini_api_key:
-            st.success(f"🟢 **Google Gemini**: Configurado (Modelo: `{config.ai_model_name}`)")
-        else:
-            st.warning("🟡 **Google Gemini**: Sem chave de API")
+            # Gemini
+            if config.gemini_api_key:
+                st.markdown(f"<div style='display:flex; justify-content:space-between; align-items:center; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 10px 14px; border-radius: 8px; margin-bottom: 8px;'><span style='font-weight:700; color:#34D399;'>🟢 Google Gemini</span><span style='font-size:12px; color:#A7F3D0;'>{config.ai_model_name}</span></div>", unsafe_allow_html=True)
+            else:
+                st.markdown("<div style='display:flex; justify-content:space-between; align-items:center; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); padding: 10px 14px; border-radius: 8px; margin-bottom: 8px;'><span style='font-weight:700; color:#FBBF24;'>🟡 Google Gemini</span><span style='font-size:12px; color:#FDE68A;'>Sem chave</span></div>", unsafe_allow_html=True)
 
-        # ITJobs
-        if config.itjobs_api_key:
-            st.success("🟢 **ITJobs.pt API**: Chave configurada")
-        else:
-            st.info("ℹ️ **ITJobs.pt**: Sem chave de API (usará feeds RSS públicos)")
+            # ITJobs
+            if config.itjobs_api_key:
+                st.markdown("<div style='display:flex; justify-content:space-between; align-items:center; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 10px 14px; border-radius: 8px;'><span style='font-weight:700; color:#34D399;'>🟢 ITJobs.pt API</span><span style='font-size:12px; color:#A7F3D0;'>Chave Configurada</span></div>", unsafe_allow_html=True)
+            else:
+                st.markdown("<div style='display:flex; justify-content:space-between; align-items:center; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); padding: 10px 14px; border-radius: 8px;'><span style='font-weight:700; color:#60A5FA;'>ℹ️ ITJobs.pt</span><span style='font-size:12px; color:#BFDBFE;'>Feeds RSS Públicos</span></div>", unsafe_allow_html=True)
 
     with col2:
-        st.subheader("🌐 Teste de Conexões em Tempo Real")
-        if st.button("🔄 Executar Teste de Conectividade", use_container_width=True):
-            with st.spinner("A testar conexões com os serviços..."):
-                results = test_all_connections()
-                for service, (ok, msg) in results.items():
-                    if ok:
-                        st.success(f"**{service}**: {msg}")
-                    else:
-                        st.error(f"**{service}**: {msg}")
+        with st.container(border=True):
+            st.markdown("<div style='font-size: 16px; font-weight: 700; color: #F8FAFC; margin-bottom: 12px;'>🌐 Teste de Conectividade em Tempo Real</div>", unsafe_allow_html=True)
+            if st.button("🔄 Executar Teste de Conexões Agora", type="primary", use_container_width=True):
+                with st.spinner("A verificar conexões com servidores externos..."):
+                    results = test_all_connections()
+                    for service, (ok, msg) in results.items():
+                        if ok:
+                            st.success(f"**{service}**: {msg}")
+                        else:
+                            st.error(f"**{service}**: {msg}")
+            else:
+                st.caption("Clica no botão acima para enviar requisições de teste às APIs configuradas.")
 
-    st.divider()
+    st.write("")
 
-    st.subheader("📁 Ficheiros e Diretórios do Projeto")
-    info_col1, info_col2, info_col3 = st.columns(3)
-    
-    profiles_count = len(os.listdir("profiles")) if os.path.exists("profiles") else 0
-    cache_exists = os.path.exists(config.cache_file)
-    
-    with info_col1:
-        st.metric("Perfis Encontrados", f"{profiles_count} perfis")
-    with info_col2:
-        st.metric("Cache de Vagas", "Ativo" if cache_exists else "Vazio")
-    with info_col3:
-        st.metric("Sincronização Notion", "Ativada" if config.enable_notion_sync else "Desativada")
+    with st.container(border=True):
+        st.markdown("<div style='font-size: 16px; font-weight: 700; color: #F8FAFC; margin-bottom: 12px;'>📁 Diretórios & Armazenamento Local</div>", unsafe_allow_html=True)
+        info_col1, info_col2, info_col3 = st.columns(3)
+        
+        profiles_count = len(os.listdir("profiles")) if os.path.exists("profiles") else 0
+        cache_exists = os.path.exists(config.cache_file)
+        
+        with info_col1:
+            st.metric("Perfis Armazenados", f"{profiles_count} candidatos")
+        with info_col2:
+            st.metric("Cache Deduplicação", "Ativo" if cache_exists else "Vazio")
+        with info_col3:
+            st.metric("Sincronização Notion", "Ativada" if config.enable_notion_sync else "Desativada")
 
 def test_all_connections():
     results = {}
