@@ -7,8 +7,8 @@ def render_settings():
     st.markdown(
         """
         <div style="margin-bottom: 8px;">
-            <h1 style="font-size: 26px; font-weight: 800; margin: 0; color: #F8FAFC; letter-spacing: -0.5px;">⚙️ Diagnóstico & Configurações</h1>
-            <div style="font-size: 13px; color: #94A3B8;">Monitorização do estado das variáveis de ambiente, integrações de APIs e storage local.</div>
+            <h1 style="font-size: 24px; font-weight: 800; margin: 0; color: #F8FAFC; letter-spacing: -0.5px;">Diagnóstico & Definições</h1>
+            <div style="font-size: 13px; color: #94A3B8; margin-top: 2px;">Monitorização do estado das variáveis de ambiente, integrações de APIs e armazenamento local.</div>
         </div>
         """,
         unsafe_allow_html=True
@@ -19,38 +19,38 @@ def render_settings():
 
     with col1:
         with st.container(border=True):
-            st.markdown("<div style='font-size: 16px; font-weight: 700; color: #F8FAFC; margin-bottom: 12px;'>🔑 Estado das Credenciais de APIs</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size: 13px; font-weight: 700; color: #CBD5E1; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;'>Estado das Credenciais e Integrações</div>", unsafe_allow_html=True)
             
             # Notion
             has_notion_token = bool(config.notion_token)
             has_notion_db = bool(config.notion_database_id)
             if has_notion_token and has_notion_db:
-                st.markdown("<div style='display:flex; justify-content:space-between; align-items:center; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 10px 14px; border-radius: 8px; margin-bottom: 8px;'><span style='font-weight:700; color:#34D399;'>🟢 Notion API</span><span style='font-size:12px; color:#A7F3D0;'>Token & DB Configurados</span></div>", unsafe_allow_html=True)
+                st.markdown("<div style='display:flex; justify-content:space-between; align-items:center; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); padding: 10px 14px; border-radius: 8px; margin-bottom: 8px;'><span style='font-weight:600; color:#E2E8F0; display:flex; align-items:center; gap:8px;'><span style='color:#10B981; font-size:11px;'>●</span> Notion API</span><span style='font-size:12px; color:#A7F3D0;'>Token & DB Configurados</span></div>", unsafe_allow_html=True)
             else:
-                st.markdown("<div style='display:flex; justify-content:space-between; align-items:center; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); padding: 10px 14px; border-radius: 8px; margin-bottom: 8px;'><span style='font-weight:700; color:#F87171;'>🔴 Notion API</span><span style='font-size:12px; color:#FECACA;'>Não Configurado</span></div>", unsafe_allow_html=True)
+                st.markdown("<div style='display:flex; justify-content:space-between; align-items:center; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25); padding: 10px 14px; border-radius: 8px; margin-bottom: 8px;'><span style='font-weight:600; color:#E2E8F0; display:flex; align-items:center; gap:8px;'><span style='color:#EF4444; font-size:11px;'>●</span> Notion API</span><span style='font-size:12px; color:#FECACA;'>Não Configurado</span></div>", unsafe_allow_html=True)
 
             # Groq
             if config.groq_api_key:
-                st.markdown(f"<div style='display:flex; justify-content:space-between; align-items:center; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 10px 14px; border-radius: 8px; margin-bottom: 8px;'><span style='font-weight:700; color:#34D399;'>🟢 Groq LLM</span><span style='font-size:12px; color:#A7F3D0;'>{config.groq_model_name}</span></div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='display:flex; justify-content:space-between; align-items:center; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); padding: 10px 14px; border-radius: 8px; margin-bottom: 8px;'><span style='font-weight:600; color:#E2E8F0; display:flex; align-items:center; gap:8px;'><span style='color:#10B981; font-size:11px;'>●</span> Groq LLM</span><span style='font-size:12px; color:#A7F3D0;'>{config.groq_model_name}</span></div>", unsafe_allow_html=True)
             else:
-                st.markdown("<div style='display:flex; justify-content:space-between; align-items:center; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); padding: 10px 14px; border-radius: 8px; margin-bottom: 8px;'><span style='font-weight:700; color:#FBBF24;'>🟡 Groq LLM</span><span style='font-size:12px; color:#FDE68A;'>Sem chave (Fallback ativo)</span></div>", unsafe_allow_html=True)
+                st.markdown("<div style='display:flex; justify-content:space-between; align-items:center; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); padding: 10px 14px; border-radius: 8px; margin-bottom: 8px;'><span style='font-weight:600; color:#E2E8F0; display:flex; align-items:center; gap:8px;'><span style='color:#F59E0B; font-size:11px;'>●</span> Groq LLM</span><span style='font-size:12px; color:#FDE68A;'>Sem chave (Fallback ativo)</span></div>", unsafe_allow_html=True)
 
             # Gemini
             if config.gemini_api_key:
-                st.markdown(f"<div style='display:flex; justify-content:space-between; align-items:center; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 10px 14px; border-radius: 8px; margin-bottom: 8px;'><span style='font-weight:700; color:#34D399;'>🟢 Google Gemini</span><span style='font-size:12px; color:#A7F3D0;'>{config.ai_model_name}</span></div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='display:flex; justify-content:space-between; align-items:center; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); padding: 10px 14px; border-radius: 8px; margin-bottom: 8px;'><span style='font-weight:600; color:#E2E8F0; display:flex; align-items:center; gap:8px;'><span style='color:#10B981; font-size:11px;'>●</span> Google Gemini</span><span style='font-size:12px; color:#A7F3D0;'>{config.ai_model_name}</span></div>", unsafe_allow_html=True)
             else:
-                st.markdown("<div style='display:flex; justify-content:space-between; align-items:center; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); padding: 10px 14px; border-radius: 8px; margin-bottom: 8px;'><span style='font-weight:700; color:#FBBF24;'>🟡 Google Gemini</span><span style='font-size:12px; color:#FDE68A;'>Sem chave</span></div>", unsafe_allow_html=True)
+                st.markdown("<div style='display:flex; justify-content:space-between; align-items:center; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); padding: 10px 14px; border-radius: 8px; margin-bottom: 8px;'><span style='font-weight:600; color:#E2E8F0; display:flex; align-items:center; gap:8px;'><span style='color:#F59E0B; font-size:11px;'>●</span> Google Gemini</span><span style='font-size:12px; color:#FDE68A;'>Sem chave</span></div>", unsafe_allow_html=True)
 
             # ITJobs
             if config.itjobs_api_key:
-                st.markdown("<div style='display:flex; justify-content:space-between; align-items:center; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 10px 14px; border-radius: 8px;'><span style='font-weight:700; color:#34D399;'>🟢 ITJobs.pt API</span><span style='font-size:12px; color:#A7F3D0;'>Chave Configurada</span></div>", unsafe_allow_html=True)
+                st.markdown("<div style='display:flex; justify-content:space-between; align-items:center; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); padding: 10px 14px; border-radius: 8px;'><span style='font-weight:600; color:#E2E8F0; display:flex; align-items:center; gap:8px;'><span style='color:#10B981; font-size:11px;'>●</span> ITJobs.pt API</span><span style='font-size:12px; color:#A7F3D0;'>Chave Configurada</span></div>", unsafe_allow_html=True)
             else:
-                st.markdown("<div style='display:flex; justify-content:space-between; align-items:center; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); padding: 10px 14px; border-radius: 8px;'><span style='font-weight:700; color:#60A5FA;'>ℹ️ ITJobs.pt</span><span style='font-size:12px; color:#BFDBFE;'>Feeds RSS Públicos</span></div>", unsafe_allow_html=True)
+                st.markdown("<div style='display:flex; justify-content:space-between; align-items:center; background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.25); padding: 10px 14px; border-radius: 8px;'><span style='font-weight:600; color:#E2E8F0; display:flex; align-items:center; gap:8px;'><span style='color:#3B82F6; font-size:11px;'>●</span> ITJobs.pt</span><span style='font-size:12px; color:#BFDBFE;'>Feeds RSS Públicos</span></div>", unsafe_allow_html=True)
 
     with col2:
         with st.container(border=True):
-            st.markdown("<div style='font-size: 16px; font-weight: 700; color: #F8FAFC; margin-bottom: 12px;'>🌐 Teste de Conectividade em Tempo Real</div>", unsafe_allow_html=True)
-            if st.button("🔄 Executar Teste de Conexões Agora", type="primary", use_container_width=True):
+            st.markdown("<div style='font-size: 13px; font-weight: 700; color: #CBD5E1; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;'>Teste de Conectividade</div>", unsafe_allow_html=True)
+            if st.button("Testar Conexões às APIs", type="primary", use_container_width=True):
                 with st.spinner("A verificar conexões com servidores externos..."):
                     results = test_all_connections()
                     for service, (ok, msg) in results.items():
@@ -59,12 +59,12 @@ def render_settings():
                         else:
                             st.error(f"**{service}**: {msg}")
             else:
-                st.caption("Clica no botão acima para enviar requisições de teste às APIs configuradas.")
+                st.caption("Envie requisições de teste para validar o acesso às APIs configuradas.")
 
     st.write("")
 
     with st.container(border=True):
-        st.markdown("<div style='font-size: 16px; font-weight: 700; color: #F8FAFC; margin-bottom: 12px;'>📁 Diretórios & Armazenamento Local</div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size: 13px; font-weight: 700; color: #CBD5E1; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;'>Armazenamento Local & Sincronização</div>", unsafe_allow_html=True)
         info_col1, info_col2, info_col3 = st.columns(3)
         
         profiles_count = len(os.listdir("profiles")) if os.path.exists("profiles") else 0
@@ -91,7 +91,7 @@ def test_all_connections():
             resp = requests.get(url, headers=headers, timeout=8)
             if resp.status_code == 200:
                 title = resp.json().get("title", [{}])[0].get("text", {}).get("content", "Base de Dados")
-                results["Notion API"] = (True, f"Conectado com sucesso à base '{title}'!")
+                results["Notion API"] = (True, f"Conectado com sucesso à base '{title}'.")
             else:
                 results["Notion API"] = (False, f"Erro ({resp.status_code}): {resp.text[:100]}")
         except Exception as e:

@@ -12,3 +12,4 @@ pyautogui>=0.9.50
 streamlit>=1.35.0
 plotly>=5.20.0
 
+

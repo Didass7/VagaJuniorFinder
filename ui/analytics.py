@@ -26,7 +26,7 @@ def extract_tech_frequency(jobs: list[dict]) -> Counter:
                 counter[tech.title()] += 1
     return counter
 
-def apply_dark_theme(fig, height=350):
+def apply_dark_theme(fig, height=340):
     fig.update_layout(
         template="plotly_dark",
         paper_bgcolor="rgba(0,0,0,0)",
@@ -43,8 +43,8 @@ def render_analytics(active_profile: str):
     st.markdown(
         f"""
         <div style="margin-bottom: 8px;">
-            <h1 style="font-size: 26px; font-weight: 800; margin: 0; color: #F8FAFC; letter-spacing: -0.5px;">📊 Métricas & Inteligência de Mercado</h1>
-            <div style="font-size: 13px; color: #94A3B8;">Análise estatística e tendências das oportunidades qualificadas para <b>{active_profile}</b>.</div>
+            <h1 style="font-size: 24px; font-weight: 800; margin: 0; color: #F8FAFC; letter-spacing: -0.5px;">Métricas & Mercado</h1>
+            <div style="font-size: 13px; color: #94A3B8; margin-top: 2px;">Análise estatística e tendências das oportunidades qualificadas para <b style="color: #E2E8F0;">{active_profile}</b>.</div>
         </div>
         """,
         unsafe_allow_html=True
@@ -53,14 +53,14 @@ def render_analytics(active_profile: str):
 
     jobs = load_all_jobs(active_profile)
     if not jobs:
-        st.info("Ainda não existem vagas registadas para analisar. Executa a pesquisa primeiro!")
+        st.info("Ainda não existem vagas registadas para analisar. Execute a pesquisa no separador Executar Pipeline.")
         return
 
     df = pd.DataFrame(jobs)
 
     # ── Section 1: Candidacy Status Funnel ──
     with st.container(border=True):
-        st.markdown("<div style='font-size: 16px; font-weight: 700; color: #F8FAFC; margin-bottom: 8px;'>🎯 Funil de Candidaturas (Progresso no Notion)</div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size: 14px; font-weight: 700; color: #F8FAFC; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;'>Funil de Candidaturas</div>", unsafe_allow_html=True)
         if "status" in df.columns:
             st_counts = df["status"].value_counts().reset_index()
             st_counts.columns = ["Estado", "Total"]
@@ -81,7 +81,7 @@ def render_analytics(active_profile: str):
                 text="Total",
                 color_discrete_map=color_map
             )
-            fig_status = apply_dark_theme(fig_status, height=280)
+            fig_status = apply_dark_theme(fig_status, height=260)
             fig_status.update_layout(showlegend=False, xaxis_title="", yaxis_title="Total de Vagas")
             st.plotly_chart(fig_status, use_container_width=True)
 
@@ -92,7 +92,7 @@ def render_analytics(active_profile: str):
     # 1. Tech Stack Frequency Bar Chart
     with col1:
         with st.container(border=True):
-            st.markdown("<div style='font-size: 16px; font-weight: 700; color: #F8FAFC; margin-bottom: 8px;'>⚡ Tecnologias Mais Requisitadas</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size: 14px; font-weight: 700; color: #F8FAFC; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;'>Tecnologias Mais Requisitadas</div>", unsafe_allow_html=True)
             tech_counts = extract_tech_frequency(jobs)
             if tech_counts:
                 top_techs = tech_counts.most_common(10)
@@ -107,7 +107,7 @@ def render_analytics(active_profile: str):
                     color_continuous_scale="Blues",
                     text="Menções"
                 )
-                fig_tech = apply_dark_theme(fig_tech, height=340)
+                fig_tech = apply_dark_theme(fig_tech, height=320)
                 fig_tech.update_layout(showlegend=False, xaxis_title="Número de Vagas", yaxis_title="")
                 st.plotly_chart(fig_tech, use_container_width=True)
             else:
@@ -116,7 +116,7 @@ def render_analytics(active_profile: str):
     # 2. Work Mode Distribution Donut Chart
     with col2:
         with st.container(border=True):
-            st.markdown("<div style='font-size: 16px; font-weight: 700; color: #F8FAFC; margin-bottom: 8px;'>📍 Modalidade de Trabalho</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size: 14px; font-weight: 700; color: #F8FAFC; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;'>Modalidade de Trabalho</div>", unsafe_allow_html=True)
             if "work_mode" in df.columns:
                 mode_counts = df["work_mode"].value_counts().reset_index()
                 mode_counts.columns = ["Modalidade", "Quantidade"]
@@ -126,9 +126,9 @@ def render_analytics(active_profile: str):
                     values="Quantidade",
                     names="Modalidade",
                     hole=0.5,
-                    color_discrete_sequence=["#3B82F6", "#10B981", "#8B5CF6", "#F59E0B"]
+                    color_discrete_sequence=["#3B82F6", "#10B981", "#6366F1", "#F59E0B"]
                 )
-                fig_mode = apply_dark_theme(fig_mode, height=340)
+                fig_mode = apply_dark_theme(fig_mode, height=320)
                 st.plotly_chart(fig_mode, use_container_width=True)
             else:
                 st.caption("Sem dados de modalidades disponíveis.")
@@ -140,7 +140,7 @@ def render_analytics(active_profile: str):
     # 3. Source Portals Distribution
     with col3:
         with st.container(border=True):
-            st.markdown("<div style='font-size: 16px; font-weight: 700; color: #F8FAFC; margin-bottom: 8px;'>🌐 Vagas por Portal de Origem</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size: 14px; font-weight: 700; color: #F8FAFC; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;'>Distribuição por Portal de Origem</div>", unsafe_allow_html=True)
             if "source" in df.columns:
                 source_counts = df["source"].value_counts().reset_index()
                 source_counts.columns = ["Fonte", "Quantidade"]
@@ -151,16 +151,16 @@ def render_analytics(active_profile: str):
                     y="Quantidade",
                     color="Fonte",
                     text="Quantidade",
-                    color_discrete_sequence=px.colors.qualitative.Prism
+                    color_discrete_sequence=["#3B82F6", "#6366F1", "#10B981", "#F59E0B", "#EC4899", "#8B5CF6", "#06B6D4"]
                 )
-                fig_source = apply_dark_theme(fig_source, height=320)
+                fig_source = apply_dark_theme(fig_source, height=300)
                 fig_source.update_layout(showlegend=False, xaxis_title="", yaxis_title="Total de Vagas")
                 st.plotly_chart(fig_source, use_container_width=True)
 
     # 4. Match Score Distribution
     with col4:
         with st.container(border=True):
-            st.markdown("<div style='font-size: 16px; font-weight: 700; color: #F8FAFC; margin-bottom: 8px;'>🎯 Distribuição de Match Scores (%)</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size: 14px; font-weight: 700; color: #F8FAFC; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;'>Distribuição de Match Score (%)</div>", unsafe_allow_html=True)
             if "score" in df.columns:
                 fig_score = px.histogram(
                     df,
@@ -169,6 +169,7 @@ def render_analytics(active_profile: str):
                     color_discrete_sequence=["#2563EB"],
                     opacity=0.9
                 )
-                fig_score = apply_dark_theme(fig_score, height=320)
+                fig_score = apply_dark_theme(fig_score, height=300)
                 fig_score.update_layout(xaxis_title="Match Score (%)", yaxis_title="Frequência")
                 st.plotly_chart(fig_score, use_container_width=True)
+

@@ -10,19 +10,25 @@ from ui.settings import render_settings
 
 # ── Streamlit Page Configuration ──
 st.set_page_config(
-    page_title="VagaJuniorFinder — AI Job Hub",
-    page_icon="🎯",
+    page_title="VagaJuniorFinder | Career Intelligence Hub",
+    page_icon="💼",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# ── SaaS Premium Design System & CSS ──
+# ── Executive Clean SaaS Design System & CSS ──
 st.markdown("""
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
 <style>
+    /* ── Hide Streamlit Default Chrome ── */
+    #MainMenu, header, footer, div[data-testid="stDecoration"], div[data-testid="stToolbar"] {
+        display: none !important;
+        visibility: hidden !important;
+    }
+
     /* ── Typography & Reset ── */
     html, body, p, h1, h2, h3, h4, h5, h6, label, .stMarkdown p, .stButton button, .stTextInput input, .stTextArea textarea {
         font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -33,60 +39,30 @@ st.markdown("""
 
     /* ── Main Canvas Background ── */
     .stApp {
-        background: radial-gradient(circle at 15% 10%, rgba(37, 99, 235, 0.08) 0%, transparent 45%),
-                    radial-gradient(circle at 85% 80%, rgba(139, 92, 246, 0.06) 0%, transparent 45%),
-                    #0B0F17 !important;
+        background: radial-gradient(circle at 10% 8%, rgba(37, 99, 235, 0.08) 0%, transparent 40%),
+                    radial-gradient(circle at 90% 90%, rgba(99, 102, 241, 0.06) 0%, transparent 40%),
+                    #070A11 !important;
         color: #F1F5F9;
     }
 
     /* ── Top Header / Block Container Spacing ── */
     .block-container {
-        padding-top: 1.75rem !important;
+        padding-top: 1.25rem !important;
         padding-bottom: 3rem !important;
-        max-width: 1400px;
+        max-width: 1440px;
     }
 
-    /* ── Glassmorphism Containers & Cards ── */
+    /* ── Card Containers ── */
     div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlockBorderWrapper"] {
-        background: rgba(15, 23, 42, 0.65) !important;
-        backdrop-filter: blur(16px) !important;
-        -webkit-backdrop-filter: blur(16px) !important;
+        background: #0C1220 !important;
         border: 1px solid rgba(255, 255, 255, 0.07) !important;
-        border-radius: 14px !important;
+        border-radius: 10px !important;
         box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.35) !important;
         transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
     }
     div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlockBorderWrapper"]:hover {
         border-color: rgba(59, 130, 246, 0.35) !important;
-        box-shadow: 0 8px 30px -4px rgba(37, 99, 235, 0.15) !important;
-    }
-
-    /* ── Metric Cards Premium Styling ── */
-    div[data-testid="stMetric"] {
-        background: rgba(15, 23, 42, 0.7) !important;
-        backdrop-filter: blur(12px) !important;
-        border: 1px solid rgba(255, 255, 255, 0.08) !important;
-        border-radius: 12px !important;
-        padding: 14px 18px !important;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2) !important;
-        transition: transform 0.15s ease;
-    }
-    div[data-testid="stMetric"]:hover {
-        transform: translateY(-2px);
-        border-color: rgba(59, 130, 246, 0.3) !important;
-    }
-    div[data-testid="stMetricLabel"] {
-        font-size: 13px !important;
-        font-weight: 600 !important;
-        color: #94A3B8 !important;
-        letter-spacing: 0.3px;
-        text-transform: uppercase;
-    }
-    div[data-testid="stMetricValue"] {
-        font-size: 28px !important;
-        font-weight: 800 !important;
-        color: #F8FAFC !important;
-        letter-spacing: -0.5px;
+        box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.45) !important;
     }
 
     /* ── Buttons Styling ── */
@@ -94,116 +70,212 @@ st.markdown("""
         background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%) !important;
         color: #FFFFFF !important;
         border: 1px solid rgba(255, 255, 255, 0.15) !important;
-        border-radius: 9px !important;
+        border-radius: 7px !important;
         font-weight: 600 !important;
-        font-size: 14px !important;
-        padding: 0.5rem 1rem !important;
-        box-shadow: 0 2px 10px rgba(37, 99, 235, 0.3) !important;
-        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        font-size: 12.5px !important;
+        padding: 0.4rem 0.9rem !important;
+        box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25) !important;
+        transition: all 0.15s ease !important;
+        letter-spacing: 0.1px;
     }
     .stButton>button:hover {
         transform: translateY(-1px) !important;
-        box-shadow: 0 4px 16px rgba(37, 99, 235, 0.5) !important;
-        border-color: rgba(255, 255, 255, 0.3) !important;
+        box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4) !important;
+        border-color: rgba(255, 255, 255, 0.25) !important;
     }
     .stButton>button:active {
         transform: translateY(0) !important;
     }
     .stLinkButton>a {
-        border-radius: 9px !important;
+        border-radius: 7px !important;
         font-weight: 600 !important;
-        font-size: 13px !important;
+        font-size: 12.5px !important;
+        background: #1E293B !important;
+        color: #E2E8F0 !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        padding: 0.4rem 0.9rem !important;
         transition: all 0.15s ease !important;
+    }
+    .stLinkButton>a:hover {
+        background: #334155 !important;
+        border-color: rgba(59, 130, 246, 0.4) !important;
+        color: #FFFFFF !important;
     }
 
     /* ── Form Inputs & Selectboxes ── */
     .stTextInput>div>div>input, .stTextArea>div>div>textarea, .stSelectbox>div>div {
-        background: rgba(15, 23, 42, 0.8) !important;
-        border: 1px solid rgba(255, 255, 255, 0.12) !important;
-        border-radius: 8px !important;
+        background: #0D131F !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 7px !important;
         color: #F1F5F9 !important;
-        font-size: 14px !important;
+        font-size: 13px !important;
     }
     .stTextInput>div>div>input:focus, .stTextArea>div>div>textarea:focus {
         border-color: #3B82F6 !important;
         box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25) !important;
     }
 
+    /* ── Radio Buttons to Segmented Controls (HIDE ALL BULLET CIRCLES) ── */
+    div[data-testid="stRadio"] div[data-testid="stMarkdownContainer"] p {
+        margin: 0 !important;
+    }
+    div[data-testid="stRadio"] label > div:first-child,
+    div[data-testid="stRadio"] div[class*="RadioMark"],
+    div[data-testid="stRadio"] div[data-baseweb="radio"] > div:first-child,
+    div[data-testid="stRadio"] input[type="radio"],
+    div[data-testid="stRadio"] span[data-testid="stRadioPoint"] {
+        display: none !important;
+    }
+
+    /* Horizontal Segmented Control (Tabs / Filters) */
+    div[data-testid="stRadio"] > div[role="radiogroup"] {
+        display: inline-flex !important;
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        align-items: center !important;
+        gap: 4px !important;
+        padding: 3px !important;
+        background: #0B101B !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        border-radius: 8px !important;
+        width: auto !important;
+    }
+    div[data-testid="stRadio"] > div[role="radiogroup"] > label {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 5px 13px !important;
+        border-radius: 6px !important;
+        font-weight: 600 !important;
+        font-size: 12px !important;
+        color: #94A3B8 !important;
+        background: transparent !important;
+        border: 1px solid transparent !important;
+        cursor: pointer !important;
+        transition: all 0.15s ease !important;
+        margin: 0 !important;
+    }
+    div[data-testid="stRadio"] > div[role="radiogroup"] > label:hover {
+        color: #F8FAFC !important;
+        background: rgba(255, 255, 255, 0.05) !important;
+    }
+    div[data-testid="stRadio"] > div[role="radiogroup"] > label:has(input:checked),
+    div[data-testid="stRadio"] > div[role="radiogroup"] > label[aria-checked="true"] {
+        background: #1E293B !important;
+        color: #38BDF8 !important;
+        border: 1px solid rgba(56, 189, 248, 0.35) !important;
+        box-shadow: 0 1px 6px rgba(0, 0, 0, 0.3) !important;
+    }
+
     /* ── Sidebar Redesign ── */
     section[data-testid="stSidebar"] {
-        background-color: #080C14 !important;
+        background-color: #06080F !important;
         border-right: 1px solid rgba(255, 255, 255, 0.06) !important;
     }
     .sidebar-brand {
         display: flex;
         align-items: center;
         gap: 10px;
-        padding-bottom: 8px;
+        padding-bottom: 2px;
     }
-    .sidebar-brand-icon {
-        font-size: 26px;
-        line-height: 1;
+    .sidebar-brand-logo {
+        width: 30px;
+        height: 30px;
+        border-radius: 7px;
+        background: linear-gradient(135deg, #2563EB, #1E40AF);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        color: #FFFFFF;
+        font-size: 12px;
+        letter-spacing: -0.3px;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
     }
     .sidebar-brand-text {
-        font-size: 18px;
-        font-weight: 800;
+        font-size: 15px;
+        font-weight: 700;
         letter-spacing: -0.3px;
         color: #F8FAFC;
     }
     .profile-card {
-        background: rgba(30, 41, 59, 0.45);
+        background: #0B101C;
         border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 12px;
-        padding: 12px 14px;
-        margin-top: 6px;
+        border-radius: 9px;
+        padding: 10px 12px;
+        margin-top: 4px;
     }
     .profile-avatar {
-        width: 36px;
-        height: 36px;
-        border-radius: 8px;
-        background: linear-gradient(135deg, #2563EB, #7C3AED);
+        width: 32px;
+        height: 32px;
+        border-radius: 7px;
+        background: #1E293B;
+        border: 1px solid rgba(255, 255, 255, 0.1);
         display: flex;
         align-items: center;
         justify-content: center;
         font-weight: 700;
-        color: white;
-        font-size: 15px;
+        color: #E2E8F0;
+        font-size: 12px;
     }
 
-    /* ── Status Pills / Radio Navigation ── */
-    div[data-testid="stRadio"] > div[role="radiogroup"] {
-        gap: 8px !important;
-        padding: 4px !important;
-        background: rgba(15, 23, 42, 0.6) !important;
-        border: 1px solid rgba(255, 255, 255, 0.07) !important;
-        border-radius: 12px !important;
+    /* Sidebar Navigation Links */
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] > div[role="radiogroup"] {
+        display: flex !important;
+        flex-direction: column !important;
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+        gap: 3px !important;
+        width: 100% !important;
     }
-    div[data-testid="stRadio"] label {
-        padding: 6px 14px !important;
-        border-radius: 8px !important;
-        font-weight: 600 !important;
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] > div[role="radiogroup"] > label {
+        display: flex !important;
+        align-items: center !important;
+        width: 100% !important;
+        padding: 8px 12px !important;
+        border-radius: 7px !important;
         font-size: 13px !important;
-        transition: all 0.15s ease !important;
+        font-weight: 600 !important;
+        color: #94A3B8 !important;
+        background: transparent !important;
+        border: 1px solid transparent !important;
+        margin: 0 !important;
+    }
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] > div[role="radiogroup"] > label:hover {
+        background: rgba(255, 255, 255, 0.04) !important;
+        color: #F8FAFC !important;
+        border-color: rgba(255, 255, 255, 0.06) !important;
+    }
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] > div[role="radiogroup"] > label:has(input:checked),
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] > div[role="radiogroup"] > label[aria-checked="true"] {
+        background: linear-gradient(90deg, rgba(37, 99, 235, 0.2) 0%, rgba(30, 41, 59, 0.3) 100%) !important;
+        color: #60A5FA !important;
+        border-left: 3px solid #3B82F6 !important;
+        border-top: 1px solid rgba(59, 130, 246, 0.2) !important;
+        border-right: 1px solid rgba(59, 130, 246, 0.1) !important;
+        border-bottom: 1px solid rgba(59, 130, 246, 0.2) !important;
     }
 
     /* ── Expanders ── */
     div[data-testid="stExpander"] {
-        background: rgba(15, 23, 42, 0.5) !important;
-        border: 1px solid rgba(255, 255, 255, 0.08) !important;
-        border-radius: 12px !important;
+        background: #0B101B !important;
+        border: 1px solid rgba(255, 255, 255, 0.07) !important;
+        border-radius: 9px !important;
     }
 
-    /* ── Scrollbars ── */
+    /* ── Clean Scrollbars ── */
     ::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
+        width: 5px;
+        height: 5px;
     }
     ::-webkit-scrollbar-track {
-        background: #0B0F17;
+        background: #06080F;
     }
     ::-webkit-scrollbar-thumb {
         background: #1E293B;
-        border-radius: 4px;
+        border-radius: 3px;
     }
     ::-webkit-scrollbar-thumb:hover {
         background: #334155;
@@ -217,10 +289,10 @@ def main():
         st.markdown(
             """
             <div class="sidebar-brand">
-                <div class="sidebar-brand-icon">🎯</div>
+                <div class="sidebar-brand-logo">VF</div>
                 <div>
                     <div class="sidebar-brand-text">VagaJuniorFinder</div>
-                    <div style="font-size: 11px; color: #64748B; font-weight: 500;">AI Job Intelligence Hub</div>
+                    <div style="font-size: 11px; color: #64748B; font-weight: 500;">Career Intelligence Platform</div>
                 </div>
             </div>
             """,
@@ -234,18 +306,18 @@ def main():
             st.session_state["active_profile"] = profiles[0] if profiles else "diogo_ai"
 
         selected_profile = st.selectbox(
-            "👤 Candidato Ativo:",
+            "Candidato Ativo",
             options=profiles if profiles else ["diogo_ai"],
             index=profiles.index(st.session_state["active_profile"]) if st.session_state["active_profile"] in profiles else 0,
             key="sidebar_active_profile"
         )
         st.session_state["active_profile"] = selected_profile
 
-        # Candidate Glass Card
+        # Candidate Clean Card
         prof_data = load_profile_data(selected_profile).get("candidate", {})
         if prof_data:
-            initials = "".join([part[0].upper() for part in prof_data.get('name', selected_profile).split()[:2]]) or "DO"
-            iefp_badge = '<span style="background: rgba(16, 185, 129, 0.15); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.3); padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700;">IEFP ATIVAR.PT</span>' if prof_data.get("iefp_eligible") else ''
+            initials = "".join([part[0].upper() for part in prof_data.get('name', selected_profile).split()[:2]]) or "VF"
+            iefp_badge = '<span style="background: rgba(16, 185, 129, 0.12); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.25); padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; letter-spacing: 0.3px;">IEFP ATIVAR.PT</span>' if prof_data.get("iefp_eligible") else ''
             
             st.markdown(
                 f"""
@@ -253,13 +325,11 @@ def main():
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <div class="profile-avatar">{initials}</div>
                         <div style="overflow: hidden;">
-                            <div style="font-weight: 700; color: #F8FAFC; font-size: 14px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">{prof_data.get('name', selected_profile)}</div>
-                            <div style="font-size: 11px; color: #94A3B8; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">🎓 {prof_data.get('degree', 'Engenharia')[:30]}...</div>
+                            <div style="font-weight: 700; color: #F8FAFC; font-size: 13px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">{prof_data.get('name', selected_profile)}</div>
+                            <div style="font-size: 11px; color: #94A3B8; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">{prof_data.get('degree', 'Licenciatura')[:30]}</div>
                         </div>
                     </div>
-                    <div style="margin-top: 8px; display: flex; gap: 6px; align-items: center;">
-                        {iefp_badge}
-                    </div>
+                    {f'<div style="margin-top: 8px;">{iefp_badge}</div>' if iefp_badge else ''}
                 </div>
                 """,
                 unsafe_allow_html=True
@@ -267,15 +337,15 @@ def main():
 
         st.divider()
 
-        # Navigation
+        # Navigation without emojis
         menu_choice = st.radio(
-            "Navegação:",
+            "Navegação",
             [
-                "🏠 Feed & Dashboard",
-                "⚡ Executar Pesquisa",
-                "👤 Gestor de Perfis",
-                "📊 Métricas & Mercado",
-                "⚙️ Configurações & APIs"
+                "Feed & Dashboard",
+                "Executar Pipeline",
+                "Gestor de Perfis",
+                "Métricas & Mercado",
+                "Configurações & APIs"
             ],
             index=0
         )
@@ -283,25 +353,26 @@ def main():
         st.divider()
         st.markdown(
             """
-            <div style="background: rgba(30, 41, 59, 0.3); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 10px; font-size: 11px; color: #94A3B8;">
-                <div style="font-weight: 600; color: #CBD5E1; margin-bottom: 2px;">☁️ Automação Cloud</div>
-                Execuções diárias automáticas às 09:00 e 21:00 via GitHub Actions.
+            <div style="background: rgba(15, 23, 42, 0.4); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 10px 12px; font-size: 11px; color: #94A3B8;">
+                <div style="font-weight: 600; color: #CBD5E1; margin-bottom: 2px; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;">Automação Agendada</div>
+                Execuções automáticas às 09:00 e 21:00 UTC via GitHub Actions.
             </div>
             """,
             unsafe_allow_html=True
         )
 
     # ── Main Content Router ──
-    if menu_choice == "🏠 Feed & Dashboard":
+    if menu_choice == "Feed & Dashboard":
         render_dashboard(st.session_state["active_profile"])
-    elif menu_choice == "⚡ Executar Pesquisa":
+    elif menu_choice == "Executar Pipeline":
         render_runner(st.session_state["active_profile"])
-    elif menu_choice == "👤 Gestor de Perfis":
+    elif menu_choice == "Gestor de Perfis":
         render_profiles()
-    elif menu_choice == "📊 Métricas & Mercado":
+    elif menu_choice == "Métricas & Mercado":
         render_analytics(st.session_state["active_profile"])
-    elif menu_choice == "⚙️ Configurações & APIs":
+    elif menu_choice == "Configurações & APIs":
         render_settings()
 
 if __name__ == "__main__":
     main()
+
