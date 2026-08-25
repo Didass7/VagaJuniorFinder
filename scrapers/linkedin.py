@@ -18,7 +18,7 @@ class LinkedInScraper(BaseScraper):
     def __init__(self, session: Optional[requests.Session] = None, is_seen_func: Optional[Any] = None, queries: Optional[List[str]] = None):
         super().__init__(session=session, is_seen_func=is_seen_func, queries=queries)
 
-    def _fetch_query_cards(self, query: str, max_pages: int = 3) -> List[Dict]:
+    def _fetch_query_cards(self, query: str, max_pages: int = 40) -> List[Dict]:
         cards_data = []
         for page in range(max_pages):
             start = page * 25
@@ -153,13 +153,13 @@ class LinkedInScraper(BaseScraper):
 
     def fetch(self) -> List[Job]:
         queries = self.queries or config.candidate.search_queries or ["Junior AI", "Junior Data Scientist", "Machine Learning Trainee", "Data Engineer Trainee", "Entry level AI", "Entry level Data"]
-        target_queries = queries[:12]
+        target_queries = list(queries)
         all_cards: List[Dict] = []
         seen_links: Set[str] = set()
         
-        # 1. Fetch query cards concurrently
-        with ThreadPoolExecutor(max_workers=min(len(target_queries), 5)) as executor:
-            future_to_q = {executor.submit(self._fetch_query_cards, q, 2): q for q in target_queries}
+        # 1. Fetch query cards concurrently across all pages
+        with ThreadPoolExecutor(max_workers=min(len(target_queries), 6)) as executor:
+            future_to_q = {executor.submit(self._fetch_query_cards, q, 40): q for q in target_queries}
             for future in as_completed(future_to_q):
                 try:
                     res = future.result()
@@ -170,11 +170,11 @@ class LinkedInScraper(BaseScraper):
                 except Exception as e:
                     logger.debug(f"[LinkedIn Portal] Error fetching query cards: {e}")
 
-        # 2. Fetch full detail bodies concurrently (up to 200 jobs)
+        # 2. Fetch full detail bodies concurrently for all discovered jobs
         jobs: List[Job] = []
-        cards_to_fetch = all_cards[:200]
+        cards_to_fetch = all_cards
         if cards_to_fetch:
-            with ThreadPoolExecutor(max_workers=4) as executor:
+            with ThreadPoolExecutor(max_workers=6) as executor:
                 future_to_detail = {executor.submit(self._fetch_detail_job, card): card for card in cards_to_fetch}
 
                 for future in as_completed(future_to_detail):
@@ -185,7 +185,7 @@ class LinkedInScraper(BaseScraper):
                     except Exception as e:
                         logger.debug(f"[LinkedIn Portal] Error fetching job detail: {e}")
 
-        logger.info(f"[LinkedIn Portal] Safely fetched {len(jobs)} fresh jobs with full detail body parsing.")
+        logger.info(f"[LinkedIn Portal] Safely fetched {len(jobs)} fresh jobs with full detail body parsing across all available pages.")
         return jobs
 
 
