@@ -39,10 +39,16 @@ class LinkedInScraper(BaseScraper):
 
                 if resp.status_code != 200:
                     if resp.status_code == 429:
-                        logger.debug(f"[{self.__class__.__name__}] HTTP 429 rate limit for query '{query}' (start={start})")
-                    else:
-                        logger.warning(f"[{self.__class__.__name__}] HTTP {resp.status_code} for query '{query}' (start={start})")
-                    break
+                        time.sleep(random.uniform(1.5, 3.0))
+                        headers = get_random_headers()
+                        resp = self.session.get(url, headers=headers, timeout=(3.5, 10.0))
+
+                    if resp.status_code != 200:
+                        if resp.status_code == 429:
+                            logger.debug(f"[{self.__class__.__name__}] HTTP 429 rate limit for query '{query}' (start={start})")
+                        else:
+                            logger.warning(f"[{self.__class__.__name__}] HTTP {resp.status_code} for query '{query}' (start={start})")
+                        break
 
                 soup = BeautifulSoup(resp.text, "html.parser")
                 cards = soup.find_all("li") or soup.find_all("div", class_=lambda c: c and "base-card" in str(c))
