@@ -17,8 +17,10 @@ seen_jobs.json
 jobs_cache.json
 data/*.json
 data/*.xlsx
+data/.*
 *.xlsx
 scratch/
+
 
 # Reports & HTML dumps
 *.html

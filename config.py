@@ -58,7 +58,7 @@ class AppConfig:
 def load_config(profile_name: Optional[str] = None) -> AppConfig:
     cfg = AppConfig()
     
-    active_profile = profile_name or os.getenv("ACTIVE_PROFILE", "diogo_ai")
+    active_profile = profile_name or os.getenv("ACTIVE_PROFILE", "diogo")
     profile_path = os.path.join("profiles", f"{active_profile}.json")
     
     # Make cache file specific to the profile

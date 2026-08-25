@@ -2,6 +2,7 @@ import os
 import re
 import glob
 import hashlib
+from datetime import datetime
 import pandas as pd
 import requests
 import streamlit as st
@@ -11,14 +12,51 @@ NOTION_API_URL = "https://api.notion.com/v1"
 NOTION_VERSION = "2022-06-28"
 
 STATUS_CONFIG = {
-    "Por Candidatar": {"bg": "rgba(239, 68, 68, 0.12)", "border": "rgba(239, 68, 68, 0.35)", "text": "#FCA5A5", "dot": "#EF4444", "label": "Por Candidatar"},
-    "Candidatado": {"bg": "rgba(16, 185, 129, 0.12)", "border": "rgba(16, 185, 129, 0.35)", "text": "#6EE7B7", "dot": "#10B981", "label": "Candidatado"},
-    "Entrevista": {"bg": "rgba(59, 130, 246, 0.12)", "border": "rgba(59, 130, 246, 0.35)", "text": "#93C5FD", "dot": "#3B82F6", "label": "Entrevista"},
-    "Rejeitado": {"bg": "rgba(100, 116, 139, 0.15)", "border": "rgba(100, 116, 139, 0.35)", "text": "#CBD5E1", "dot": "#94A3B8", "label": "Rejeitado"},
-    "Desqualificada": {"bg": "rgba(245, 158, 11, 0.12)", "border": "rgba(245, 158, 11, 0.35)", "text": "#FCD34D", "dot": "#F59E0B", "label": "Desqualificada"},
+    "Por Candidatar": {"bg": "rgba(239, 68, 68, 0.12)", "border": "rgba(239, 68, 68, 0.35)", "text": "#FCA5A5", "dot": "#EF4444", "display": "🔴 Por Candidatar"},
+    "Candidatado": {"bg": "rgba(16, 185, 129, 0.12)", "border": "rgba(16, 185, 129, 0.35)", "text": "#6EE7B7", "dot": "#10B981", "display": "🟢 Candidatado"},
+    "Entrevista": {"bg": "rgba(59, 130, 246, 0.12)", "border": "rgba(59, 130, 246, 0.35)", "text": "#93C5FD", "dot": "#3B82F6", "display": "🔵 Entrevista"},
+    "Rejeitado": {"bg": "rgba(100, 116, 139, 0.15)", "border": "rgba(100, 116, 139, 0.35)", "text": "#CBD5E1", "dot": "#94A3B8", "display": "⚪ Rejeitado"},
+    "Desqualificada": {"bg": "rgba(245, 158, 11, 0.12)", "border": "rgba(245, 158, 11, 0.35)", "text": "#FCD34D", "dot": "#F59E0B", "display": "🟠 Desqualificada"},
 }
 
 STATUS_OPTIONS = ["Por Candidatar", "Candidatado", "Entrevista", "Rejeitado", "Desqualificada"]
+STATUS_DISPLAY_OPTIONS = ["🔴 Por Candidatar", "🟢 Candidatado", "🔵 Entrevista", "⚪ Rejeitado", "🟠 Desqualificada"]
+
+def status_to_display(s: str) -> str:
+    return STATUS_CONFIG.get(s, {}).get("display", f"⚪ {s}" if s else "🔴 Por Candidatar")
+
+def display_to_status(d: str) -> str:
+    if not d:
+        return "Por Candidatar"
+    for raw, cfg in STATUS_CONFIG.items():
+        if raw == d or cfg.get("display") == d:
+            return raw
+    return d.replace("🔴", "").replace("🟢", "").replace("🔵", "").replace("⚪", "").replace("🟠", "").strip()
+
+def format_date_pt(val: str) -> str:
+    """Formats ISO or raw date strings into readable European format (DD/MM/YYYY or DD/MM/YYYY HH:MM)."""
+    if not val:
+        return ""
+    val = str(val).strip()
+    try:
+        if "T" in val:
+            clean_val = val.split(".")[0] if "." in val else val
+            clean_val = clean_val.replace("Z", "")
+            if "+" in clean_val:
+                clean_val = clean_val.split("+")[0]
+            dt = datetime.fromisoformat(clean_val)
+            if dt.hour == 0 and dt.minute == 0:
+                return dt.strftime("%d/%m/%Y")
+            return dt.strftime("%d/%m/%Y %H:%M")
+        if len(val) == 10 and val.count("-") == 2:
+            dt = datetime.strptime(val, "%Y-%m-%d")
+            return dt.strftime("%d/%m/%Y")
+    except Exception:
+        pass
+    if len(val) >= 10 and val[4] == "-" and val[7] == "-":
+        parts = val[:10].split("-")
+        return f"{parts[2]}/{parts[1]}/{parts[0]}"
+    return val
 
 COMMON_TECHS = [
     "python", "sql", "langchain", "llamaindex", "fastapi", "flask", "django",
@@ -305,276 +343,255 @@ def render_dashboard(active_profile: str):
     count_rejeitado = len(df[df["status"] == "Rejeitado"])
     total_jobs = len(df)
 
-    # ── Bespoke Executive KPI Cards Bar ──
-    st.markdown(
-        f"""
-        <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 12px 0 16px 0;">
-            <div style="background: #0B101C; border: 1px solid rgba(255, 255, 255, 0.07); border-top: 3px solid #EF4444; border-radius: 9px; padding: 12px 14px; box-shadow: 0 4px 14px rgba(0,0,0,0.25);">
-                <div style="font-size: 11px; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.5px;">Por Candidatar</div>
-                <div style="font-size: 24px; font-weight: 800; color: #F8FAFC; margin-top: 3px; letter-spacing: -0.5px;">{count_por_candidatar}</div>
-            </div>
-            <div style="background: #0B101C; border: 1px solid rgba(255, 255, 255, 0.07); border-top: 3px solid #10B981; border-radius: 9px; padding: 12px 14px; box-shadow: 0 4px 14px rgba(0,0,0,0.25);">
-                <div style="font-size: 11px; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.5px;">Candidatadas</div>
-                <div style="font-size: 24px; font-weight: 800; color: #F8FAFC; margin-top: 3px; letter-spacing: -0.5px;">{count_candidatado}</div>
-            </div>
-            <div style="background: #0B101C; border: 1px solid rgba(255, 255, 255, 0.07); border-top: 3px solid #3B82F6; border-radius: 9px; padding: 12px 14px; box-shadow: 0 4px 14px rgba(0,0,0,0.25);">
-                <div style="font-size: 11px; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.5px;">Em Entrevista</div>
-                <div style="font-size: 24px; font-weight: 800; color: #F8FAFC; margin-top: 3px; letter-spacing: -0.5px;">{count_entrevista}</div>
-            </div>
-            <div style="background: #0B101C; border: 1px solid rgba(255, 255, 255, 0.07); border-top: 3px solid #64748B; border-radius: 9px; padding: 12px 14px; box-shadow: 0 4px 14px rgba(0,0,0,0.25);">
-                <div style="font-size: 11px; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.5px;">Rejeitadas</div>
-                <div style="font-size: 24px; font-weight: 800; color: #F8FAFC; margin-top: 3px; letter-spacing: -0.5px;">{count_rejeitado}</div>
-            </div>
-            <div style="background: #0B101C; border: 1px solid rgba(255, 255, 255, 0.07); border-top: 3px solid #8B5CF6; border-radius: 9px; padding: 12px 14px; box-shadow: 0 4px 14px rgba(0,0,0,0.25);">
-                <div style="font-size: 11px; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.5px;">Total no Hub</div>
-                <div style="font-size: 24px; font-weight: 800; color: #F8FAFC; margin-top: 3px; letter-spacing: -0.5px;">{total_jobs}</div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    # ── Interactive Status KPI Metric Cards ──
+    filter_state_key = f"status_filter_{active_profile}"
+    if filter_state_key not in st.session_state:
+        if count_por_candidatar > 0:
+            st.session_state[filter_state_key] = "Por Candidatar"
+        elif count_candidatado > 0:
+            st.session_state[filter_state_key] = "Candidatado"
+        else:
+            st.session_state[filter_state_key] = "Todas"
 
-    # ── Primary Division: Status Navigation Segmented Control ──
-    status_nav_options = [
-        f"Por Candidatar ({count_por_candidatar})",
-        f"Candidatado ({count_candidatado})",
-        f"Entrevista ({count_entrevista})",
-        f"Rejeitado ({count_rejeitado})",
-        f"Todas as Vagas ({total_jobs})"
+    current_status_filter = st.session_state.get(filter_state_key, "Todas")
+
+    kpi_cards = [
+        {"id": "Por Candidatar", "label": "Por Candidatar", "count": count_por_candidatar, "dot": "🔴", "css_key": "por_candidatar"},
+        {"id": "Candidatado", "label": "Candidatadas", "count": count_candidatado, "dot": "🟢", "css_key": "candidatado"},
+        {"id": "Entrevista", "label": "Em Entrevista", "count": count_entrevista, "dot": "🔵", "css_key": "entrevista"},
+        {"id": "Rejeitado", "label": "Rejeitadas", "count": count_rejeitado, "dot": "⚪", "css_key": "rejeitado"},
+        {"id": "Todas", "label": "Total no Hub", "count": total_jobs, "dot": "🟣", "css_key": "todas"},
     ]
 
-    if count_por_candidatar > 0:
-        default_tab_idx = 0
-    elif count_candidatado > 0:
-        default_tab_idx = 1
-    elif count_entrevista > 0:
-        default_tab_idx = 2
-    else:
-        default_tab_idx = 4
+    cols_kpi = st.columns(5)
+    for i, card in enumerate(kpi_cards):
+        is_selected = (current_status_filter == card["id"])
+        with cols_kpi[i]:
+            btn_title = f"{card['dot']} {card['label']}  \n\n{card['count']}"
+            if st.button(
+                btn_title,
+                key=f"kpicard_{card['css_key']}_{active_profile}",
+                use_container_width=True,
+                type="primary" if is_selected else "secondary"
+            ):
+                st.session_state[filter_state_key] = card["id"]
+                st.rerun()
 
-    selected_status_tab = st.radio(
-        "Divisão por Estado de Candidatura",
-        options=status_nav_options,
-        index=default_tab_idx,
-        horizontal=True,
-        key="status_radio_selector",
-        label_visibility="collapsed"
-    )
+    status_filter = current_status_filter
 
-    if selected_status_tab and "Por Candidatar" in selected_status_tab:
-        status_filter = "Por Candidatar"
-    elif selected_status_tab and "Candidatado" in selected_status_tab:
-        status_filter = "Candidatado"
-    elif selected_status_tab and "Entrevista" in selected_status_tab:
-        status_filter = "Entrevista"
-    elif selected_status_tab and "Rejeitado" in selected_status_tab:
-        status_filter = "Rejeitado"
-    else:
-        status_filter = "Todas"
-
-    # ── Search & Filter Controls ──
+    # ── Search & View Controls (Clean & Focused) ──
     with st.container(border=True):
-        col_s1, col_s2 = st.columns([3.3, 1.2])
+        col_s1, col_s2 = st.columns([3.6, 1.4], vertical_alignment="center")
         with col_s1:
             search_query = st.text_input(
                 "Pesquisa Instantânea",
-                placeholder="Pesquisar por cargo, empresa ou tecnologia (ex: Python, LangChain, Lisboa)...",
-                label_visibility="collapsed"
+                value=st.session_state.get(f"search_query_{active_profile}", ""),
+                placeholder="🔍 Pesquisar por cargo, empresa, tecnologia ou localidade (ex: Python, LangChain, Lisboa)...",
+                label_visibility="collapsed",
+                key=f"search_query_{active_profile}"
             ).strip().lower()
         with col_s2:
-            view_mode = st.radio("Visualização", ["Cards Visuais", "Tabela"], horizontal=True, label_visibility="collapsed")
-
-        with st.expander("Filtros Avançados (Score, Portal, Modalidade, IEFP)", expanded=False):
-            f1, f2, f3 = st.columns(3)
-            with f1:
-                min_score = st.slider("Match Score Mínimo (%):", min_value=0, max_value=100, value=50, step=5)
-            with f2:
-                sources = ["Todas"] + sorted(list(set(df["source"].dropna().unique())))
-                selected_source = st.selectbox("Portal de Origem:", options=sources)
-                modes = ["Todas"] + sorted(list(set(df["work_mode"].dropna().unique())))
-                selected_mode = st.selectbox("Modalidade:", options=modes)
-            with f3:
-                seniorities = ["Todas"] + sorted(list(set(df["seniority"].dropna().unique())))
-                selected_seniority = st.selectbox("Senioridade:", options=seniorities)
-                only_iefp = st.checkbox("Apenas vagas elegíveis IEFP / ATIVAR.pt", value=False)
+            view_mode = st.segmented_control(
+                "Visualização",
+                options=["Tabela", "Cards Visuais"],
+                default="Tabela",
+                format_func=lambda x: "☰ Tabela" if x == "Tabela" else "⊞ Cards Visuais",
+                selection_mode="single",
+                required=True,
+                label_visibility="collapsed",
+                key=f"view_mode_{active_profile}",
+                width="stretch"
+            )
+            if not view_mode:
+                view_mode = "Tabela"
 
     # Apply all filters
     filtered_df = df.copy()
 
+    # 1. Status Filter from Top Tabs
     if status_filter != "Todas":
         filtered_df = filtered_df[filtered_df["status"] == status_filter]
 
+    # 2. Search Query (Multi-keyword token matching)
     if search_query:
-        filtered_df = filtered_df[
-            filtered_df["title"].str.lower().str.contains(search_query, na=False) |
-            filtered_df["company"].str.lower().str.contains(search_query, na=False) |
-            filtered_df["ai_reasoning"].str.lower().str.contains(search_query, na=False)
-        ]
-    if min_score > 0:
-        filtered_df = filtered_df[filtered_df["score"] >= min_score]
-    if selected_source != "Todas":
-        filtered_df = filtered_df[filtered_df["source"] == selected_source]
-    if selected_mode != "Todas":
-        filtered_df = filtered_df[filtered_df["work_mode"] == selected_mode]
-    if selected_seniority != "Todas":
-        filtered_df = filtered_df[filtered_df["seniority"] == selected_seniority]
-    if only_iefp:
-        filtered_df = filtered_df[filtered_df["iefp_eligible"] == True]
+        for word in search_query.split():
+            filtered_df = filtered_df[
+                filtered_df["title"].str.lower().str.contains(word, na=False) |
+                filtered_df["company"].str.lower().str.contains(word, na=False) |
+                filtered_df["ai_reasoning"].str.lower().str.contains(word, na=False) |
+                filtered_df["source"].str.lower().str.contains(word, na=False) |
+                filtered_df["work_mode"].str.lower().str.contains(word, na=False) |
+                filtered_df["seniority"].str.lower().str.contains(word, na=False)
+            ]
 
     filtered_df = filtered_df.sort_values(by="score", ascending=False).reset_index(drop=True)
 
-    st.markdown(f"<div style='font-size: 12px; font-weight: 600; color: #94A3B8; margin: 12px 0 8px 0;'>A mostrar {len(filtered_df)} de {total_jobs} vagas</div>", unsafe_allow_html=True)
+    filter_badge = " <span style='background: rgba(59, 130, 246, 0.15); color: #60A5FA; border: 1px solid rgba(59, 130, 246, 0.3); padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 600;'>Pesquisa Ativa</span>" if bool(search_query) else ""
+
+    st.markdown(f"<div style='font-size: 12.5px; font-weight: 600; color: #94A3B8; margin: 12px 0 8px 0;'>A mostrar <b style='color: #F8FAFC;'>{len(filtered_df)}</b> de <b style='color: #F8FAFC;'>{total_jobs}</b> vagas{filter_badge}</div>", unsafe_allow_html=True)
 
     if filtered_df.empty:
         st.info("Nenhuma vaga encontrada com os filtros selecionados.")
         return
 
     # ── Render Views ──
-    if view_mode == "Tabela":
-        st.dataframe(
-            filtered_df[["status", "title", "company", "score", "seniority", "work_mode", "source", "link", "date"]],
+    if "Tabela" in str(view_mode):
+        table_df = filtered_df.copy()
+        table_df["status_display"] = table_df["status"].apply(status_to_display)
+        table_df["date"] = table_df["date"].apply(format_date_pt)
+
+        display_cols = ["status_display", "title", "company", "score", "work_mode", "source", "link", "date"]
+        editor_key = f"table_editor_{active_profile}"
+
+        edited_df = st.data_editor(
+            table_df[display_cols],
             column_config={
-                "status": "Estado",
-                "title": "Cargo",
-                "company": "Empresa",
+                "status_display": st.column_config.SelectboxColumn(
+                    "Estado",
+                    help="Clique para alterar o estado da vaga diretamente",
+                    width="medium",
+                    options=STATUS_DISPLAY_OPTIONS,
+                    required=True
+                ),
+                "title": st.column_config.TextColumn("Cargo", disabled=True),
+                "company": st.column_config.TextColumn("Empresa", disabled=True),
                 "score": st.column_config.ProgressColumn("Match Score", format="%.1f%%", min_value=0, max_value=100),
-                "seniority": "Senioridade",
-                "work_mode": "Modalidade",
-                "source": "Fonte",
-                "link": st.column_config.LinkColumn("Link de Candidatura"),
-                "date": "Data Extração"
+                "work_mode": st.column_config.TextColumn("Modalidade", disabled=True),
+                "source": st.column_config.TextColumn("Fonte", disabled=True),
+                "link": st.column_config.LinkColumn("Link de Candidatura", display_text="Ver Vaga ↗", disabled=True),
+                "date": st.column_config.TextColumn("Data Extração", disabled=True)
             },
+            disabled=["title", "company", "score", "work_mode", "source", "link", "date"],
             use_container_width=True,
-            hide_index=True
+            hide_index=True,
+            height=min(max(len(table_df) * 38 + 45, 500), 850),
+            key=editor_key
         )
+
+        # Detect in-table status modifications
+        if editor_key in st.session_state and "edited_rows" in st.session_state[editor_key]:
+            edited_rows = st.session_state[editor_key]["edited_rows"]
+            has_changes = False
+            for row_idx_str, changes in edited_rows.items():
+                if "status_display" in changes:
+                    try:
+                        row_idx = int(row_idx_str)
+                        if 0 <= row_idx < len(filtered_df):
+                            new_status_disp = changes["status_display"]
+                            new_status_raw = display_to_status(new_status_disp)
+                            page_id = filtered_df.iloc[row_idx].get("page_id")
+                            job_title = filtered_df.iloc[row_idx].get("title", "Vaga")
+
+                            # Update session cache
+                            state_key_act = f"jobs_data_{active_profile}"
+                            if state_key_act in st.session_state and page_id:
+                                for j in st.session_state[state_key_act]:
+                                    if j.get("page_id") == page_id:
+                                        j["status"] = new_status_raw
+                                        break
+
+                            # Sync to Notion
+                            if page_id and p_cfg.notion_token:
+                                ok = update_job_status_in_notion(page_id, new_status_raw, p_cfg.notion_token)
+                                if ok:
+                                    st.toast(f"Estado de '{job_title[:25]}' atualizado para '{new_status_disp}' no Notion!")
+                                else:
+                                    st.toast("Erro ao atualizar o estado no Notion.")
+                            has_changes = True
+                    except Exception:
+                        pass
+            if has_changes:
+                st.cache_data.clear()
+                st.rerun()
     else:
-        # Visual Cards View
+        # Visual Cards View (Compact High-Density Design)
         for idx, row in filtered_df.iterrows():
             score_val = row['score']
             if score_val >= 75:
                 score_gradient = "linear-gradient(135deg, #059669, #10B981)"
-                score_label = "TOP MATCH"
+                score_label = "TOP"
             elif score_val >= 60:
                 score_gradient = "linear-gradient(135deg, #2563EB, #3B82F6)"
-                score_label = "PROMISSORA"
+                score_label = "BOM"
             else:
                 score_gradient = "linear-gradient(135deg, #475569, #64748B)"
-                score_label = "ADEQUADA"
+                score_label = "OK"
 
-            st_cfg = STATUS_CONFIG.get(row['status'], {"bg": "rgba(55, 65, 81, 0.2)", "border": "rgba(255, 255, 255, 0.1)", "text": "#E5E7EB", "dot": "#94A3B8"})
             company_initial = row['company'][:2].upper() if row['company'] else "EM"
             avatar_bg = get_avatar_gradient(row['company'])
 
             tech_chips = extract_tech_chips(f"{row['title']} {row.get('ai_reasoning', '')}")
-            tech_html = "".join([f'<span style="background: #1E293B; color: #93C5FD; border: 1px solid rgba(255, 255, 255, 0.08); padding: 2px 7px; border-radius: 5px; font-size: 11px; font-weight: 600;">{t}</span> ' for t in tech_chips])
+            tech_html = "".join([f'<span style="background: #1E293B; color: #93C5FD; border: 1px solid rgba(255, 255, 255, 0.08); padding: 1px 5px; border-radius: 4px; font-size: 10px; font-weight: 600;">{t}</span> ' for t in tech_chips])
+            iefp_badge_html = '<span style="background: rgba(16, 185, 129, 0.12); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.25); padding: 1px 5px; border-radius: 4px; font-size: 10px; font-weight: 700;">IEFP</span> ' if row.get("iefp_eligible") else ''
 
             with st.container(border=True):
-                # Header Row
-                c_avatar, c_content, c_badge = st.columns([0.45, 3.55, 1])
+                # Row 1: Core Info + Score + Status Dropdown + Action Link
+                c_avatar, c_info, c_score, c_status, c_link = st.columns([0.35, 3.0, 0.85, 1.2, 0.7], vertical_alignment="center")
+
                 with c_avatar:
                     st.markdown(
                         f"""
-                        <div style="width: 38px; height: 38px; border-radius: 7px; background: {avatar_bg}; border: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-weight: 700; color: #F1F5F9; font-size: 13px; box-shadow: 0 2px 6px rgba(0,0,0,0.3);">
+                        <div style="width: 32px; height: 32px; border-radius: 6px; background: {avatar_bg}; border: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-weight: 700; color: #F1F5F9; font-size: 11.5px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">
                             {company_initial}
                         </div>
                         """,
                         unsafe_allow_html=True
                     )
-                with c_content:
+                with c_info:
                     st.markdown(
                         f"""
-                        <div style="margin-left: -6px;">
-                            <a href="{row['link']}" target="_blank" style="text-decoration: none; color: #F8FAFC; font-weight: 700; font-size: 15px; letter-spacing: -0.2px;">
-                                {row['title']} <span style="font-size: 12px; color: #64748B; font-weight: normal;">↗</span>
+                        <div style="line-height: 1.3; overflow: hidden; padding-right: 6px;">
+                            <a href="{row['link']}" target="_blank" style="text-decoration: none; color: #F8FAFC; font-weight: 700; font-size: 13.5px; letter-spacing: -0.2px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; display: block;">
+                                {row['title']} <span style="font-size: 11px; color: #64748B; font-weight: normal;">↗</span>
                             </a>
-                            <div style="color: #94A3B8; font-size: 12px; margin-top: 2px;">
+                            <div style="color: #94A3B8; font-size: 11px; margin-top: 1px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">
                                 <b style="color: #E2E8F0;">{row['company']}</b> &nbsp;•&nbsp; {row['work_mode']} &nbsp;•&nbsp; {row['source']} &nbsp;•&nbsp; {row['seniority']}
                             </div>
                         </div>
                         """,
                         unsafe_allow_html=True
                     )
-                with c_badge:
+                with c_score:
                     st.markdown(
                         f"""
-                        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
-                            <div style="background: {score_gradient}; color: white; padding: 2px 8px; border-radius: 5px; font-weight: 800; font-size: 11px; box-shadow: 0 2px 6px rgba(0,0,0,0.25);">
-                                {score_val:.1f}% &nbsp;<span style="font-size: 8.5px; font-weight: 600; opacity: 0.95;">{score_label}</span>
-                            </div>
-                            <div style="background: {st_cfg['bg']}; border: 1px solid {st_cfg['border']}; color: {st_cfg['text']}; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
-                                <span style="width: 5px; height: 5px; border-radius: 50%; background: {st_cfg['dot']}; display: inline-block;"></span>
-                                {row['status']}
-                            </div>
+                        <div style="background: {score_gradient}; color: white; padding: 2px 6px; border-radius: 4px; font-weight: 800; font-size: 10.5px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.25); white-space: nowrap;">
+                            {score_val:.1f}% <span style="font-size: 8px; font-weight: 600; opacity: 0.9;">{score_label}</span>
                         </div>
                         """,
                         unsafe_allow_html=True
                     )
-
-                # AI Analysis Callout
-                if row.get("ai_reasoning"):
-                    st.markdown(
-                        f"""
-                        <div style="background: rgba(30, 41, 59, 0.35); border-left: 2px solid #6366F1; border-radius: 5px; padding: 6px 10px; margin: 6px 0 6px 0; font-size: 12px; color: #CBD5E1; line-height: 1.4;">
-                            <span style="font-weight: 600; color: #A5B4FC;">Avaliação do Perfil:</span> <i>{row['ai_reasoning']}</i>
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
-
-                # Tech Chips & Action Buttons (Balanced Layout)
-                is_por_candidatar = row["status"] == "Por Candidatar" and row.get("page_id") and p_cfg.notion_token
-                if is_por_candidatar:
-                    c_chips, c_quick_btn, c_sel, c_open = st.columns([2.6, 1.1, 1.2, 0.9])
-                    with c_chips:
-                        if tech_html:
-                            st.markdown(f"<div style='display: flex; gap: 4px; flex-wrap: wrap; align-items: center; padding-top: 2px;'>{tech_html}</div>", unsafe_allow_html=True)
-                        if row.get("iefp_eligible"):
-                            st.markdown('<span style="background: rgba(16, 185, 129, 0.1); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.2); padding: 1px 5px; border-radius: 4px; font-size: 10px; font-weight: 600;">IEFP ATIVAR.PT</span>', unsafe_allow_html=True)
-                    with c_quick_btn:
-                        if st.button("Candidatar", key=f"quick_apply_{row['page_id']}_{idx}", use_container_width=True):
-                            state_key_act = f"jobs_data_{active_profile}"
-                            for j in st.session_state.get(state_key_act, []):
-                                if j.get("page_id") == row["page_id"]:
-                                    j["status"] = "Candidatado"
-                                    break
-                            update_job_status_in_notion(row["page_id"], "Candidatado", p_cfg.notion_token)
-                            st.toast("Vaga atualizada para 'Candidatado' no Notion.")
-                            st.cache_data.clear()
-                            st.rerun()
-                    with c_sel:
+                with c_status:
+                    st_cfg = STATUS_CONFIG.get(row['status'], {"bg": "rgba(55, 65, 81, 0.2)", "border": "rgba(255, 255, 255, 0.1)", "text": "#E5E7EB", "dot": "#94A3B8"})
+                    if row.get("page_id") and p_cfg.notion_token:
                         widget_key = f"status_sel_{row['page_id']}"
                         st.selectbox(
                             "Estado",
                             options=STATUS_OPTIONS,
-                            format_func=lambda x: STATUS_CONFIG.get(x, {}).get("label", x),
+                            format_func=lambda x: STATUS_CONFIG.get(x, {}).get("display", x),
                             index=STATUS_OPTIONS.index(row["status"]) if row["status"] in STATUS_OPTIONS else 0,
                             key=widget_key,
                             on_change=handle_status_change,
                             args=(row["page_id"], active_profile, widget_key, p_cfg.notion_token),
                             label_visibility="collapsed"
                         )
-                    with c_open:
-                        st.link_button("Ver Vaga ↗", row["link"], use_container_width=True)
-                else:
-                    c_chips, c_sel, c_open = st.columns([3.5, 1.3, 0.9])
-                    with c_chips:
-                        if tech_html:
-                            st.markdown(f"<div style='display: flex; gap: 4px; flex-wrap: wrap; align-items: center; padding-top: 2px;'>{tech_html}</div>", unsafe_allow_html=True)
-                        if row.get("iefp_eligible"):
-                            st.markdown('<span style="background: rgba(16, 185, 129, 0.1); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.2); padding: 1px 5px; border-radius: 4px; font-size: 10px; font-weight: 600;">IEFP ATIVAR.PT</span>', unsafe_allow_html=True)
-                    with c_sel:
-                        if row.get("page_id") and p_cfg.notion_token:
-                            widget_key = f"status_sel_{row['page_id']}"
-                            st.selectbox(
-                                "Estado",
-                                options=STATUS_OPTIONS,
-                                format_func=lambda x: STATUS_CONFIG.get(x, {}).get("label", x),
-                                index=STATUS_OPTIONS.index(row["status"]) if row["status"] in STATUS_OPTIONS else 0,
-                                key=widget_key,
-                                on_change=handle_status_change,
-                                args=(row["page_id"], active_profile, widget_key, p_cfg.notion_token),
-                                label_visibility="collapsed"
-                            )
-                    with c_open:
-                        st.link_button("Ver Vaga ↗", row["link"], use_container_width=True)
+                    else:
+                        bg_c = st_cfg.get("bg", "rgba(55, 65, 81, 0.2)")
+                        br_c = st_cfg.get("border", "rgba(255, 255, 255, 0.1)")
+                        tx_c = st_cfg.get("text", "#E5E7EB")
+                        disp_st = status_to_display(row['status'])
+                        st.markdown(
+                            f'<div style="background: {bg_c}; border: 1px solid {br_c}; color: {tx_c}; padding: 4px 8px; border-radius: 5px; font-size: 11px; font-weight: 600; text-align: center;">{disp_st}</div>',
+                            unsafe_allow_html=True
+                        )
+                with c_link:
+                    st.link_button("Ver ↗", row["link"], use_container_width=True)
+
+                # Row 2: Subtle AI note & Tech chips in one compact line
+                if row.get("ai_reasoning") or tech_html or iefp_badge_html:
+                    ai_text = f"<span style='color: #A5B4FC; font-weight: 600;'>Avaliação:</span> <i>{row['ai_reasoning']}</i>" if row.get("ai_reasoning") else ""
+                    chips_html = f"<div style='display: flex; gap: 4px; flex-shrink: 0; align-items: center;'>{iefp_badge_html}{tech_html}</div>" if (iefp_badge_html or tech_html) else ""
+                    st.markdown(
+                        f"<div style='display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; padding-top: 4px; border-top: 1px solid rgba(255, 255, 255, 0.05); font-size: 11px; color: #94A3B8;'><div style='overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;'>{ai_text}</div>{chips_html}</div>",
+                        unsafe_allow_html=True
+                    )
 

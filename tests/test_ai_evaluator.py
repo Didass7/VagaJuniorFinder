@@ -35,7 +35,8 @@ class TestAIEvaluator(unittest.TestCase):
         """Verify that decommissioned Groq models are pruned and 429 cascades to the next candidate model."""
         from unittest.mock import MagicMock, patch
         evaluator = AIEvaluator(groq_api_key="mock_groq_key", gemini_api_key="")
-        
+        evaluator.groq_model_name = "llama-3.3-70b-versatile"
+
         mock_response = MagicMock()
         mock_response.choices = [
             MagicMock(message=MagicMock(content='{"evaluations": [{"job_index": 0, "is_suitable": true, "fit_score": 85.0, "seniority_detected": "Júnior", "reasoning": "Perfil alinhado"}]}'))

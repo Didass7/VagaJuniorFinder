@@ -51,7 +51,7 @@ def render_profiles():
     with col_sel:
         selected_profile = st.selectbox(
             "Selecionar Perfil",
-            options=profiles if profiles else ["diogo_ai"],
+            options=profiles if profiles else ["diogo"],
             index=0 if profiles else 0,
             key="profile_select_box"
         )
