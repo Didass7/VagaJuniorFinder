@@ -25,6 +25,7 @@ class LandingJobsScraper(BaseScraper):
             try:
                 status_code, text, content = safe_fetch(url, session=self.session, timeout=10.0)
                 if status_code != 200 or not text:
+                    logger.debug(f"[Landing.jobs] REST API page {page} status {status_code}")
                     break
                 items = json.loads(text)
                 if not items or not isinstance(items, list):
