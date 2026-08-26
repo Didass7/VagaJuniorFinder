@@ -34,6 +34,8 @@ from scrapers import (
     JobspressoScraper,
     EuraxessScraper,
     IEFPScraper,
+    SapoScraper,
+    TeamlyzerScraper,
     JobIngestionPipeline,
 )
 
@@ -67,5 +69,7 @@ __all__ = [
     "JobspressoScraper",
     "EuraxessScraper",
     "IEFPScraper",
+    "SapoScraper",
+    "TeamlyzerScraper",
     "JobIngestionPipeline",
 ]

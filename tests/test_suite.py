@@ -25,13 +25,15 @@ class TestScraperModule(unittest.TestCase):
         self.assertFalse(is_valid_job_offer("https://medium.com/article-123", "Introduction to Python"))
         self.assertFalse(is_valid_job_offer("https://aws.amazon.com/what-is-ai", "What is Machine Learning"))
         
-        # Non-AI/Data titles should be rejected
-        self.assertFalse(is_valid_job_offer("https://company.com/job/1", "Senior Frontend React Developer"))
-        self.assertFalse(is_valid_job_offer("https://company.com/job/2", "QA Tester & Automation"))
+        # Non-tech administrative / sales noise should be rejected
+        self.assertFalse(is_valid_job_offer("https://company.com/job/1", "Assistente de Marketing e Redes Sociais"))
+        self.assertFalse(is_valid_job_offer("https://company.com/job/2", "Técnico Administrativo e Contabilidade"))
         
-        # Valid AI/Data job offers should pass
+        # Valid tech job offers should pass
         self.assertTrue(is_valid_job_offer("https://company.com/job/3", "Junior AI Engineer"))
         self.assertTrue(is_valid_job_offer("https://company.com/job/4", "Estágio Data Scientist - IEFP"))
+        self.assertTrue(is_valid_job_offer("https://company.com/job/5", "Junior Frontend React Developer"))
+        self.assertTrue(is_valid_job_offer("https://company.com/job/6", "Junior DevOps & Cloud Engineer"))
 
     def test_job_dataclass_hash_and_iefp(self):
         job1 = Job(
@@ -64,16 +66,17 @@ class TestScraperModule(unittest.TestCase):
         self.assertEqual(job2.work_mode, "Remoto")
 
     def test_scrapers_instantiation(self):
-        """Verifies that all 13 active scrapers can be instantiated without errors."""
+        """Verifies that all 15 active scrapers can be instantiated without errors."""
+        from scraper import SapoScraper, TeamlyzerScraper
         scrapers = [
-            LinkedInScraper(), ITJobsScraper(), IndeedScraper(), LandingJobsScraper(),
-            RemotiveScraper(), ArbeitnowScraper(),
+            LinkedInScraper(), ITJobsScraper(), IndeedScraper(), SapoScraper(), TeamlyzerScraper(),
+            LandingJobsScraper(), RemotiveScraper(), ArbeitnowScraper(),
             RemoteOKScraper(), CargaDeTrabalhosScraper(), JobicyScraper(),
             NetEmpregosScraper(),
             JobspressoScraper(), EuraxessScraper(),
             IEFPScraper()
         ]
-        self.assertEqual(len(scrapers), 13)
+        self.assertEqual(len(scrapers), 15)
         for s in scrapers:
             self.assertTrue(hasattr(s, "fetch"))
 
