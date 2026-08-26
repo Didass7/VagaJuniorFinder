@@ -5,7 +5,7 @@ import logging
 from typing import List, Dict, Set, Optional
 import requests
 import feedparser
-from .base import BaseScraper, Job, get_random_headers, clean_job_description, is_valid_job_offer
+from .base import BaseScraper, Job, get_random_headers, clean_job_description, is_valid_job_offer, safe_fetch
 
 logger = logging.getLogger("Scraper")
 
@@ -28,9 +28,9 @@ class LandingJobsScraper(BaseScraper):
             try:
                 headers = get_random_headers()
                 headers["Accept"] = "application/atom+xml,application/xml,text/xml;q=0.9,*/*;q=0.8"
-                resp = self.session.get(atom_url, headers=headers, timeout=(4.0, 12.0))
-                if resp.status_code == 200 and resp.content:
-                    feed = feedparser.parse(resp.content) or feedparser.parse(resp.text)
+                status_code, text, content = safe_fetch(atom_url, session=self.session, timeout=12.0, headers=headers)
+                if status_code == 200 and (content or text):
+                    feed = feedparser.parse(content or text)
                     if feed and feed.entries:
                         for entry in feed.entries:
                             title = entry.get("title", "").strip()

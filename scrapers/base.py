@@ -59,6 +59,27 @@ def get_session(pool_size: int = 40) -> requests.Session:
     session.headers.update(get_random_headers())
     return session
 
+def safe_fetch(url: str, session: Optional[requests.Session] = None, timeout: float = 12.0, headers: Optional[Dict[str, str]] = None) -> Tuple[int, str, bytes]:
+    """
+    Robust HTTP fetcher using curl_cffi Chrome impersonation (bypasses Cloudflare 403 & WAF on GitHub Actions runners)
+    with automatic fallback to requests.Session.
+    """
+    h = headers or get_random_headers()
+    try:
+        from curl_cffi import requests as cureq
+        resp = cureq.get(url, headers=h, impersonate="chrome120", timeout=int(timeout))
+        return resp.status_code, resp.text, resp.content
+    except Exception:
+        pass
+        
+    try:
+        s = session or requests.Session()
+        resp = s.get(url, headers=h, timeout=(4.0, timeout))
+        return resp.status_code, resp.text, resp.content
+    except Exception:
+        return 0, "", b""
+
+
 # Non-job documentation / blog / sponsored domains to exclude
 NON_JOB_DOMAINS = [
     "aws.amazon.com", "amazon.com/what-is", "wikipedia.org", "medium.com",

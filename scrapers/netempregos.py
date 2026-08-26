@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 from bs4 import BeautifulSoup
 from config import config
-from .base import BaseScraper, Job, get_random_headers, is_valid_job_offer
+from .base import BaseScraper, Job, get_random_headers, is_valid_job_offer, safe_fetch
 
 logger = logging.getLogger("Scraper")
 
@@ -23,10 +23,10 @@ class NetEmpregosScraper(BaseScraper):
         for page in range(1, max_pages + 1):
             try:
                 url = f"https://www.net-empregos.com/pesquisa-empregos.asp?chaves={q.replace(' ', '+')}&page={page}"
-                resp = self.session.get(url, headers=get_random_headers(), timeout=(4.0, 12.0))
-                if resp.status_code != 200:
+                status_code, text, content = safe_fetch(url, session=self.session, timeout=12.0)
+                if status_code != 200 or not text:
                     break
-                soup = BeautifulSoup(resp.text, "html.parser")
+                soup = BeautifulSoup(text, "html.parser")
                 links = soup.find_all("a", href=re.compile(r"/\d+/[^/]+/"))
                 if not links:
                     break
@@ -49,12 +49,10 @@ class NetEmpregosScraper(BaseScraper):
         location = "Portugal"
         
         try:
-            time.sleep(random.uniform(0.1, 0.3))
-            det_resp = self.session.get(link, headers=get_random_headers(), timeout=(3.5, 12.0))
-            if det_resp.status_code != 200:
-                logger.warning(f"[{self.__class__.__name__}] Unexpected HTTP {det_resp.status_code} for {det_resp.url}")
-            if det_resp.status_code == 200:
-                det_soup = BeautifulSoup(det_resp.text, "html.parser")
+            time.sleep(random.uniform(0.05, 0.15))
+            status_code, text, content = safe_fetch(link, session=self.session, timeout=10.0)
+            if status_code == 200 and text:
+                det_soup = BeautifulSoup(text, "html.parser")
                 main_box = (
                     det_soup.find("div", class_="oferta-detalhe") or
                     det_soup.find("div", class_="content") or
