@@ -79,9 +79,13 @@ class JobIngestionPipeline:
             for future in as_completed(future_to_scraper):
                 scraper_name = future_to_scraper[future]
                 try:
-                    res = future.result()
+                    res = future.result(timeout=90.0)
                     all_jobs.extend(res)
                     scraper_results[scraper_name] = len(res)
+                except TimeoutError:
+                    logger.error(f"[{scraper_name}] ⏰ Timed out after 90s — scraper hung or blocked. Skipping.")
+                    scraper_results[scraper_name] = -1
+                    failed_scrapers.append(scraper_name)
                 except Exception as e:
                     logger.error(f"[{scraper_name}] Execution error during concurrent fetch: {e}")
                     scraper_results[scraper_name] = -1

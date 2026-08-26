@@ -19,12 +19,14 @@ class NotionStore:
         self.token = token if token is not None else config.notion_token
         self.database_id = database_id if database_id is not None else config.notion_database_id
 
-        
-        self.headers = {
+        # Persistent HTTP session — reuses TCP/TLS connections across all Notion API calls
+        self._session = requests.Session()
+        self._session.headers.update({
             "Authorization": f"Bearer {self.token}",
             "Notion-Version": NOTION_VERSION,
             "Content-Type": "application/json"
-        }
+        })
+        self.headers = dict(self._session.headers)
         self._db_schema: Optional[Dict[str, Any]] = None
 
     @property
@@ -42,7 +44,7 @@ class NotionStore:
         max_retries = 3
         for attempt in range(1, max_retries + 1):
             try:
-                resp = requests.get(url, headers=self.headers, timeout=15)
+                resp = self._session.get(url, timeout=15)
                 if resp.status_code == 200:
                     self._db_schema = resp.json().get("properties", {})
                     return self._db_schema
@@ -77,7 +79,7 @@ class NotionStore:
             success = False
             for attempt in range(1, 4):
                 try:
-                    resp = requests.post(url, headers=self.headers, json=payload, timeout=15)
+                    resp = self._session.post(url, json=payload, timeout=15)
                     if resp.status_code != 200:
                         logger.warning(f"⚠️ Notion API query returned status {resp.status_code}: {resp.text}")
                         break
@@ -332,7 +334,7 @@ class NotionStore:
         max_retries = 3
         for attempt in range(1, max_retries + 1):
             try:
-                resp = requests.post(url, headers=self.headers, json=payload, timeout=15)
+                resp = self._session.post(url, json=payload, timeout=15)
                 if resp.status_code in [200, 201]:
                     return True
                 elif resp.status_code == 429 or resp.status_code >= 500:
