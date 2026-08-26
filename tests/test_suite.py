@@ -717,7 +717,49 @@ class TestRobustnessImprovements(unittest.TestCase):
         self.assertGreaterEqual(scored_alentejo.score, 85.0)
         self.assertIn("Localização Preferencial", scored_alentejo.match_reason)
 
+    def test_remote_work_mode_negation(self):
+        """Verify that descriptions containing negated remote keywords are not wrongly classified as Remoto."""
+        job_no_remote = Job(
+            title="Desenvolvedor Júnior",
+            company="TechPresencial",
+            location="Lisboa, Portugal",
+            work_mode="Presencial / Híbrido",
+            link="https://example.com/presencial-only",
+            description="Trabalho no escritório em Lisboa. Não aceitamos trabalho remoto nem teletrabalho. Presencial a 100%.",
+            source="Test",
+            pub_date=datetime.date.today().isoformat()
+        )
+        self.assertEqual(job_no_remote.work_mode, "Presencial")
 
+    def test_seen_store_thread_safety(self):
+        """Verify that SeenStore supports concurrent access from multiple threads without corruption."""
+        import concurrent.futures
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tf:
+            temp_path = tf.name
+
+        try:
+            store = SeenStore(filepath=temp_path)
+            def worker(thread_idx: int):
+                for i in range(50):
+                    jid = f"job_thread_{thread_idx}_{i}"
+                    store.mark_seen([jid])
+                    _ = store.is_seen(jid)
+                return True
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+                futures = [executor.submit(worker, i) for i in range(10)]
+                for f in concurrent.futures.as_completed(futures):
+                    self.assertTrue(f.result())
+
+            self.assertEqual(store.count, 500)
+            store.save()
+            
+            # Reload from disk to ensure valid JSON persisted
+            reloaded = SeenStore(filepath=temp_path)
+            self.assertEqual(reloaded.count, 500)
+        finally:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
 
 if __name__ == "__main__":
     unittest.main()

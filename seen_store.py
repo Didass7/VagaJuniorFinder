@@ -12,6 +12,7 @@ import logging
 import os
 import shutil
 import time
+import threading
 from typing import List, Set, Optional, Dict, Any
 
 logger = logging.getLogger("SeenStore")
@@ -24,10 +25,11 @@ DEFAULT_SEEN_FILE = os.path.join(os.path.dirname(__file__), "seen_jobs.json")
 
 
 class SeenStore:
-    """Manages a {job_id: timestamp} dictionary persisted to JSON."""
+    """Manages a {job_id: timestamp} dictionary persisted to JSON with thread-safety."""
 
     def __init__(self, filepath: str = DEFAULT_SEEN_FILE):
         self.filepath = filepath
+        self._lock = threading.Lock()
         self._store: dict[str, float] = {}  # job_id → unix timestamp
         self._load()
 
@@ -35,7 +37,8 @@ class SeenStore:
 
     def is_seen(self, job_id: str) -> bool:
         """Return True if this job_id has been seen before."""
-        return job_id in self._store
+        with self._lock:
+            return job_id in self._store
 
     def is_seen_candidate(self, title: str, company: str = "") -> bool:
         """Computes hash and checks if title + company combination has been seen."""
@@ -51,41 +54,55 @@ class SeenStore:
     def mark_seen(self, job_ids: List[str]) -> None:
         """Mark a list of job_ids as seen with current timestamp."""
         now = time.time()
-        for jid in job_ids:
-            if jid not in self._store:
-                self._store[jid] = now
+        with self._lock:
+            for jid in job_ids:
+                if jid not in self._store:
+                    self._store[jid] = now
 
     def filter_new(self, jobs) -> list:
         """Return only jobs whose job_id hasn't been seen before, deduplicating across current batch as well."""
         seen_in_batch = set()
         unseen_jobs = []
-        for j in jobs:
-            if self.is_seen(j.job_id) or j.job_id in seen_in_batch:
-                continue
-            seen_in_batch.add(j.job_id)
-            unseen_jobs.append(j)
+        with self._lock:
+            for j in jobs:
+                if j.job_id in self._store or j.job_id in seen_in_batch:
+                    continue
+                seen_in_batch.add(j.job_id)
+                unseen_jobs.append(j)
         return unseen_jobs
 
     def save(self) -> None:
-        """Persist the store to disk atomically."""
+        """Persist the store to disk atomically with thread-safety and cleanup."""
+        target_dir = os.path.dirname(self.filepath) or "."
+        os.makedirs(target_dir, exist_ok=True)
+        
+        import tempfile
+        temp_name = None
         try:
-            target_dir = os.path.dirname(self.filepath) or "."
-            os.makedirs(target_dir, exist_ok=True)
-            
-            import tempfile
+            with self._lock:
+                snapshot = dict(self._store)
+
             with tempfile.NamedTemporaryFile("w", dir=target_dir, delete=False, encoding="utf-8") as tf:
-                json.dump(self._store, tf, indent=2)
+                json.dump(snapshot, tf, indent=2)
                 temp_name = tf.name
 
             os.replace(temp_name, self.filepath)
-            logger.info(f"Saved {len(self._store)} seen job IDs to {self.filepath}")
+            temp_name = None  # Replaced successfully
+            logger.info(f"Saved {len(snapshot)} seen job IDs to {self.filepath}")
         except OSError as e:
             logger.error(f"Failed to save seen store: {e}")
+        finally:
+            if temp_name and os.path.exists(temp_name):
+                try:
+                    os.unlink(temp_name)
+                except OSError:
+                    pass
 
     @property
     def count(self) -> int:
         """Number of tracked job IDs."""
-        return len(self._store)
+        with self._lock:
+            return len(self._store)
 
     # ── Internal ──────────────────────────────────────
 

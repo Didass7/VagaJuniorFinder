@@ -18,6 +18,8 @@ def main():
         
     print(f"Found {len(profile_files)} profiles to process.")
         
+    failed_profiles = []
+    
     for profile_file in profile_files:
         # Extract profile name (filename without extension)
         profile_name = os.path.splitext(os.path.basename(profile_file))[0]
@@ -35,10 +37,16 @@ def main():
             subprocess.run([sys.executable, "main.py"], env=env, check=True)
         except subprocess.CalledProcessError as e:
             print(f"\n[ ERROR ] Error running pipeline for {profile_name}: {e}")
+            failed_profiles.append(profile_name)
         except Exception as e:
             print(f"\n[ ERROR ] Unexpected error for {profile_name}: {e}")
+            failed_profiles.append(profile_name)
             
-    print("\n[ SUCCESS ] All profiles processed successfully!")
+    if failed_profiles:
+        print(f"\n[ FAILED ] Pipeline finished with errors in {len(failed_profiles)}/{len(profile_files)} profiles: {', '.join(failed_profiles)}")
+        sys.exit(1)
+    else:
+        print(f"\n[ SUCCESS ] All {len(profile_files)} profiles processed successfully!")
 
 if __name__ == "__main__":
     main()

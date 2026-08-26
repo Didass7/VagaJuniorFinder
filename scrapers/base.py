@@ -262,11 +262,25 @@ class Job:
         if any(term in text_content for term in ["iefp", "ativar.pt", "ativar pt", "estágio profissional", "estagio profissional"]):
             self.iefp_mentioned = True
             
-        # Strict Work Mode Inferencing Logic
+        # Strict Work Mode Inferencing Logic (with robust negation awareness)
         text_lower = f"{self.title} {self.description}".lower()
-        has_hybrid = any(term in text_lower for term in ["híbrid", "hibrid", "hybrid", "modelo híbrido", "trabalho híbrido", "flexível", "dias presencial", "dias remoto"]) or ("presencial" in text_lower and ("remot" in text_lower or "teletrabalho" in text_lower))
-        has_remote = any(term in text_lower for term in ["100% remoto", "100% remote", "totalmente remoto", "full remote", "teletrabalho", "remoto", "remote", "anywhere"])
-        has_onsite = any(term in text_lower for term in ["presencial", "onsite", "on-site", "escritório", "no local"])
+
+        # Remove negated phrases (e.g. "não aceitamos remoto", "sem teletrabalho", "no remote work", "not remote")
+        import re as _re
+        neg_pattern = (
+            r"\b(?:não|sem|no|without|not|never|nem|impossibilidade\s+de|não\s+aceitamos|não\s+[eé]|"
+            r"não\s+permitido|não\s+aplicável)\s+(?:de\s+|o\s+|a\s+|aceita\s+|aceitamos\s+|trabalho\s+|"
+            r"regime\s+|modelo\s+|vaga\s+|função\s+|possi[bv]il[a-z]*\s+de\s+|permite\s+|permitido\s+)?"
+            r"(?:100%\s*remoto|100%\s*remote|totalmente\s+remoto|full\s+remote|teletrabalho|remoto|remote|anywhere|h[ií]brid[a-z]*)\b"
+        )
+        cleaned_text = _re.sub(neg_pattern, " ", text_lower, flags=_re.IGNORECASE)
+
+        has_remote = bool(_re.search(
+            r"\b(?:100%\s*remoto|100%\s*remote|totalmente\s+remoto|full\s+remote|teletrabalho|remoto|remote|anywhere)\b",
+            cleaned_text
+        ))
+        has_hybrid = any(term in cleaned_text for term in ["híbrid", "hibrid", "hybrid", "modelo híbrido", "trabalho híbrido", "flexível", "dias presencial", "dias remoto"]) or ("presencial" in cleaned_text and has_remote)
+        has_onsite = any(term in cleaned_text for term in ["presencial", "onsite", "on-site", "escritório", "no local"])
 
         if self.work_mode.lower() in ["unknown", "n/a", "não especificado", "", "presencial / híbrido"]:
             if has_hybrid:
