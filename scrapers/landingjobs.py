@@ -18,36 +18,51 @@ class LandingJobsScraper(BaseScraper):
         jobs = []
         seen_links = set()
 
-        # Strategy 1: Official Landing.jobs REST API (Direct + Cloud Runner Edge Proxy)
+        # Strategy 1: Official Landing.jobs REST API (Direct Clean Requests + Cloud Edge Relay)
         import json
         for page in range(1, 6):
             url = f"https://landing.jobs/api/v1/jobs?page={page}"
+            text = ""
+            status_code = 0
+            
+            # Step 1: Direct requests with clean browser headers
             try:
-                status_code, text, content = safe_fetch(url, session=self.session, timeout=8.0)
-                
-                # If direct request was blocked by Cloudflare (common on GitHub Actions Azure IPs), use Edge Relay
-                if status_code != 200 or not text or not text.strip().startswith("["):
+                h = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                    "Accept": "application/json, text/plain, */*",
+                    "Accept-Language": "pt-PT,pt;q=0.9,en-US;q=0.8,en;q=0.7"
+                }
+                r = requests.get(url, headers=h, timeout=8.0)
+                if r.status_code == 200 and r.text and r.text.strip().startswith("["):
+                    status_code = 200
+                    text = r.text
+            except Exception as direct_err:
+                logger.debug(f"[Landing.jobs] Direct API error: {direct_err}")
+
+            # Step 2: Cloud Runner Edge Relay fallback if direct request was blocked
+            if status_code != 200 or not text:
+                try:
                     relay_url = f"https://r.jina.ai/{url}"
-                    try:
-                        resp = (self.session or requests.Session()).get(relay_url, timeout=10.0)
-                        if resp.status_code == 200 and resp.text:
-                            raw_t = resp.text
-                            if "Markdown Content:" in raw_t:
-                                raw_t = raw_t.split("Markdown Content:", 1)[1].strip()
-                            if raw_t.startswith("```json"):
-                                raw_t = raw_t[7:]
-                            if raw_t.startswith("```"):
-                                raw_t = raw_t[3:]
-                            if raw_t.endswith("```"):
-                                raw_t = raw_t[:-3]
-                            text = raw_t.strip()
-                            status_code = 200
-                    except Exception as relay_err:
-                        logger.debug(f"[Landing.jobs] Relay fetch error: {relay_err}")
+                    resp = requests.get(relay_url, timeout=12.0)
+                    if resp.status_code == 200 and resp.text:
+                        raw_t = resp.text
+                        if "Markdown Content:" in raw_t:
+                            raw_t = raw_t.split("Markdown Content:", 1)[1].strip()
+                        if raw_t.startswith("```json"):
+                            raw_t = raw_t[7:]
+                        if raw_t.startswith("```"):
+                            raw_t = raw_t[3:]
+                        if raw_t.endswith("```"):
+                            raw_t = raw_t[:-3]
+                        text = raw_t.strip()
+                        status_code = 200
+                except Exception as relay_err:
+                    logger.debug(f"[Landing.jobs] Relay fetch error: {relay_err}")
 
-                if status_code != 200 or not text:
-                    break
+            if status_code != 200 or not text:
+                break
 
+            try:
                 items = json.loads(text)
                 if not items or not isinstance(items, list):
                     break
@@ -82,7 +97,7 @@ class LandingJobsScraper(BaseScraper):
                         source="Landing.jobs", pub_date=str(pub_date)[:10]
                     ))
             except Exception as e:
-                logger.warning(f"[Landing.jobs Portal] API error at page {page}: {e}")
+                logger.warning(f"[Landing.jobs Portal] JSON parse error at page {page}: {e}")
                 break
 
         # Strategy 2: Official Atom/RSS Feeds
