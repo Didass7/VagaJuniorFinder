@@ -138,8 +138,9 @@ class TestPipelineAndCLI(unittest.TestCase):
                 mock_matcher.process_jobs.return_value = [scored]
                 mock_matcher_cls.return_value = mock_matcher
 
-                # Execute dry-run
-                main.run_pipeline(dry_run=True)
+                # Execute dry-run with silenced stdout
+                with patch("sys.stdout"):
+                    main.run_pipeline(dry_run=True)
 
                 # Notion sync must NOT be instantiated or called
                 mock_notion_cls.assert_not_called()
@@ -155,7 +156,8 @@ class TestPipelineAndCLI(unittest.TestCase):
     def test_run_all_success_and_failure_exit_codes(self):
         """Test that run_all.py exits with 0 on all success, and sys.exit(1) on profile failure."""
         with patch("glob.glob", return_value=["profiles/diogo.json", "profiles/rafael.json"]), \
-             patch("os.path.exists", return_value=True):
+             patch("os.path.exists", return_value=True), \
+             patch("sys.stdout"):
 
             # Case 1: All profiles succeed
             with patch("subprocess.run") as mock_subproc:
