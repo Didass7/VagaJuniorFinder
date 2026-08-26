@@ -387,10 +387,10 @@ class IndeedScraper(BaseScraper):
             return jobs
 
         # Query supported regional endpoints for remote/EU/Portugal tech opportunities
-        target_countries = ["es", "gb"]
+        target_countries = ["es", "gb", "de", "fr"]
 
         for country in target_countries:
-            for q in queries:
+            for q in queries[:5]:
                 try:
                     url = f"https://api.adzuna.com/v1/api/jobs/{country}/search/1"
                     params = {
@@ -415,8 +415,6 @@ class IndeedScraper(BaseScraper):
 
                             clean_desc = clean_job_description(f"{title} - {company} ({loc}). {desc}")
                             if not is_valid_job_offer(link, title):
-                                continue
-                            if self.is_seen_func and self.is_seen_func(title, company):
                                 continue
 
                             work_mode = "Remoto"
