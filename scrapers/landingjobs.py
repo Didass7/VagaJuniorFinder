@@ -18,18 +18,40 @@ class LandingJobsScraper(BaseScraper):
         jobs = []
         seen_links = set()
 
-        # Strategy 1: Official Landing.jobs REST API (Pages 1 to 6)
+        # Strategy 1: Official Landing.jobs REST API (Direct + Cloud Runner Edge Proxy)
         import json
-        for page in range(1, 7):
+        for page in range(1, 6):
             url = f"https://landing.jobs/api/v1/jobs?page={page}"
             try:
-                status_code, text, content = safe_fetch(url, session=self.session, timeout=10.0)
+                status_code, text, content = safe_fetch(url, session=self.session, timeout=8.0)
+                
+                # If direct request was blocked by Cloudflare (common on GitHub Actions Azure IPs), use Edge Relay
+                if status_code != 200 or not text or not text.strip().startswith("["):
+                    relay_url = f"https://r.jina.ai/{url}"
+                    try:
+                        resp = (self.session or requests.Session()).get(relay_url, timeout=10.0)
+                        if resp.status_code == 200 and resp.text:
+                            raw_t = resp.text
+                            if "Markdown Content:" in raw_t:
+                                raw_t = raw_t.split("Markdown Content:", 1)[1].strip()
+                            if raw_t.startswith("```json"):
+                                raw_t = raw_t[7:]
+                            if raw_t.startswith("```"):
+                                raw_t = raw_t[3:]
+                            if raw_t.endswith("```"):
+                                raw_t = raw_t[:-3]
+                            text = raw_t.strip()
+                            status_code = 200
+                    except Exception as relay_err:
+                        logger.debug(f"[Landing.jobs] Relay fetch error: {relay_err}")
+
                 if status_code != 200 or not text:
-                    logger.debug(f"[Landing.jobs] REST API page {page} status {status_code}")
                     break
+
                 items = json.loads(text)
                 if not items or not isinstance(items, list):
                     break
+
                 for item in items:
                     title = item.get("title", "").strip()
                     link = item.get("url", "").strip()
