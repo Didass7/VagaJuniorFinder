@@ -29,11 +29,10 @@ class LandingJobsScraper(BaseScraper):
         
         for atom_url in atom_urls:
             try:
-                headers = get_random_headers()
-                headers["Accept"] = "application/atom+xml,application/xml,text/xml;q=0.9,*/*;q=0.8"
-                status_code, text, content = safe_fetch(atom_url, session=self.session, timeout=10.0, headers=headers)
+                status_code, text, content = safe_fetch(atom_url, session=self.session, timeout=10.0)
                 if status_code == 200 and (content or text):
-                    feed = feedparser.parse(content or text)
+                    payload = text if text else (content.decode("utf-8", errors="ignore") if content else "")
+                    feed = feedparser.parse(payload)
                     if feed and feed.entries:
                         for entry in feed.entries:
                             title = entry.get("title", "").strip()
@@ -74,7 +73,7 @@ class LandingJobsScraper(BaseScraper):
                         if jobs:
                             break
             except Exception as e:
-                logger.debug(f"[LandingJobsScraper] Atom feed error for {atom_url}: {e}")
+                logger.warning(f"[LandingJobsScraper] Atom feed error for {atom_url}: {e}")
 
         # Strategy 2: Fallback to REST API if Atom feed was empty or failed
         if not jobs:
@@ -82,9 +81,7 @@ class LandingJobsScraper(BaseScraper):
             for page in range(1, 5):
                 url = f"https://landing.jobs/api/v1/jobs?page={page}"
                 try:
-                    headers = get_random_headers()
-                    headers["Accept"] = "application/json, text/plain, */*"
-                    status_code, text, content = safe_fetch(url, session=self.session, timeout=10.0, headers=headers)
+                    status_code, text, content = safe_fetch(url, session=self.session, timeout=10.0)
                     if status_code != 200 or not text:
                         break
                     items = json.loads(text)
@@ -112,7 +109,7 @@ class LandingJobsScraper(BaseScraper):
                             source="Landing.jobs", pub_date=str(pub_date)[:10]
                         ))
                 except Exception as e:
-                    logger.debug(f"[Landing.jobs Portal] API error at page {page}: {e}")
+                    logger.warning(f"[Landing.jobs Portal] API error at page {page}: {e}")
                     break
 
         # Strategy 3: HTML Scrape fallback if Feed and API fail
@@ -148,7 +145,7 @@ class LandingJobsScraper(BaseScraper):
                             pub_date=datetime.date.today().isoformat()
                         ))
             except Exception as e:
-                logger.debug(f"[Landing.jobs Portal] HTML scrape error: {e}")
+                logger.warning(f"[Landing.jobs Portal] HTML scrape error: {e}")
                     
         logger.info(f"[Landing.jobs Portal] Fetched {len(jobs)} jobs successfully.")
         return jobs
