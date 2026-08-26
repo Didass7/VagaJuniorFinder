@@ -8,21 +8,21 @@ from config import config, load_config
 from ui.profiles import get_available_profiles
 
 AVAILABLE_PORTALS = [
-    ("LinkedIn Jobs (Guest API)", "linkedin", "PT"),
-    ("ITJobs.pt (API / RSS)", "itjobs", "PT"),
-    ("Indeed Portugal", "indeed", "PT"),
-    ("Sapo Emprego (TI & Estágios)", "sapo", "PT"),
-    ("Teamlyzer Jobs (Tech & Salários)", "teamlyzer", "PT"),
-    ("Net-Empregos (TI & IEFP)", "netempregos", "PT"),
-    ("IEFP Online (Estágios Oficiais)", "iefp", "PT"),
-    ("Carga de Trabalhos", "cargadetrabalhos", "PT"),
-    ("Euraxess / Bolsas P&D", "euraxess", "Investigação"),
-    ("Landing.jobs", "landingjobs", "EU"),
-    ("Arbeitnow (Europa & Remote)", "arbeitnow", "EU"),
-    ("Jobicy (Data & AI)", "jobicy", "Global"),
-    ("Remotive (Tech Remote)", "remotive", "Global"),
-    ("RemoteOK", "remoteok", "Global"),
-    ("Jobspresso (Remote Tech)", "jobspresso", "Global"),
+    ("LinkedIn Jobs (Guest API)", "linkedin", "🇵🇹 PT"),
+    ("ITJobs.pt (API / RSS)", "itjobs", "🇵🇹 PT"),
+    ("Indeed Portugal", "indeed", "🇵🇹 PT"),
+    ("Sapo Emprego (TI & Estágios)", "sapo", "🇵🇹 PT"),
+    ("Teamlyzer Jobs (Tech & Salários)", "teamlyzer", "🇵🇹 PT"),
+    ("Net-Empregos (TI & IEFP)", "netempregos", "🇵🇹 PT"),
+    ("IEFP Online (Estágios Oficiais)", "iefp", "🇵🇹 PT"),
+    ("Carga de Trabalhos", "cargadetrabalhos", "🇵🇹 PT"),
+    ("Euraxess / Bolsas P&D", "euraxess", "🔬 I&D"),
+    ("Landing.jobs", "landingjobs", "🇪🇺 EU"),
+    ("Arbeitnow (Europa & Remote)", "arbeitnow", "🇪🇺 EU"),
+    ("Jobicy (Data & AI)", "jobicy", "🌍 Global"),
+    ("Remotive (Tech Remote)", "remotive", "🌍 Global"),
+    ("RemoteOK", "remoteok", "🌍 Global"),
+    ("Jobspresso (Remote Tech)", "jobspresso", "🌍 Global"),
 ]
 
 def render_runner(active_profile: str):
