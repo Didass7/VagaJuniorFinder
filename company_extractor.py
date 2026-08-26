@@ -17,7 +17,8 @@ GENERIC_COMPANY_NAMES = {
     "remoteok company", "jobicy company", "detalhe oferta", "detalhe de oferta", "detalhe da oferta",
     "oferta de emprego", "oferta", "principais responsabilidades", "responsabilidades",
     "perfil pretendido", "perfil do candidato", "requisitos", "sobre a empresa", "o que oferecemos",
-    "candidaturas", "descrição da função", "descrição da vaga", "funções", "habilitações", ""
+    "candidaturas", "descrição da função", "descrição da vaga", "funções", "habilitações",
+    "login de candidato", "login candidato", "login empresa", "login de empresa", "login", "candidato", ""
 }
 
 def is_generic_company(name: Optional[str]) -> bool:

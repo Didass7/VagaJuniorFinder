@@ -111,6 +111,8 @@ class NetEmpregosScraper(BaseScraper):
             "https://www.net-empregos.com/rss/"
         ]
         
+        cards_to_fetch: List[Dict[str, str]] = []
+
         for r_url in rss_urls:
             try:
                 status_code, text, content = safe_fetch(r_url, session=self.session, timeout=10.0)
@@ -130,18 +132,7 @@ class NetEmpregosScraper(BaseScraper):
                             soup = BeautifulSoup(raw_summary, "html.parser")
                             desc = soup.get_text(separator=" ", strip=True)
 
-                            # Extract company if available in summary
-                            company = "Empresa Confidencial"
-                            emp_node = soup.find(string=lambda t: t and "Empresa:" in t)
-                            if emp_node and emp_node.parent and emp_node.parent.next_sibling:
-                                c_cand = str(emp_node.parent.next_sibling).strip()
-                                if len(c_cand) > 1 and "categoria" not in c_cand.lower():
-                                    company = c_cand
-
-                            if self.is_seen_func and self.is_seen_func(title, company):
-                                continue
-
-                            # Quick tech relevance check
+                            # Quick tech relevance check on title + RSS summary
                             text_lower = f"{title} {desc}".lower()
                             is_tech_candidate = any(k in text_lower for k in [
                                 "python", "data", "informática", "informatica", "software", "programador",
@@ -152,18 +143,13 @@ class NetEmpregosScraper(BaseScraper):
                             if not is_tech_candidate:
                                 continue
 
-                            jobs.append(Job(
-                                title=title, company=company, location="Portugal",
-                                work_mode="Presencial / Híbrido", link=link, description=f"{title} - {desc}",
-                                source="Net-Empregos", pub_date=datetime.date.today().isoformat()
-                            ))
-                        if jobs:
+                            cards_to_fetch.append({"title": title, "link": link})
+                        if cards_to_fetch:
                             break
             except Exception as e:
                 logger.debug(f"[Net-Empregos RSS] Error with {r_url}: {e}")
 
         # Strategy 2: Targeted Query search to enrich with candidate-specific queries
-        cards_to_fetch = []
         with ThreadPoolExecutor(max_workers=min(len(queries), 5)) as executor:
             future_to_q = {executor.submit(self._fetch_query_links, q, 3): q for q in queries}
             for future in as_completed(future_to_q):
@@ -173,12 +159,15 @@ class NetEmpregosScraper(BaseScraper):
                         seen_links.add(c["link"])
                         cards_to_fetch.append(c)
 
+        # Step 3: Fetch full detail pages concurrently for all tech candidate offers (retrieves full requirements & real company)
         if cards_to_fetch:
-            with ThreadPoolExecutor(max_workers=8) as executor:
+            with ThreadPoolExecutor(max_workers=10) as executor:
                 future_to_detail = {executor.submit(self._fetch_detail_page, c): c for c in cards_to_fetch}
                 for future in as_completed(future_to_detail):
                     try:
-                        jobs.append(future.result())
+                        job = future.result()
+                        if job:
+                            jobs.append(job)
                     except Exception as err:
                         logger.debug(f"[Net-Empregos Portal] Detail fetch error: {err}")
 
