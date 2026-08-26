@@ -20,15 +20,18 @@ class LandingJobsScraper(BaseScraper):
         
         # Strategy 1: Official Atom Feeds (Unblockable on GitHub Actions / cloud IPs)
         atom_urls = [
+            "https://landing.jobs/feed.atom",
             "https://landing.jobs/jobs.atom",
-            "https://landing.jobs/feed"
+            "https://landing.jobs/feed",
+            "https://landing.jobs/jobs.rss",
+            "https://landing.jobs/feed.rss",
         ]
         
         for atom_url in atom_urls:
             try:
                 headers = get_random_headers()
                 headers["Accept"] = "application/atom+xml,application/xml,text/xml;q=0.9,*/*;q=0.8"
-                status_code, text, content = safe_fetch(atom_url, session=self.session, timeout=12.0, headers=headers)
+                status_code, text, content = safe_fetch(atom_url, session=self.session, timeout=10.0, headers=headers)
                 if status_code == 200 and (content or text):
                     feed = feedparser.parse(content or text)
                     if feed and feed.entries:
@@ -76,7 +79,7 @@ class LandingJobsScraper(BaseScraper):
         # Strategy 2: Fallback to REST API if Atom feed was empty or failed
         if not jobs:
             import json
-            for page in range(1, 4):
+            for page in range(1, 5):
                 url = f"https://landing.jobs/api/v1/jobs?page={page}"
                 try:
                     headers = get_random_headers()
@@ -111,6 +114,41 @@ class LandingJobsScraper(BaseScraper):
                 except Exception as e:
                     logger.debug(f"[Landing.jobs Portal] API error at page {page}: {e}")
                     break
+
+        # Strategy 3: HTML Scrape fallback if Feed and API fail
+        if not jobs:
+            from bs4 import BeautifulSoup
+            try:
+                for page in range(1, 4):
+                    url = f"https://landing.jobs/jobs?page={page}"
+                    status_code, text, _ = safe_fetch(url, session=self.session, timeout=10.0)
+                    if status_code != 200 or not text:
+                        break
+                    soup = BeautifulSoup(text, "html.parser")
+                    cards = soup.find_all("a", href=re.compile(r"/at/[^/]+/[^/]+"))
+                    for a in cards:
+                        raw_href = a.get("href", "")
+                        clean_link = f"https://landing.jobs{raw_href}" if not raw_href.startswith("http") else raw_href
+                        title = a.get_text(separator=" ", strip=True)
+                        if not title or len(title) < 5 or clean_link in seen_links or not is_valid_job_offer(clean_link, title):
+                            continue
+                        seen_links.add(clean_link)
+                        
+                        parts = raw_href.strip("/").split("/")
+                        company = parts[1].replace("-", " ").title() if len(parts) >= 3 else "Landing.jobs Company"
+                        
+                        jobs.append(Job(
+                            title=title,
+                            company=company,
+                            location="Portugal / EU",
+                            work_mode="Presencial / Híbrido",
+                            link=clean_link,
+                            description=title,
+                            source="Landing.jobs",
+                            pub_date=datetime.date.today().isoformat()
+                        ))
+            except Exception as e:
+                logger.debug(f"[Landing.jobs Portal] HTML scrape error: {e}")
                     
         logger.info(f"[Landing.jobs Portal] Fetched {len(jobs)} jobs successfully.")
         return jobs
