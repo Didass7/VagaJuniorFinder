@@ -64,17 +64,20 @@ def safe_fetch(url: str, session: Optional[requests.Session] = None, timeout: fl
     Robust HTTP fetcher using curl_cffi Chrome impersonation (bypasses Cloudflare 403 & WAF on GitHub Actions runners)
     with automatic fallback to requests.Session.
     """
-    h = headers or get_random_headers()
     try:
         from curl_cffi import requests as cureq
-        resp = cureq.get(url, headers=h, impersonate="chrome120", timeout=int(timeout))
+        if headers:
+            resp = cureq.get(url, headers=headers, impersonate="chrome120", allow_redirects=True, timeout=int(timeout))
+        else:
+            resp = cureq.get(url, impersonate="chrome120", allow_redirects=True, timeout=int(timeout))
         return resp.status_code, resp.text, resp.content
     except Exception:
         pass
         
     try:
         s = session or requests.Session()
-        resp = s.get(url, headers=h, timeout=(4.0, timeout))
+        h = headers or get_random_headers()
+        resp = s.get(url, headers=h, allow_redirects=True, timeout=(4.0, timeout))
         return resp.status_code, resp.text, resp.content
     except Exception:
         return 0, "", b""
