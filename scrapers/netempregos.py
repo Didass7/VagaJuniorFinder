@@ -100,12 +100,72 @@ class NetEmpregosScraper(BaseScraper):
 
     def fetch(self) -> List[Job]:
         queries = self.queries or config.candidate.search_queries or ["python", "data", "inteligencia artificial", "machine learning", "estagio iefp"]
-        cards_to_fetch = []
-        seen_links = set()
+        jobs: List[Job] = []
+        seen_links: Set[str] = set()
 
-        # 1. Fetch query cards concurrently
+        # Strategy 1: Official Net-Empregos RSS Feed (1,000 live offers, unblockable on cloud IPs)
+        import feedparser
+        rss_urls = [
+            "https://www.net-empregos.com/rss.asp",
+            "https://www.net-empregos.com/feed.asp",
+            "https://www.net-empregos.com/rss/"
+        ]
+        
+        for r_url in rss_urls:
+            try:
+                status_code, text, content = safe_fetch(r_url, session=self.session, timeout=10.0)
+                if status_code == 200 and (content or text):
+                    fp = feedparser.parse(content or text)
+                    if fp and fp.entries:
+                        for entry in fp.entries:
+                            title = entry.get("title", "").strip()
+                            link = entry.get("link", "").strip()
+                            if "?" in link:
+                                link = link.split("?")[0]
+                            if not link or link in seen_links or not is_valid_job_offer(link, title):
+                                continue
+                            seen_links.add(link)
+
+                            raw_summary = entry.get("summary", "") or entry.get("description", "")
+                            soup = BeautifulSoup(raw_summary, "html.parser")
+                            desc = soup.get_text(separator=" ", strip=True)
+
+                            # Extract company if available in summary
+                            company = "Empresa Confidencial"
+                            emp_node = soup.find(string=lambda t: t and "Empresa:" in t)
+                            if emp_node and emp_node.parent and emp_node.parent.next_sibling:
+                                c_cand = str(emp_node.parent.next_sibling).strip()
+                                if len(c_cand) > 1 and "categoria" not in c_cand.lower():
+                                    company = c_cand
+
+                            if self.is_seen_func and self.is_seen_func(title, company):
+                                continue
+
+                            # Quick tech relevance check
+                            text_lower = f"{title} {desc}".lower()
+                            is_tech_candidate = any(k in text_lower for k in [
+                                "python", "data", "informática", "informatica", "software", "programador",
+                                "developer", "engenh", "redes", "cloud", "devops", "ciber", "segurança",
+                                "seguranca", "iefp", "estágio", "estagio", "ai", "ia", "machine learning",
+                                "web", "php", "laravel", "sql", "bi", "it ", "ti ", "sistemas", "analista"
+                            ])
+                            if not is_tech_candidate:
+                                continue
+
+                            jobs.append(Job(
+                                title=title, company=company, location="Portugal",
+                                work_mode="Presencial / Híbrido", link=link, description=f"{title} - {desc}",
+                                source="Net-Empregos", pub_date=datetime.date.today().isoformat()
+                            ))
+                        if jobs:
+                            break
+            except Exception as e:
+                logger.debug(f"[Net-Empregos RSS] Error with {r_url}: {e}")
+
+        # Strategy 2: Targeted Query search to enrich with candidate-specific queries
+        cards_to_fetch = []
         with ThreadPoolExecutor(max_workers=min(len(queries), 5)) as executor:
-            future_to_q = {executor.submit(self._fetch_query_links, q): q for q in queries}
+            future_to_q = {executor.submit(self._fetch_query_links, q, 3): q for q in queries}
             for future in as_completed(future_to_q):
                 res = future.result()
                 for c in res:
@@ -113,10 +173,8 @@ class NetEmpregosScraper(BaseScraper):
                         seen_links.add(c["link"])
                         cards_to_fetch.append(c)
 
-        # 2. Fetch detail pages concurrently
-        jobs = []
         if cards_to_fetch:
-            with ThreadPoolExecutor(max_workers=10) as executor:
+            with ThreadPoolExecutor(max_workers=8) as executor:
                 future_to_detail = {executor.submit(self._fetch_detail_page, c): c for c in cards_to_fetch}
                 for future in as_completed(future_to_detail):
                     try:
