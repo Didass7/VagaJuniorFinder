@@ -19,10 +19,17 @@ class NetEmpregosScraper(BaseScraper):
         super().__init__(session=session, is_seen_func=is_seen_func, queries=queries)
 
     def _fetch_query_links(self, q: str, max_pages: int = 5) -> List[Dict]:
+        import unicodedata
+        from urllib.parse import quote_plus
+        
+        # Normalize accents for Net-Empregos search engine compatibility (e.g. cibersegurança -> ciberseguranca)
+        clean_q = ''.join(c for c in unicodedata.normalize('NFD', q) if unicodedata.category(c) != 'Mn').strip()
+        encoded_q = quote_plus(clean_q)
+        
         cards = []
         for page in range(1, max_pages + 1):
             try:
-                url = f"https://www.net-empregos.com/pesquisa-empregos.asp?chaves={q.replace(' ', '+')}&page={page}"
+                url = f"https://www.net-empregos.com/pesquisa-empregos.asp?chaves={encoded_q}&page={page}"
                 status_code, text, content = safe_fetch(url, session=self.session, timeout=12.0)
                 if status_code != 200 or not text:
                     break

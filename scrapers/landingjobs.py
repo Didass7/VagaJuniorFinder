@@ -75,15 +75,16 @@ class LandingJobsScraper(BaseScraper):
 
         # Strategy 2: Fallback to REST API if Atom feed was empty or failed
         if not jobs:
+            import json
             for page in range(1, 4):
                 url = f"https://landing.jobs/api/v1/jobs?page={page}"
                 try:
                     headers = get_random_headers()
                     headers["Accept"] = "application/json, text/plain, */*"
-                    resp = self.session.get(url, headers=headers, timeout=(3.5, 10.0))
-                    if resp.status_code != 200:
+                    status_code, text, content = safe_fetch(url, session=self.session, timeout=10.0, headers=headers)
+                    if status_code != 200 or not text:
                         break
-                    items = resp.json()
+                    items = json.loads(text)
                     if not items or not isinstance(items, list):
                         break
                     for item in items:
