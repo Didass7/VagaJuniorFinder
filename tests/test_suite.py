@@ -761,6 +761,34 @@ class TestRobustnessImprovements(unittest.TestCase):
             if os.path.exists(temp_path):
                 os.remove(temp_path)
 
+    def test_custom_profile_thresholds_in_matcher(self):
+        """Verify that custom thresholds and batch sizes can be set on JobMatcher and are respected during processing."""
+        matcher = JobMatcher(
+            profile=self.profile,
+            enable_ai=False,
+            promising_threshold=40.0,
+            min_blended_score=45.0,
+            ai_batch_size=8
+        )
+        self.assertEqual(matcher.promising_threshold, 40.0)
+        self.assertEqual(matcher.min_blended_score, 45.0)
+        self.assertEqual(matcher.ai_batch_size, 8)
+
+        # Job with score ~66% (processed by matcher with custom thresholds)
+        job_medium = Job(
+            title="Junior Assistant",
+            company="TechCorp",
+            location="Lisboa, Portugal",
+            work_mode="Presencial",
+            link="https://example.com/med-job",
+            description="Vaga para desenvolvedor júnior com conhecimentos básicos de Python e SQL para projeto de análise de dados corporativo.",
+            source="Test",
+            pub_date=datetime.date.today().isoformat()
+        )
+        scored = matcher.process_jobs([job_medium])
+        self.assertEqual(len(scored), 1)
+        self.assertEqual(scored[0].score, 66.0)
+
 if __name__ == "__main__":
     unittest.main()
 

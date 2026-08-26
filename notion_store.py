@@ -148,7 +148,7 @@ class NotionStore:
         successful_job_ids: Set[str] = set()
 
         for sj in scored_jobs:
-            if sj.score < 55.0:
+            if sj.score < getattr(config, "promising_match_threshold", 55.0):
                 successful_job_ids.add(sj.job.job_id)
                 continue
 

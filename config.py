@@ -51,9 +51,11 @@ class AppConfig:
     adzuna_app_id: str = os.getenv("ADZUNA_APP_ID", "")
     adzuna_app_key: str = os.getenv("ADZUNA_APP_KEY", "")
 
-    # Scoring Thresholds
+    # Scoring Thresholds & Batch Parameters
     top_match_threshold: float = 75.0
     promising_match_threshold: float = 55.0
+    min_blended_score: float = 50.0
+    ai_batch_size: int = 4
 
 def load_config(profile_name: Optional[str] = None) -> AppConfig:
     cfg = AppConfig()
@@ -68,13 +70,26 @@ def load_config(profile_name: Optional[str] = None) -> AppConfig:
         with open(profile_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
             
-            # Load candidate info
+            # Load candidate info defensively
             if "candidate" in data:
-                cfg.candidate = CandidateProfile(**data["candidate"])
+                from dataclasses import fields
+                valid_keys = {f.name for f in fields(CandidateProfile)}
+                filtered_candidate = {k: v for k, v in data["candidate"].items() if k in valid_keys}
+                cfg.candidate = CandidateProfile(**filtered_candidate)
             
             # Override notion database ID if provided
             if data.get("notion_database_id"):
                 cfg.notion_database_id = data["notion_database_id"]
+
+            # Custom profile thresholds (if configured)
+            if "promising_match_threshold" in data:
+                cfg.promising_match_threshold = float(data["promising_match_threshold"])
+            if "top_match_threshold" in data:
+                cfg.top_match_threshold = float(data["top_match_threshold"])
+            if "min_blended_score" in data:
+                cfg.min_blended_score = float(data["min_blended_score"])
+            if "ai_batch_size" in data:
+                cfg.ai_batch_size = int(data["ai_batch_size"])
     else:
         print(f"Warning: Profile '{active_profile}' not found at {profile_path}. Using empty defaults.")
         

@@ -272,7 +272,10 @@ class JobMatcher:
         self,
         profile: CandidateProfile,
         ai_evaluator: Optional[AIEvaluator] = None,
-        enable_ai: Optional[bool] = None
+        enable_ai: Optional[bool] = None,
+        promising_threshold: Optional[float] = None,
+        min_blended_score: Optional[float] = None,
+        ai_batch_size: Optional[int] = None
     ):
         self.profile = profile
         should_enable = enable_ai if enable_ai is not None else config.enable_ai_evaluation
@@ -282,6 +285,10 @@ class JobMatcher:
             self.ai_evaluator = ai_evaluator
         else:
             self.ai_evaluator = AIEvaluator()
+
+        self.promising_threshold = promising_threshold if promising_threshold is not None else getattr(config, "promising_match_threshold", 55.0)
+        self.min_blended_score = min_blended_score if min_blended_score is not None else getattr(config, "min_blended_score", 50.0)
+        self.ai_batch_size = ai_batch_size if ai_batch_size is not None else getattr(config, "ai_batch_size", 4)
 
     def evaluate_job(self, job: Job) -> ScoredJob:
         text = COMPANY_HISTORY_PATTERN.sub(" ", f"{job.title} {job.location} {job.description}").lower()
@@ -567,7 +574,7 @@ class JobMatcher:
         disqualified_jobs: List[ScoredJob] = []
         for job in jobs:
             evaluated = self.evaluate_job(job)
-            if evaluated.score >= 55.0:
+            if evaluated.score >= self.promising_threshold:
                 heuristic_candidates.append(evaluated)
             else:
                 disqualified_jobs.append(evaluated)
@@ -579,7 +586,7 @@ class JobMatcher:
         if self.ai_evaluator and self.ai_evaluator.is_available:
             logger.info(f"🤖 Stage 2: AI Evaluator ACTIVE ({self.ai_evaluator.active_provider}). Evaluating {len(heuristic_candidates)} candidate jobs...")
             candidate_jobs = [sj.job for sj in heuristic_candidates]
-            ai_results = self.ai_evaluator.evaluate_jobs_batch(candidate_jobs, self.profile, batch_size=4)
+            ai_results = self.ai_evaluator.evaluate_jobs_batch(candidate_jobs, self.profile, batch_size=self.ai_batch_size)
 
             final_scored_jobs: List[ScoredJob] = []
             ai_accepted = 0
@@ -608,7 +615,7 @@ class JobMatcher:
 
                     # Only jobs verified as suitable by AI are accepted
                     blended_score = round(0.5 * sj.score + 0.5 * ai_res.fit_score, 1)
-                    if blended_score < 50.0:
+                    if blended_score < self.min_blended_score:
                         sj.score = 0.0
                         sj.seniority_status = "Score Insuficiente"
                         sj.match_reason = clean_reason
