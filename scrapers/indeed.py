@@ -19,6 +19,7 @@ from .base import (
     get_session,
     clean_job_description,
     is_valid_job_offer,
+    safe_fetch,
 )
 
 logger = logging.getLogger("Scraper")
@@ -227,7 +228,7 @@ class IndeedScraper(BaseScraper):
         return jobs
 
     def _fetch_via_http_session(self, queries: List[str]) -> List[Job]:
-        """Attempts direct HTTP scraping with realistic rotated browser headers and cookies (from env or data/indeed_cookies.json)."""
+        """Attempts direct HTTP scraping with TLS Chrome impersonation and realistic rotated browser headers."""
         jobs: List[Job] = []
         headers = get_random_headers()
         
@@ -254,17 +255,15 @@ class IndeedScraper(BaseScraper):
             "Referer": "https://pt.indeed.com/",
         })
 
-        proxies = {"http": config.indeed_proxy, "https": config.indeed_proxy} if config.indeed_proxy else None
-
-        for q in queries:
+        for q in queries[:6]:
             url = f"https://pt.indeed.com/jobs?q={quote_plus(q)}&l=Portugal&sort=date"
             try:
-                time.sleep(random.uniform(0.6, 1.2))
-                resp = self.session.get(url, headers=headers, proxies=proxies, timeout=(4.0, 10.0))
-                if resp.status_code == 200:
-                    parsed = self._parse_indeed_html(resp.text)
+                time.sleep(random.uniform(0.3, 0.7))
+                status_code, text, content = safe_fetch(url, session=self.session, timeout=12.0, headers=headers)
+                if status_code == 200 and text:
+                    parsed = self._parse_indeed_html(text)
                     jobs.extend(parsed)
-                elif resp.status_code == 403:
+                elif status_code == 403:
                     logger.debug(f"[Indeed HTTP] Cloudflare protected (403) for query '{q}'.")
             except Exception as e:
                 logger.debug(f"[Indeed HTTP] Request error for '{q}': {e}")
@@ -446,15 +445,13 @@ class IndeedScraper(BaseScraper):
         )
         all_jobs: List[Job] = []
 
-        # Tier 1: Saved Cookie session / Direct HTTP (if cookies are configured)
-        cookies_file = os.path.join("data", "indeed_cookies.json")
-        if config.indeed_cookies or os.path.isfile(cookies_file):
-            try:
-                http_jobs = self._fetch_via_http_session(queries)
-                if http_jobs:
-                    all_jobs.extend(http_jobs)
-            except Exception as e:
-                logger.debug(f"[Indeed Portal] Saved HTTP session error: {e}")
+        # Tier 1: Direct HTTP with safe_fetch (Chrome TLS impersonation)
+        try:
+            http_jobs = self._fetch_via_http_session(queries)
+            if http_jobs:
+                all_jobs.extend(http_jobs)
+        except Exception as e:
+            logger.debug(f"[Indeed Portal] Saved HTTP session error: {e}")
 
         # Tier 2: Adzuna API (High-speed & 100% reliable on GitHub Actions / cloud runners)
         if not all_jobs and ((getattr(config, "adzuna_app_id", "") and getattr(config, "adzuna_app_key", "")) or (os.getenv("ADZUNA_APP_ID") and os.getenv("ADZUNA_APP_KEY"))):
