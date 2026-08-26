@@ -10,15 +10,18 @@ from ui.profiles import get_available_profiles
 AVAILABLE_PORTALS = [
     ("LinkedIn Jobs (Guest API)", "linkedin", "PT"),
     ("ITJobs.pt (API / RSS)", "itjobs", "PT"),
-    ("Carga de Trabalhos", "cargadetrabalhos", "PT"),
+    ("Indeed Portugal", "indeed", "PT"),
+    ("Sapo Emprego (TI & Estágios)", "sapo", "PT"),
+    ("Teamlyzer Jobs (Tech & Salários)", "teamlyzer", "PT"),
     ("Net-Empregos (TI & IEFP)", "netempregos", "PT"),
     ("IEFP Online (Estágios Oficiais)", "iefp", "PT"),
+    ("Carga de Trabalhos", "cargadetrabalhos", "PT"),
     ("Euraxess / Bolsas P&D", "euraxess", "Investigação"),
     ("Landing.jobs", "landingjobs", "EU"),
+    ("Arbeitnow (Europa & Remote)", "arbeitnow", "EU"),
     ("Jobicy (Data & AI)", "jobicy", "Global"),
     ("Remotive (Tech Remote)", "remotive", "Global"),
     ("RemoteOK", "remoteok", "Global"),
-    ("Arbeitnow (Europa & Remote)", "arbeitnow", "EU"),
     ("Jobspresso (Remote Tech)", "jobspresso", "Global"),
 ]
 
@@ -50,10 +53,11 @@ def render_runner(active_profile: str):
             st.write("")
             dry_run = st.checkbox("Modo Simulação / Dry-Run (não sincroniza com Notion)", value=False)
 
-        st.markdown("<div style='font-size: 11px; font-weight: 700; color: #94A3B8; margin: 12px 0 8px 0; text-transform: uppercase; letter-spacing: 0.5px;'>Portais Ativos na Pipeline (12 Fontes Concorrentes)</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='font-size: 11px; font-weight: 700; color: #94A3B8; margin: 12px 0 8px 0; text-transform: uppercase; letter-spacing: 0.5px;'>Portais Ativos na Pipeline ({len(AVAILABLE_PORTALS)} Fontes Concorrentes)</div>", unsafe_allow_html=True)
         col_p1, col_p2 = st.columns(2)
+        mid = (len(AVAILABLE_PORTALS) + 1) // 2
         with col_p1:
-            for label, key, tag in AVAILABLE_PORTALS[:6]:
+            for label, key, tag in AVAILABLE_PORTALS[:mid]:
                 st.markdown(
                     f"""
                     <div style='font-size: 13px; color: #CBD5E1; margin-bottom: 5px; display: flex; align-items: center;'>
@@ -64,7 +68,7 @@ def render_runner(active_profile: str):
                     unsafe_allow_html=True
                 )
         with col_p2:
-            for label, key, tag in AVAILABLE_PORTALS[6:]:
+            for label, key, tag in AVAILABLE_PORTALS[mid:]:
                 st.markdown(
                     f"""
                     <div style='font-size: 13px; color: #CBD5E1; margin-bottom: 5px; display: flex; align-items: center;'>

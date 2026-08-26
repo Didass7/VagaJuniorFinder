@@ -17,6 +17,8 @@ from .jobspresso import JobspressoScraper
 from .euraxess import EuraxessScraper
 from .iefp import IEFPScraper
 from .indeed import IndeedScraper
+from .sapo import SapoScraper
+from .teamlyzer import TeamlyzerScraper
 
 logger = logging.getLogger("Scraper")
 
@@ -43,6 +45,8 @@ class JobIngestionPipeline:
         self.euraxess_scraper = EuraxessScraper(session=self.session, queries=search_queries)
         self.iefp_scraper = IEFPScraper(session=self.session, is_seen_func=is_seen_func)
         self.indeed_scraper = IndeedScraper(session=self.session, is_seen_func=is_seen_func, queries=search_queries)
+        self.sapo_scraper = SapoScraper(session=self.session, is_seen_func=is_seen_func, queries=search_queries)
+        self.teamlyzer_scraper = TeamlyzerScraper(session=self.session, is_seen_func=is_seen_func, queries=search_queries)
 
     def run(self) -> List[Job]:
         logger.info("🚀 Starting resilient & concurrent job portal ingestion pipeline...")
@@ -52,6 +56,8 @@ class JobIngestionPipeline:
             ("LinkedIn", self.linkedin_scraper.fetch),
             ("ITJobs", lambda: self.itjobs_scraper.fetch(self.itjobs_api_key)),
             ("Indeed", self.indeed_scraper.fetch),
+            ("Sapo Emprego", self.sapo_scraper.fetch),
+            ("Teamlyzer", self.teamlyzer_scraper.fetch),
             ("Carga de Trabalhos", self.carga_scraper.fetch),
             ("Landing.jobs", self.landing_scraper.fetch),
             ("Remotive", self.remotive_scraper.fetch),

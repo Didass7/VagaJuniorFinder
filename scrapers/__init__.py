@@ -31,6 +31,8 @@ from .jobspresso import JobspressoScraper
 from .euraxess import EuraxessScraper
 from .iefp import IEFPScraper
 from .indeed import IndeedScraper
+from .sapo import SapoScraper
+from .teamlyzer import TeamlyzerScraper
 from .pipeline import JobIngestionPipeline
 
 __all__ = [
@@ -63,5 +65,7 @@ __all__ = [
     "JobspressoScraper",
     "EuraxessScraper",
     "IEFPScraper",
+    "SapoScraper",
+    "TeamlyzerScraper",
     "JobIngestionPipeline",
 ]
