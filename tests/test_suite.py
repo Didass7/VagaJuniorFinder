@@ -572,18 +572,37 @@ class TestRobustnessImprovements(unittest.TestCase):
             store = SeenStore(filepath=temp_path)
             title = "Junior Data Scientist"
             company = "Tech Corp"
+            link = "https://example.com/job1"
             # Not seen yet
-            self.assertFalse(store.is_seen_candidate(title, company))
+            self.assertFalse(store.is_seen(
+                Job(title=title, company=company, location="Lisboa",
+                    work_mode="Presencial", link=link,
+                    description="Python, Machine Learning", source="Test",
+                    pub_date=datetime.date.today().isoformat()).job_id
+            ))
             
-            # Create job and mark as seen
+            # Create job and mark as seen via the real dedup flow
             j = Job(
                 title=title, company=company, location="Lisboa",
-                work_mode="Presencial", link="https://example.com/job1",
+                work_mode="Presencial", link=link,
                 description="Python, Machine Learning", source="Test",
                 pub_date=datetime.date.today().isoformat()
             )
             store.mark_seen([j.job_id])
-            self.assertTrue(store.is_seen_candidate(title, company))
+            # Same job (same link) should now be seen
+            self.assertTrue(store.is_seen(j.job_id))
+            # Same title+company but different link should NOT collide
+            j2 = Job(
+                title=title, company=company, location="Lisboa",
+                work_mode="Presencial", link="https://example.com/job2",
+                description="Python, Machine Learning", source="Test",
+                pub_date=datetime.date.today().isoformat()
+            )
+            self.assertFalse(store.is_seen(j2.job_id))
+            # filter_new should only return j2 (j is already seen)
+            new = store.filter_new([j, j2])
+            self.assertEqual(len(new), 1)
+            self.assertEqual(new[0].job_id, j2.job_id)
         finally:
             if os.path.exists(temp_path):
                 os.remove(temp_path)

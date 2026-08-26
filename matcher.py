@@ -78,7 +78,7 @@ TEXT_SENIORITY_DISQUALIFIERS = [
     "+1 years", "+2 years", "+3 years", "+4 years", "+5 years", "+6 years", "+7 years", "+8 years", "+9 years", "+10 years",
     "+1 year", "+2 year", "+3 year",
     "1+ anos", "2+ anos", "3+ anos", "4+ anos", "5+ anos", "6+ anos", "7+ anos", "8+ anos", "9+ anos", "10+ anos",
-    "+1 anos", "+2 anos", "+3 anos", "+4 anos", "+5 anos", "+6 anos", "+7 anos", "+8+ anos", "+9 anos", "+10 anos",
+    "+1 anos", "+2 anos", "+3 anos", "+4 anos", "+5 anos", "+6 anos", "+7 anos", "+8 anos", "+9 anos", "+10 anos",
     "+1 ano", "+2 ano", "+3 ano",
     "1 ano de experiência", "2 anos de experiência", "3 anos de experiência", "4 anos de experiência", "5 anos de experiência",
     "1 year of experience", "2 years of experience", "3 years of experience", "4 years of experience", "5 years of experience",
@@ -153,7 +153,7 @@ MANDATORY_OTHER_LANGUAGES_PATTERN = re.compile(
 
 # Foreign Language Post Pattern
 FOREIGN_JOB_POST_PATTERN = re.compile(
-    r"\b(?:über\s+uns|wir\s+suchen|deine\s+aufgaben|dein\s+profil|das\s+bringst\du\s+mit|unsere\s+anforderungen|in\s+deutschland|du\s+bist|unser\s+team|wir\s+bieten|bewirb\s+dich|standort|vollzeit|teilzeit|mehrparteienhäuser|mehrfamilienhäuser|du\s+kommunizierst|mindestens\s+c1|mindestens\s+b2)\b|"
+    r"\b(?:über\s+uns|wir\s+suchen|deine\s+aufgaben|dein\s+profil|das\s+bringst\s+du\s+mit|unsere\s+anforderungen|in\s+deutschland|du\s+bist|unser\s+team|wir\s+bieten|bewirb\s+dich|standort|vollzeit|teilzeit|mehrparteienhäuser|mehrfamilienhäuser|du\s+kommunizierst|mindestens\s+c1|mindestens\s+b2)\b|"
     r"\b(?:à\s+propos\s+de\s+nous|nous\s+recherchons|vos\s+missions|votre\s+profil|ce\s+que\s+nous\s+offrons)\b|"
     r"\b(?:sobre\s+nosotros|buscamos|tus\s+funciones|tu\s+perfil|requisitos\s+del\s+puesto)\b",
     re.IGNORECASE

@@ -57,10 +57,9 @@ def run_pipeline(dry_run: bool = False):
     logger.info(f"✅ Evaluated: {len(scored_jobs)} qualified jobs out of {len(new_jobs)} new jobs.")
 
     if dry_run:
-        logger.info("ℹ️ Dry-run mode active. Skipping Notion sync.")
+        logger.info("ℹ️ Dry-run mode active. Skipping Notion sync and seen-store update.")
         for sj in scored_jobs[:10]:
             logger.info(f"  → [{sj.score}%] {sj.job.title} @ {sj.job.company} ({sj.seniority_status})")
-        successful_job_ids = {sj.job.job_id for sj in scored_jobs}
     else:
         # ── Step 4: Sync to Notion ── Send qualified new jobs to Notion database
         if config.enable_notion_sync:
@@ -73,12 +72,12 @@ def run_pipeline(dry_run: bool = False):
             logger.info("ℹ️ Notion sync disabled.")
             successful_job_ids = {sj.job.job_id for sj in scored_jobs}
 
-    # Mark as seen ONLY jobs that were filtered out OR successfully synced
-    scored_job_ids = {sj.job.job_id for sj in scored_jobs}
-    jobs_to_mark = [j.job_id for j in new_jobs if j.job_id not in scored_job_ids or j.job_id in successful_job_ids]
-    
-    seen.mark_seen(jobs_to_mark)
-    seen.save()
+        # Mark as seen ONLY jobs that were filtered out OR successfully synced
+        scored_job_ids = {sj.job.job_id for sj in scored_jobs}
+        jobs_to_mark = [j.job_id for j in new_jobs if j.job_id not in scored_job_ids or j.job_id in successful_job_ids]
+        
+        seen.mark_seen(jobs_to_mark)
+        seen.save()
 
     logger.info("==================================================")
     logger.info("✅ VagaJuniorFinder Pipeline Finished Successfully")

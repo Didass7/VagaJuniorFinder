@@ -250,7 +250,12 @@ class Job:
             self.fetched_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         if not self.job_id:
-            raw_str = normalize_title_company_for_hash(self.title, self.company)
+            dedup_key = normalize_title_company_for_hash(self.title, self.company)
+            # Include link in hash to prevent collisions when normalize_title_name
+            # strips seniority words (e.g. "Junior Software Engineer" vs "Software Engineer"
+            # at the same company would otherwise produce identical hashes).
+            link_hash = self.link.split("?")[0].rstrip("/") if self.link else ""
+            raw_str = f"{dedup_key}__{link_hash}"
             self.job_id = hashlib.sha256(raw_str.encode('utf-8')).hexdigest()[:16]
         
         text_content = f"{self.title} {self.description}".lower()
