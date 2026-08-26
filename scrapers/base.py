@@ -86,10 +86,8 @@ NON_JOB_DOMAINS = [
     "github.com", "youtube.com", "google.com", "dev.to", "towardsdatascience.com"
 ]
 
-# Non-AI/Data titles to filter out during ingestion
+# Non-tech noise titles to filter out during ingestion (administrative, sales, non-IT)
 PRE_FILTER_DISQUALIFIERS = [
-    "ui engineer", "ux engineer", "front-end", "frontend", "react", "vue", "angular",
-    "electronics engineer", "rf engineer", "hardware", "embedded", "qa tester", "qa engineer",
     "salesforce", "sap ", "diagram creator", "diagram creators", "digital design", "circuit design",
     "verilog", "systemverilog", "vhdl", "fpga", "asic", "hardware design",
     "scrum master", "helpdesk", "support technician", "webmaster", "marketing", "social media",

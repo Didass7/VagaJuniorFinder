@@ -18,7 +18,7 @@ class NetEmpregosScraper(BaseScraper):
     def __init__(self, session: Optional[requests.Session] = None, is_seen_func: Optional[Any] = None, queries: Optional[List[str]] = None):
         super().__init__(session=session, is_seen_func=is_seen_func, queries=queries)
 
-    def _fetch_query_links(self, q: str, max_pages: int = 3) -> List[Dict]:
+    def _fetch_query_links(self, q: str, max_pages: int = 5) -> List[Dict]:
         cards = []
         for page in range(1, max_pages + 1):
             try:
