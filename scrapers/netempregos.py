@@ -23,27 +23,21 @@ class NetEmpregosScraper(BaseScraper):
         for page in range(1, max_pages + 1):
             try:
                 url = f"https://www.net-empregos.com/pesquisa-empregos.asp?chaves={q.replace(' ', '+')}&page={page}"
-                resp = self.session.get(url, headers=get_random_headers(), timeout=(3.5, 10.0))
+                resp = self.session.get(url, headers=get_random_headers(), timeout=(4.0, 12.0))
                 if resp.status_code != 200:
                     break
                 soup = BeautifulSoup(resp.text, "html.parser")
                 links = soup.find_all("a", href=re.compile(r"/\d+/[^/]+/"))
                 if not links:
                     break
-                page_added = 0
                 for a in links:
                     raw_href = a.get("href", "")
                     clean_link = f"https://www.net-empregos.com{raw_href}" if not raw_href.startswith("http") else raw_href
                     title = a.get_text(separator=' ', strip=True)
                     if title and len(title) >= 5 and is_valid_job_offer(clean_link, title):
-                        if self.is_seen_func and self.is_seen_func(title, "Empresa via Net-Empregos"):
-                            continue
                         cards.append({"title": title, "link": clean_link})
-                        page_added += 1
-                if page_added == 0:
-                    break
             except Exception as e:
-                logger.error(f"[Net-Empregos Portal] Error querying '{q}' page {page}: {e}")
+                logger.debug(f"[Net-Empregos Portal] Error querying '{q}' page {page}: {e}")
                 break
         return cards
 

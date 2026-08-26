@@ -28,10 +28,10 @@ class LandingJobsScraper(BaseScraper):
             try:
                 headers = get_random_headers()
                 headers["Accept"] = "application/atom+xml,application/xml,text/xml;q=0.9,*/*;q=0.8"
-                resp = self.session.get(atom_url, headers=headers, timeout=(3.5, 12.0))
+                resp = self.session.get(atom_url, headers=headers, timeout=(4.0, 12.0))
                 if resp.status_code == 200 and resp.content:
-                    feed = feedparser.parse(resp.content)
-                    if feed.entries:
+                    feed = feedparser.parse(resp.content) or feedparser.parse(resp.text)
+                    if feed and feed.entries:
                         for entry in feed.entries:
                             title = entry.get("title", "").strip()
                             link = entry.get("link", "").strip()
@@ -68,7 +68,8 @@ class LandingJobsScraper(BaseScraper):
                                 work_mode=work_mode, link=link, description=clean_desc,
                                 source="Landing.jobs", pub_date=pub_date_str
                             ))
-                        break
+                        if jobs:
+                            break
             except Exception as e:
                 logger.debug(f"[LandingJobsScraper] Atom feed error for {atom_url}: {e}")
 
