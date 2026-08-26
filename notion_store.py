@@ -227,6 +227,17 @@ class NotionStore:
         seniority_clean = "Recém-licenciado" if any(t in sj.seniority_status.lower() for t in ["recém", "recem", "0-1", "estágio", "estagio", "iefp", "ativar"]) else "Júnior"
         fonte_clean = self._sanitize_select_name(job.source)
 
+        extraction_raw = getattr(job, 'fetched_at', None)
+        if extraction_raw:
+            extraction_iso = extraction_raw.replace(" ", "T")
+        else:
+            try:
+                import zoneinfo
+                tz = zoneinfo.ZoneInfo("Europe/Lisbon")
+                extraction_iso = datetime.datetime.now(tz).strftime("%Y-%m-%dT%H:%M:%S")
+            except Exception:
+                extraction_iso = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+
         field_mappings = [
             ("Empresa", ["Empresa", "Company"], "rich_text", [{"text": {"content": self._truncate_text(company_name, 100)}}]),
             ("Match Score (%)", ["Match Score (%)", "Score (%)", "Match", "Score"], "number", float(round(sj.score, 1))),
@@ -237,7 +248,7 @@ class NotionStore:
             ("Elegível IEFP", ["Elegível IEFP", "IEFP"], "checkbox", bool(job.iefp_mentioned)),
             ("Estado", ["Estado", "Status"], "select", {"name": "Por Candidatar"}),
             ("Estado", ["Estado", "Status"], "status", {"name": "Por Candidatar"}),
-            ("Data Extração", ["Data Extração", "Data de Extração", "Data Ingestão", "Data/Hora", "Date"], "date", {"start": getattr(job, 'fetched_at', None) if getattr(job, 'fetched_at', None) else datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")}),
+            ("Data Extração", ["Data Extração", "Data de Extração", "Data Ingestão", "Data/Hora", "Date"], "date", {"start": extraction_iso}),
             ("Análise IA", ["Análise IA", "Análise da IA", "AI Reasoning", "Notas"], "rich_text", [{"text": {"content": self._truncate_text(raw_reason_text, 1990)}}]),
         ]
 

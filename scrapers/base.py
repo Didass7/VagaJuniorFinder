@@ -228,6 +228,15 @@ def get_job_dedup_key(title: str, company: str) -> str:
 def normalize_title_company_for_hash(title: str, company: str) -> str:
     return get_job_dedup_key(title, company)
 
+def get_current_lisbon_time() -> datetime.datetime:
+    """Returns the current datetime in Europe/Lisbon timezone (WET/WEST)."""
+    try:
+        import zoneinfo
+        tz = zoneinfo.ZoneInfo("Europe/Lisbon")
+        return datetime.datetime.now(tz)
+    except Exception:
+        return datetime.datetime.now()
+
 @dataclass
 class Job:
     title: str
@@ -247,7 +256,7 @@ class Job:
         self.description = clean_job_description(self.description)
 
         if not self.fetched_at:
-            self.fetched_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            self.fetched_at = get_current_lisbon_time().strftime("%Y-%m-%d %H:%M:%S")
 
         if not self.job_id:
             dedup_key = normalize_title_company_for_hash(self.title, self.company)
