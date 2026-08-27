@@ -63,8 +63,10 @@ def load_config(profile_name: Optional[str] = None) -> AppConfig:
     active_profile = profile_name or os.getenv("ACTIVE_PROFILE", "diogo")
     profile_path = os.path.join("profiles", f"{active_profile}.json")
     
-    # Make cache file specific to the profile
-    cfg.cache_file = os.path.join("data", f"jobs_cache_{active_profile}.json")
+    # Make cache file specific to the profile (respect explicit CACHE_FILE env var if set)
+    if not os.getenv("CACHE_FILE"):
+        cfg.cache_file = os.path.join("data", f"jobs_cache_{active_profile}.json")
+    os.makedirs(os.path.dirname(cfg.cache_file) or "data", exist_ok=True)
     
     if os.path.exists(profile_path):
         with open(profile_path, 'r', encoding='utf-8') as f:

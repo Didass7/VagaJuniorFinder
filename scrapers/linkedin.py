@@ -18,7 +18,7 @@ class LinkedInScraper(BaseScraper):
     def __init__(self, session: Optional[requests.Session] = None, is_seen_func: Optional[Any] = None, queries: Optional[List[str]] = None):
         super().__init__(session=session, is_seen_func=is_seen_func, queries=queries)
 
-    def _fetch_query_cards(self, query: str, max_pages: int = 40) -> List[Dict]:
+    def _fetch_query_cards(self, query: str, max_pages: int = 10) -> List[Dict]:
         cards_data = []
         for page in range(max_pages):
             start = page * 25
@@ -103,7 +103,7 @@ class LinkedInScraper(BaseScraper):
             # Extract numeric job ID from LinkedIn URL
             id_match = re.search(r"(\d{8,12})", clean_link)
             if id_match:
-                time.sleep(random.uniform(0.15, 0.35))
+                time.sleep(random.uniform(0.3, 0.6))
                 job_posting_id = id_match.group(1)
                 guest_api_url = f"https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/{job_posting_id}"
                 headers = get_random_headers()
@@ -165,7 +165,7 @@ class LinkedInScraper(BaseScraper):
         
         # 1. Fetch query cards concurrently across all pages
         with ThreadPoolExecutor(max_workers=min(len(target_queries), 6)) as executor:
-            future_to_q = {executor.submit(self._fetch_query_cards, q, 40): q for q in target_queries}
+            future_to_q = {executor.submit(self._fetch_query_cards, q): q for q in target_queries}
             for future in as_completed(future_to_q):
                 try:
                     res = future.result()

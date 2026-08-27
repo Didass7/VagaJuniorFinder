@@ -61,23 +61,30 @@ def run_pipeline(dry_run: bool = False):
         for sj in scored_jobs[:10]:
             logger.info(f"  → [{sj.score}%] {sj.job.title} @ {sj.job.company} ({sj.seniority_status})")
     else:
-        # ── Step 4: Sync to Notion ── Send qualified new jobs to Notion database
-        if config.enable_notion_sync:
-            notion_store = NotionStore()
-            successful_job_ids = notion_store.sync_jobs(scored_jobs)
-            synced_new = getattr(notion_store, 'last_synced_count', len(successful_job_ids))
-            already_in_db = max(0, len(successful_job_ids) - synced_new)
-            logger.info(f"📝 Synced {synced_new} brand-new jobs to Notion ({already_in_db} were already in Notion database).")
-        else:
-            logger.info("ℹ️ Notion sync disabled.")
-            successful_job_ids = {sj.job.job_id for sj in scored_jobs}
+        jobs_to_mark = []
+        try:
+            # ── Step 4: Sync to Notion ── Send qualified new jobs to Notion database
+            if config.enable_notion_sync:
+                notion_store = NotionStore()
+                successful_job_ids = notion_store.sync_jobs(scored_jobs)
+                synced_new = getattr(notion_store, 'last_synced_count', len(successful_job_ids))
+                already_in_db = max(0, len(successful_job_ids) - synced_new)
+                logger.info(f"📝 Synced {synced_new} brand-new jobs to Notion ({already_in_db} were already in Notion database).")
+            else:
+                logger.info("ℹ️ Notion sync disabled.")
+                successful_job_ids = {sj.job.job_id for sj in scored_jobs}
 
-        # Mark as seen ONLY jobs that were filtered out OR successfully synced
-        scored_job_ids = {sj.job.job_id for sj in scored_jobs}
-        jobs_to_mark = [j.job_id for j in new_jobs if j.job_id not in scored_job_ids or j.job_id in successful_job_ids]
-        
-        seen.mark_seen(jobs_to_mark)
-        seen.save()
+            # Mark as seen ONLY jobs that were filtered out OR successfully synced
+            scored_job_ids = {sj.job.job_id for sj in scored_jobs}
+            jobs_to_mark = [j.job_id for j in new_jobs if j.job_id not in scored_job_ids or j.job_id in successful_job_ids]
+        except Exception as e:
+            logger.error(f"❌ Error during Notion sync: {e}")
+            # On sync failure, still mark disqualified jobs as seen to avoid re-processing
+            scored_job_ids = {sj.job.job_id for sj in scored_jobs}
+            jobs_to_mark = [j.job_id for j in new_jobs if j.job_id not in scored_job_ids]
+        finally:
+            seen.mark_seen(jobs_to_mark)
+            seen.save()
 
     logger.info("==================================================")
     logger.info("✅ VagaJuniorFinder Pipeline Finished Successfully")

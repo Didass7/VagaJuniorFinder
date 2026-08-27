@@ -40,16 +40,37 @@ class SeenStore:
         with self._lock:
             return job_id in self._store
 
-    def is_seen_candidate(self, title: str, company: str = "") -> bool:
-        """Computes hash and checks if title + company combination has been seen."""
+    def is_seen_candidate(self, title: str, company: str = "", link: str = "") -> bool:
+        """Computes hash and checks if title + company + link combination has been seen.
+        
+        Uses the same hash algorithm as Job.__post_init__ to ensure early-skip
+        optimization works correctly during scraping.
+        """
         import hashlib
         try:
             from scraper import normalize_title_company_for_hash
-            raw_str = normalize_title_company_for_hash(title, company)
+            dedup_key = normalize_title_company_for_hash(title, company)
         except Exception:
-            raw_str = f"{title.lower()}_{company.lower()}"
+            dedup_key = f"{title.lower()}_{company.lower()}"
+        
+        if link:
+            link_hash = link.split("?")[0].rstrip("/")
+            raw_str = f"{dedup_key}__{link_hash}"
+        else:
+            raw_str = dedup_key
+        
         candidate_id = hashlib.sha256(raw_str.encode('utf-8')).hexdigest()[:16]
-        return self.is_seen(candidate_id)
+        
+        # Also check dedup_key-only hash as fallback for legacy entries
+        if self.is_seen(candidate_id):
+            return True
+        
+        # Fallback: check without link (covers legacy stored entries)
+        if link:
+            legacy_id = hashlib.sha256(dedup_key.encode('utf-8')).hexdigest()[:16]
+            return self.is_seen(legacy_id)
+        
+        return False
 
     def mark_seen(self, job_ids: List[str]) -> None:
         """Mark a list of job_ids as seen with current timestamp."""

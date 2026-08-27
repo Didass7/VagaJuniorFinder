@@ -28,6 +28,7 @@ class NotionStore:
         })
         self.headers = dict(self._session.headers)
         self._db_schema: Optional[Dict[str, Any]] = None
+        self.last_synced_count: int = 0
 
     @property
     def is_configured(self) -> bool:
@@ -234,9 +235,9 @@ class NotionStore:
             try:
                 import zoneinfo
                 tz = zoneinfo.ZoneInfo("Europe/Lisbon")
-                extraction_iso = datetime.datetime.now(tz).strftime("%Y-%m-%dT%H:%M:%S")
+                extraction_iso = datetime.datetime.now(tz).isoformat()
             except Exception:
-                extraction_iso = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+                extraction_iso = datetime.datetime.now().isoformat()
 
         field_mappings = [
             ("Empresa", ["Empresa", "Company"], "rich_text", [{"text": {"content": self._truncate_text(company_name, 100)}}]),

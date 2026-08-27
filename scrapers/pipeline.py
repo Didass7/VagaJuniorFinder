@@ -33,7 +33,7 @@ class JobIngestionPipeline:
         is_seen_func = self.seen_store.is_seen_candidate if (self.seen_store and hasattr(self.seen_store, "is_seen_candidate")) else None
 
         self.linkedin_scraper = LinkedInScraper(session=self.session, is_seen_func=is_seen_func, queries=search_queries)
-        self.itjobs_scraper = ITJobsScraper(session=self.session, is_seen_func=is_seen_func)
+        self.itjobs_scraper = ITJobsScraper(session=self.session, is_seen_func=is_seen_func, api_key=self.itjobs_api_key)
         self.landing_scraper = LandingJobsScraper(session=self.session)
         self.remotive_scraper = RemotiveScraper(session=self.session)
         self.arbeitnow_scraper = ArbeitnowScraper(session=self.session)
@@ -54,7 +54,7 @@ class JobIngestionPipeline:
 
         scrapers = [
             ("LinkedIn", self.linkedin_scraper.fetch),
-            ("ITJobs", lambda: self.itjobs_scraper.fetch(self.itjobs_api_key)),
+            ("ITJobs", self.itjobs_scraper.fetch),
             ("Indeed", self.indeed_scraper.fetch),
             ("Sapo Emprego", self.sapo_scraper.fetch),
             ("Teamlyzer", self.teamlyzer_scraper.fetch),

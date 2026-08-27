@@ -12,8 +12,9 @@ logger = logging.getLogger("Scraper")
 
 class ITJobsScraper(BaseScraper):
     """Scrapes ITJobs.pt portal for Portugal IT, AI & Data Science jobs with full detail body parsing."""
-    def __init__(self, session: Optional[requests.Session] = None, is_seen_func: Optional[Any] = None):
+    def __init__(self, session: Optional[requests.Session] = None, is_seen_func: Optional[Any] = None, api_key: str = ""):
         super().__init__(session=session, is_seen_func=is_seen_func)
+        self.api_key = api_key
 
     def _fetch_search_url_cards(self, url: str) -> List[Dict]:
         cards = []
@@ -94,8 +95,9 @@ class ITJobsScraper(BaseScraper):
             source="ITJobs.pt", pub_date=datetime.date.today().isoformat()
         )
 
-    def fetch(self, api_key: str = "") -> List[Job]:
+    def fetch(self) -> List[Job]:
         jobs = []
+        api_key = self.api_key
         if api_key:
             try:
                 for page in range(1, 4):

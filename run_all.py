@@ -4,8 +4,11 @@ import subprocess
 import sys
 
 def main():
-    # Find all json files in profiles directory
-    profiles_dir = "profiles"
+    # Resolve project root from this script's location (not CWD)
+    project_root = os.path.dirname(os.path.abspath(__file__))
+    profiles_dir = os.path.join(project_root, "profiles")
+    main_script = os.path.join(project_root, "main.py")
+
     if not os.path.exists(profiles_dir):
         print(f"Directory '{profiles_dir}' not found!")
         return
@@ -33,8 +36,8 @@ def main():
         env["ACTIVE_PROFILE"] = profile_name
         
         try:
-            # Run main.py using the current python executable
-            subprocess.run([sys.executable, "main.py"], env=env, check=True)
+            # Run main.py using the current python executable, forwarding CLI arguments
+            subprocess.run([sys.executable, main_script, *sys.argv[1:]], env=env, cwd=project_root, check=True)
         except subprocess.CalledProcessError as e:
             print(f"\n[ ERROR ] Error running pipeline for {profile_name}: {e}")
             failed_profiles.append(profile_name)

@@ -1,6 +1,7 @@
 import re
 import requests
 import logging
+import threading
 from bs4 import BeautifulSoup
 from typing import Optional
 
@@ -27,7 +28,17 @@ def is_generic_company(name: Optional[str]) -> bool:
     clean = name.strip().lower()
     return clean in GENERIC_COMPANY_NAMES or clean.startswith("empresa via") or clean.startswith("empresa no") or any(clean.startswith(x) for x in ["detalhe oferta", "principais responsabilidades", "perfil pretendido", "requisitos"])
 
-_COMPANY_CACHE = {}
+from collections import OrderedDict
+
+class _BoundedCache(OrderedDict):
+    """Thread-safe LRU-style bounded cache with max 2048 entries."""
+    MAX_SIZE = 2048
+    def __setitem__(self, key, value):
+        super().__setitem__(key, value)
+        if len(self) > self.MAX_SIZE:
+            self.popitem(last=False)
+
+_COMPANY_CACHE = _BoundedCache()
 
 def extract_company_from_link(link: str, title: str = "", current_company: str = "") -> str:
     """Extracts a real, clean company name from job link, page title, or HTML metadata."""

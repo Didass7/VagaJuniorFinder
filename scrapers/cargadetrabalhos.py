@@ -53,7 +53,7 @@ class CargaDeTrabalhosScraper(BaseScraper):
                 break
         return cards
 
-    def _fetch_detail_page(self, card_info: Dict) -> Job:
+    def _fetch_detail_page(self, card_info: Dict) -> Optional[Job]:
         title = card_info["title"]
         link = card_info["link"]
         text = card_info["summary_text"]
@@ -65,7 +65,7 @@ class CargaDeTrabalhosScraper(BaseScraper):
                 det_soup = BeautifulSoup(det_resp.text, "html.parser")
                 is_closed = bool(det_soup.find(class_=lambda c: c and ("closed-job" in c or "job-closed" in c)))
                 if is_closed:
-                    text = f"{title} - Oferta Expirada"
+                    return None  # Drop expired/closed job offers
                 else:
                     # Clean title from detail page if available
                     h1_tag = det_soup.find("h1", class_=lambda c: c and ("title" in str(c) or "page" in str(c))) or det_soup.find("h1")
@@ -131,7 +131,9 @@ class CargaDeTrabalhosScraper(BaseScraper):
                 future_to_detail = {executor.submit(self._fetch_detail_page, c): c for c in cards_to_fetch}
                 for future in as_completed(future_to_detail):
                     try:
-                        jobs.append(future.result())
+                        result = future.result()
+                        if result is not None:
+                            jobs.append(result)
                     except Exception as err:
                         logger.debug(f"[Carga de Trabalhos Portal] Detail fetch error: {err}")
 

@@ -18,6 +18,7 @@ jobs_cache.json
 data/*.json
 data/*.xlsx
 data/.*
+!data/.gitkeep
 *.xlsx
 scratch/
 
@@ -29,6 +30,7 @@ downloaded_files/
 reports/*.md
 reports/*.html
 reports/*.xlsx
+!reports/.gitkeep
 gh_logs/
 
 # IDE

@@ -1,5 +1,6 @@
 import os
 import sys
+import html
 import streamlit as st
 from config import config, load_config
 from ui.dashboard import render_dashboard
@@ -596,7 +597,9 @@ def main():
         # Candidate Clean Card
         prof_data = load_profile_data(selected_profile).get("candidate", {})
         if prof_data:
-            initials = "".join([part[0].upper() for part in prof_data.get('name', selected_profile).split()[:2]]) or "VF"
+            c_name = html.escape(str(prof_data.get('name', selected_profile)))
+            c_degree = html.escape(str(prof_data.get('degree', 'Licenciatura')[:30]))
+            initials = html.escape("".join([part[0].upper() for part in prof_data.get('name', selected_profile).split()[:2]]) or "VF")
             iefp_badge = '<span style="background: rgba(16, 185, 129, 0.12); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.25); padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; letter-spacing: 0.3px;">IEFP ATIVAR.PT</span>' if prof_data.get("iefp_eligible") else ''
             
             st.markdown(
@@ -605,8 +608,8 @@ def main():
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <div class="profile-avatar">{initials}</div>
                         <div style="overflow: hidden;">
-                            <div style="font-weight: 700; color: #F8FAFC; font-size: 13px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">{prof_data.get('name', selected_profile)}</div>
-                            <div style="font-size: 11px; color: #94A3B8; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">{prof_data.get('degree', 'Licenciatura')[:30]}</div>
+                            <div style="font-weight: 700; color: #F8FAFC; font-size: 13px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">{c_name}</div>
+                            <div style="font-size: 11px; color: #94A3B8; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">{c_degree}</div>
                         </div>
                     </div>
                     {f'<div style="margin-top: 8px;">{iefp_badge}</div>' if iefp_badge else ''}

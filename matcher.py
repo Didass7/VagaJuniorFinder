@@ -345,6 +345,10 @@ class JobMatcher:
         tech_stack_lower = [t.lower() for t in self.profile.tech_stack]
         profile_languages = [l.lower() for l in self.profile.languages]
         speaks_spanish = any("espanhol" in l or "spanish" in l for l in profile_languages)
+        speaks_french = any("francês" in l or "frances" in l or "french" in l for l in profile_languages)
+        speaks_german = any("alemão" in l or "alemao" in l or "german" in l or "deutsch" in l for l in profile_languages)
+        speaks_italian = any("italiano" in l or "italian" in l for l in profile_languages)
+        speaks_dutch = any("holandês" in l or "holandes" in l or "dutch" in l or "nederlands" in l for l in profile_languages)
 
         for disq, pattern in IRRELEVANT_ROLE_PATTERNS:
             # If the candidate explicitly targets this domain (e.g. sysadmin, network, cloud for Rafael), do NOT disqualify it!
@@ -379,27 +383,45 @@ class JobMatcher:
         has_it_role = bool(re.search(r"\b(?:it|ti)\b", title_lower)) and bool(re.search(r"\b(?:junior|júnior|trainee|graduate|consultor|consultant|developer|support|suporte|estagio|estágio)\b", title_lower))
         has_domain_in_title = any(cd in title_lower for cd in core_domain_words) or has_it_role
 
-        # Protect against cross-profile leaks (e.g. Data Engineer job slipping into Cybersecurity/DevOps profile)
-        data_domain_terms = [
-            "data engineer", "data scientist", "cientista de dados", "bi analyst", "analista de bi", "data architect",
-            "ai engineer", "engenheiro de ia", "machine learning", "computer vision", "nlp engineer"
-        ]
-        security_net_terms = [
-            "cybersecurity", "cibersegurança", "network engineer", "soc analyst", "sysadmin", "analista de soc",
-            "técnico de redes", "administrador de redes", "administrador de sistemas", "devops engineer", "secops"
-        ]
+        # Dynamic cross-domain leak protection
+        # Define known domain clusters with their distinctive title terms
+        DOMAIN_CLUSTERS = {
+            "data_ai": [
+                "data engineer", "data scientist", "cientista de dados", "bi analyst", "analista de bi", "data architect",
+                "ai engineer", "engenheiro de ia", "machine learning", "computer vision", "nlp engineer"
+            ],
+            "security_network": [
+                "cybersecurity", "cibersegurança", "network engineer", "soc analyst", "sysadmin", "analista de soc",
+                "técnico de redes", "administrador de redes", "administrador de sistemas", "devops engineer", "secops"
+            ],
+            "frontend_design": [
+                "frontend developer", "front-end developer", "ui developer", "ux developer", "react developer",
+                "angular developer", "vue developer", "web designer", "ui/ux designer"
+            ],
+            "mobile": [
+                "ios developer", "android developer", "flutter developer", "mobile developer",
+                "react native developer", "swift developer", "kotlin developer"
+            ],
+        }
 
+        # Detect which domain clusters the candidate's profile belongs to
         target_titles_str = " ".join(target_titles_lower)
-        is_security_profile = any(s in target_titles_str for s in ["cybersecurity", "cibersegurança", "devops", "network", "redes", "soc", "segurança", "seguranca"])
-        is_data_profile = any(d in target_titles_str for d in ["data scientist", "cientista de dados", "ai engineer", "engenheiro de ia", "machine learning", "data engineer"])
+        profile_domains = set()
+        for domain, terms in DOMAIN_CLUSTERS.items():
+            if any(term in target_titles_str for term in terms):
+                profile_domains.add(domain)
 
-        if is_security_profile and not is_data_profile:
-            if any(dt in title_lower for dt in data_domain_terms):
-                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Fora do Perfil", match_reason="Vaga de Engenharia/Ciência de Dados fora do perfil de Cibersegurança/DevOps", ai_reasoning="Filtro Automático: Cargo de Dados/IA fora do perfil de Cibersegurança")
-
-        if is_data_profile and not is_security_profile:
-            if any(st in title_lower for st in security_net_terms):
-                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Fora do Perfil", match_reason="Vaga de Cibersegurança/Redes fora do perfil de IA/Data", ai_reasoning="Filtro Automático: Cargo de Cibersegurança/Redes fora do perfil de IA/Data")
+        # If profile belongs to specific domains, reject jobs from OTHER domains it doesn't target
+        if profile_domains:
+            for domain, terms in DOMAIN_CLUSTERS.items():
+                if domain not in profile_domains:
+                    if any(term in title_lower for term in terms):
+                        return ScoredJob(
+                            job=job, score=0.0, matched_skills=[], missing_skills=[],
+                            seniority_status="Fora do Perfil",
+                            match_reason=f"Vaga de domínio '{domain}' fora do perfil do candidato",
+                            ai_reasoning=f"Filtro Automático: Cargo fora do domínio do candidato"
+                        )
 
         if not has_domain_in_title and not has_target_title and not has_tech_in_title:
             return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Fora do Perfil", match_reason="Título não corresponde às funções ou tecnologias alvo do candidato", ai_reasoning="Filtro Automático: Título não corresponde às funções alvo do candidato")
@@ -416,28 +438,50 @@ class JobMatcher:
                 r"\b(?:habilita[cç][aã]o\s+base\s*:\s*mestrado|n[ií]vel\s+7\b|exige\s+mestrado|mestrado\s+(?:obrigat[oó]rio|completo|exigido))\b|"
                 r"\b(?:qualifica[cç][oõ]es\s+(?:acad[eé]micas?|m[ií]nimas?)?|requisitos\s+acad[eé]micos?|forma[cç][aã]o\s+(?:acad[eé]mica|base)?|perfil)\s*:\s*mestrado\b|"
                 r"\bqualifica[cç][oõ]es\s+acad[eé]micas\s+mestrado\b|"
-                r"\bmestrado\s+em\s+(?:eng(?:enharia|\.)?|ci[eê]ncia|inform[aá]tica|data|matem[aá]tica|f[ií]sica|ia|intelig[eê]ncia)\b|"
                 r"\bmaster'?s?\s+degree\s+(?:in\s+[\w\s]+)?required\b|"
                 r"\bmsc\s+(?:in\s+[\w\s]+)?required\b",
                 re.IGNORECASE
             )
+            masters_preferred_pattern = re.compile(
+                r"\b(?:valoriza-se|prefer[ií]vel|preferência|preferencia|preferred|nice\s+to\s+have|desejável|desejavel|factor\s+prefer|fator\s+prefer|valorizamos|valorizado|valorizada|diferencial|plus|asset|bonus|advantage)\b",
+                re.IGNORECASE
+            )
             masters_match = masters_pattern.search(text)
             if masters_match and not has_bachelor_option:
-                return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Requer Mestrado", match_reason=f"Oferta exige Mestrado ({masters_match.group(0).strip()}), incompatível com Licenciatura", ai_reasoning=f"Filtro Automático: Exige Mestrado ({masters_match.group(0).strip()})")
+                # Check if the mestrado mention is in a "preferred/nice-to-have" context (not mandatory)
+                match_start = max(0, masters_match.start() - 80)
+                match_end = min(len(text), masters_match.end() + 40)
+                surrounding_text = text[match_start:match_end]
+                if not masters_preferred_pattern.search(surrounding_text):
+                    return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Requer Mestrado", match_reason=f"Oferta exige Mestrado ({masters_match.group(0).strip()}), incompatível com Licenciatura", ai_reasoning=f"Filtro Automático: Exige Mestrado ({masters_match.group(0).strip()})")
 
         # Language Disqualification (exempt Spanish if candidate speaks Spanish)
         lang_match = MANDATORY_OTHER_LANGUAGES_PATTERN.search(text)
         if lang_match:
             matched_str = lang_match.group(0).lower()
-            is_spanish_match = any(sp in matched_str for sp in ["spanish", "español", "espanhol"])
-            if not (speaks_spanish and is_spanish_match):
+            # Dynamically check if candidate speaks the required language
+            is_exempted = (
+                (speaks_spanish and any(sp in matched_str for sp in ["spanish", "español", "espanhol"])) or
+                (speaks_french and any(fr in matched_str for fr in ["french", "français", "francais"])) or
+                (speaks_german and any(de in matched_str for de in ["german", "deutsch", "alemão", "alemao"])) or
+                (speaks_italian and any(it in matched_str for it in ["italian", "italiano"])) or
+                (speaks_dutch and any(nl in matched_str for nl in ["dutch", "nederlands", "holandês", "holandes"]))
+            )
+            if not is_exempted:
                 return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Idioma Não Suportado", match_reason=f"Exige outro idioma ({matched_str})", ai_reasoning=f"Filtro Automático: Exige outro idioma ({matched_str})")
 
         foreign_post_match = FOREIGN_JOB_POST_PATTERN.search(text)
         if foreign_post_match:
             matched_post = foreign_post_match.group(0).lower()
             is_spanish_post = any(sp in matched_post for sp in ["sobre nosotros", "buscamos", "tus funciones", "tu perfil", "requisitos del puesto"])
-            if not (speaks_spanish and is_spanish_post):
+            is_french_post = any(fr in matched_post for fr in ["à propos de nous", "nous recherchons", "vos missions", "votre profil"])
+            is_german_post = any(de in matched_post for de in ["über uns", "wir suchen", "deine aufgaben", "dein profil", "wir bieten", "bewirb dich"])
+            is_exempted_post = (
+                (speaks_spanish and is_spanish_post) or
+                (speaks_french and is_french_post) or
+                (speaks_german and is_german_post)
+            )
+            if not is_exempted_post:
                 return ScoredJob(job=job, score=0.0, matched_skills=[], missing_skills=[], seniority_status="Idioma Não Suportado", match_reason=f"Anúncio noutro idioma ({matched_post})", ai_reasoning=f"Filtro Automático: Anúncio noutro idioma ({matched_post})")
 
         is_explicit_junior = any(j_term in title_lower for j_term in ["junior", "jr", "estágio", "estagio", "trainee", "graduate program", "entry level", "intern"])
