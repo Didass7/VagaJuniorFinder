@@ -103,7 +103,7 @@ class LinkedInScraper(BaseScraper):
             # Extract numeric job ID from LinkedIn URL
             id_match = re.search(r"(\d{8,12})", clean_link)
             if id_match:
-                time.sleep(random.uniform(0.3, 0.6))
+                time.sleep(random.uniform(0.15, 0.35))
                 job_posting_id = id_match.group(1)
                 guest_api_url = f"https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/{job_posting_id}"
                 headers = get_random_headers()
@@ -145,9 +145,47 @@ class LinkedInScraper(BaseScraper):
                     if len(combined) > 100:
                         desc = combined
         except Exception as d_err:
-            logger.debug(f"LinkedIn detail fetch failed for {clean_link}: {d_err}")
+            logger.debug(f"LinkedIn detail fetch via guest API failed for {clean_link}: {d_err}")
 
-        # Fallback description if detail API was rate-limited or blocked
+        # Secondary fallback: Fetch direct job page URL (bypasses guest API blocking, parses JSON-LD or full markup)
+        if not desc or len(desc) < 100:
+            try:
+                time.sleep(random.uniform(0.15, 0.35))
+                headers = get_random_headers()
+                headers.update({
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                    "Accept-Language": "pt-PT,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+                })
+                resp = self.session.get(clean_link, headers=headers, timeout=(3.5, 8.0))
+                if resp.status_code == 200:
+                    soup = BeautifulSoup(resp.text, "html.parser")
+                    import html as html_lib
+                    import json as json_lib
+                    for script in soup.find_all("script", type="application/ld+json"):
+                        try:
+                            ld_data = json_lib.loads(script.string)
+                            if isinstance(ld_data, dict) and "description" in ld_data:
+                                raw_desc = html_lib.unescape(ld_data["description"])
+                                clean_text = BeautifulSoup(raw_desc, "html.parser").get_text(separator=" ", strip=True)
+                                if len(clean_text) > 100:
+                                    desc = f"{title} - {clean_job_description(clean_text)}"
+                                    break
+                        except Exception:
+                            pass
+
+                    if not desc or len(desc) < 100:
+                        markup = (
+                            soup.find("div", class_=lambda c: c and "show-more-less-html__markup" in str(c)) or
+                            soup.find("section", class_=lambda c: c and "description" in str(c))
+                        )
+                        if markup:
+                            text = markup.get_text(separator=" ", strip=True)
+                            if len(text) > 100:
+                                desc = f"{title} - {clean_job_description(text)}"
+            except Exception as page_err:
+                logger.debug(f"LinkedIn direct page fetch failed for {clean_link}: {page_err}")
+
+        # Fallback description if all endpoints were blocked
         if not desc or len(desc) < 100:
             desc = f"{title} na empresa {company} ({location}). Oportunidade de emprego publicada no LinkedIn Jobs Portugal com foco em tecnologia e engenharia informática."
 

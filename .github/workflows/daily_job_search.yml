@@ -90,7 +90,8 @@ jobs:
             git rm -rf . 2>/dev/null || true
           fi
 
-          # Restore data directory from temp and commit
+          # Restore data directory from temp cleanly and commit
+          rm -rf data
           cp -r /tmp/data data
           git add data/
           if git diff --cached --quiet; then
