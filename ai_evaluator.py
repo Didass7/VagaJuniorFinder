@@ -54,7 +54,7 @@ class AIEvaluator:
         if self.groq_api_key:
             try:
                 from groq import Groq
-                self._groq_client = Groq(api_key=self.groq_api_key)
+                self._groq_client = Groq(api_key=self.groq_api_key, timeout=20.0)
                 logger.info(f"🤖 Initialized Groq AI Evaluator with model '{self.groq_model_name}'")
             except Exception as e:
                 logger.warning(f"Failed to initialize Groq Client: {e}")
@@ -62,7 +62,8 @@ class AIEvaluator:
         if self.gemini_api_key:
             try:
                 from google import genai
-                self._gemini_client = genai.Client(api_key=self.gemini_api_key)
+                from google.genai import types
+                self._gemini_client = genai.Client(api_key=self.gemini_api_key, http_options=types.HttpOptions(timeout=20000))
                 logger.info(f"🤖 Initialized Gemini AI Evaluator with model '{self.gemini_model_name}'")
             except Exception as e:
                 logger.warning(f"Failed to initialize Gemini Client: {e}")

@@ -195,7 +195,7 @@ O projeto inclui o workflow [`.github/workflows/daily_job_search.yml`](.github/w
    - `GROQ_API_KEY`
    - `GEMINI_API_KEY`
    - `ITJOBS_API_KEY` (opcional)
-3. O GitHub Actions executará automaticamente a pesquisa todos os dias às **08:00 e 20:00 UTC (09:00 e 21:00 em Portugal Continental)**, sincronizando todas as novas vagas diretamente com o Notion e persistindo o histórico na branch `data`.
+3. O GitHub Actions executará automaticamente a pesquisa todos os dias às **07:17 e 19:17 UTC (08:17 e 20:17 em Portugal Continental no Verão)**, sincronizando todas as novas vagas diretamente com o Notion e persistindo o histórico na branch `data`.
 
 ---
 
