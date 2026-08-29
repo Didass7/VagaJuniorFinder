@@ -81,12 +81,18 @@ TEXT_SENIORITY_DISQUALIFIERS = [
     "+1 anos", "+2 anos", "+3 anos", "+4 anos", "+5 anos", "+6 anos", "+7 anos", "+8 anos", "+9 anos", "+10 anos",
     "+1 ano", "+2 ano", "+3 ano",
     "1 ano de experiência", "2 anos de experiência", "3 anos de experiência", "4 anos de experiência", "5 anos de experiência",
+    "um ano de experiência", "dois anos de experiência", "três anos de experiência", "quatro anos de experiência", "cinco anos de experiência",
     "1 year of experience", "2 years of experience", "3 years of experience", "4 years of experience", "5 years of experience",
+    "one year of experience", "two years of experience", "three years of experience",
     "1-2 years", "1-2 anos", "1 a 2 anos", "1 to 2 years", "1 to 3 years", "1 a 3 anos",
     "2 to 5 years", "2 a 5 anos", "2 a 3 anos", "2 to 3 years", "2 to 4 years", "2 a 4 anos", "3 to 5 years", "3 a 5 anos",
     "between 2 and 5 years", "between 2 and 4 years", "between 2 and 3 years", "between 3 and 5 years", "between 3 and 6 years", "between 3 and 7 years", "between 4 and 6 years", "between 5 and 7 years",
     "entre 2 e 5 anos", "entre 2 e 4 anos", "entre 2 e 3 anos", "entre 3 e 5 anos", "entre 3 e 6 anos", "entre 4 e 6 anos", "entre 5 e 7 anos",
     "mínimo de 1 ano", "minimo de 1 ano", "mínimo de 2 anos", "minimo de 2 anos", "mínimo de 3 anos", "minimo de 3 anos",
+    "mínima de 2 anos", "minima de 2 anos", "mínima de dois anos", "minima de dois anos", "mínimo de dois anos", "minimo de dois anos",
+    "experiência profissional mínima de 2 anos", "experiência profissional mínima de dois anos",
+    "experiencia profissional minima de 2 anos", "experiencia profissional minima de dois anos",
+    "experiência mínima de dois anos", "experiencia minima de dois anos",
     "minimum 1 year", "minimum 2 years", "minimum 3 years", "minimum of 1 year", "minimum of 2 years"
 ]
 
@@ -205,21 +211,22 @@ ZERO_EXP_INDICATOR_PATTERN = re.compile(
     re.IGNORECASE
 )
 
-# Advanced Seniority Experience Hard Disqualifier Pattern (3+, 4+, 5+, 8+ years, +5 years, minimum 3+ years, 8 or more years, a few years in, 3+ of experience, pleno-senior, pelo menos 2 anos)
+# Advanced Seniority Experience Hard Disqualifier Pattern (2+ years of required professional experience, 3+, 4+, 5+, 8+ years, +5 years, minimum 2+/3+ years, 8 or more years, a few years in, 3+ of experience, pleno-senior, etc.)
 ADVANCED_EXP_HARD_DISQUALIFIERS_PATTERN = re.compile(
     r"\b(?:a\s+few\s+years(?:\s+in|\s+of)?|several\s+years(?:\s+of)?|deep\s+experience|staff/principal|senior/principal|been\s+doing\s+this\s+a\s+long\s+time)\b|"
     r"\b(?:pleno[- ]s[eê]nior|mid[- ]senior|n[ií]vel\s+de\s+experi[eê]ncia\s*:\s*pleno[- ]s[eê]nior)\b|"
     r"\b(?:between\s+|entre\s+)(?:[2-9]|1[0-2]|two|three|four|five|dois|duas|tr[eê]s|quatro|cinco)\s*(?:and|e|to|-|a)\s*(?:[3-9]|1[0-2]|three|four|five|six|seven|eight|nine|ten|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez)\s*(?:years?|anos?)\b|"
-    r"\b(?:experi[eê]ncia\s+de\s+)?(?:pelo\s+menos|no\s+m[ií]nimo|m[ií]nimo\s+de|mais\s+de|superior\s+a|acima\s+de|at\s+least|minimum\s+of|more\s+than|over)\s*2\s*(?:anos|years)(?:\s+(?:de\s+|of\s+)?experi[eê]ncia)?\b|"
-    r"\b(?:[3-9]|1[0-2])\+?\s*(?:years?|anos?)?\s*(?:of\s+|de\s+)?experi(?:ence|[eê]ncia)\b|"
-    r"\bexperi(?:ence|[eê]ncia)\b[\w\s]{0,20}\b(?:[3-9]|1[0-2])\+?\s*(?:years?|anos?)?\b|"
-    r"(?:(?:\+|\>|mais\s+de|superior\s+a|acima\s+de|pelo\s+menos|no\s+m[ií]nimo|m[ií]nimo\s+de|m[ií]nimo|more\s+than|over|at\s+least|minimum\s+of|minimum)\s*)?"
-    r"(?<!\w)(?:\+|\>)?\s*(?:[3-9]|1[0-2]|three|four|five|six|seven|eight|nine|ten|twelve|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez|doze)"
+    r"\b(?:experi[eê]ncia\s+(?:profissional\s+|relevante\s+|comprovada\s+|pr[eé]via\s+)?)?(?:pelo\s+menos|no\s+m[ií]nimo|m[ií]nimo\s+de|m[ií]nima\s+de|mais\s+de|superior\s+a|acima\s+de|at\s+least|minimum\s+of|minimum|more\s+than|over)\s*(?:2|dois|duas|two|[3-9]|1[0-2]|three|four|five|six|seven|eight|nine|ten|tr[eê]s|quatro|cinco)\s*(?:years?|anos?)(?:\s+(?:de\s+|of\s+)?experi[eê]ncia(?:\s+profissional)?)?\b|"
+    r"\b(?:experi[eê]ncia\s+profissional\s+m[ií]nima\s+de\s+(?:2|dois|duas|two|[3-9]|1[0-2]|three|four|five|tr[eê]s|quatro|cinco)\s+(?:anos|years))\b|"
+    r"\b(?:[2-9]|1[0-2]|dois|duas|two|three|four|five|tr[eê]s|quatro|cinco)\+?\s*(?:years?|anos?)\s*(?:of\s+|de\s+)?experi(?:ence|[eê]ncia)(?:\s+profissional)?\b|"
+    r"\bexperi(?:ence|[eê]ncia)(?:\s+profissional)?\b[\w\s]{0,20}\b(?:[2-9]|1[0-2]|dois|duas|two|three|four|five|tr[eê]s|quatro|cinco)\+?\s*(?:years?|anos?)?\b|"
+    r"(?:(?:\+|\>|mais\s+de|superior\s+a|acima\s+de|pelo\s+menos|no\s+m[ií]nimo|m[ií]nimo\s+de|m[ií]nima\s+de|m[ií]nimo|more\s+than|over|at\s+least|minimum\s+of|minimum)\s*)?"
+    r"(?<!\w)(?:\+|\>)?\s*(?:[2-9]|1[0-2]|two|three|four|five|six|seven|eight|nine|ten|twelve|dois|duas|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez|doze)"
     r"(?:\s*\+|\s+or\s+more|\s+ou\s+mais|\s+plus)?"
     r"(?:\s*(?:to|-|a)\s*(?:[3-9]|1[0-2]|three|four|five|six|seven|eight|nine|ten|twelve|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez|doze)(?:\s*\+|\s+or\s+more|\s+ou\s+mais)?)?"
     r"\s*(?:years?|anos?)"
     r"(?:\s+or\s+more|\s+ou\s+mais|\s+plus|\s+(?:of\s+|de\s+)?(?:[\w\s]{0,40})?experi(?:ence|[eê]ncia))?\b|"
-    r"\bexperi(?:ence|[eê]ncia)\b[\w\s]{0,40}(?:(?:\+|\>|mais\s+de|superior\s+a|pelo\s+menos|no\s+m[ií]nimo|m[ií]nimo\s+de|more\s+than|over|at\s+least|minimum\s+of|minimum)\s*)?(?:[3-9]|1[0-2]|three|four|five|six|seven|eight|nine|ten|twelve|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez|doze)\s*(?:\+|\s+or\s+more|\s+ou\s+mais)?\s*(?:years?|anos?)\b",
+    r"\bexperi(?:ence|[eê]ncia)\b[\w\s]{0,40}(?:(?:\+|\>|mais\s+de|superior\s+a|pelo\s+menos|no\s+m[ií]nimo|m[ií]nimo\s+de|more\s+than|over|at\s+least|minimum\s+of|minimum)\s*)?(?:[2-9]|1[0-2]|two|three|four|five|six|seven|eight|nine|ten|twelve|dois|duas|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez|doze)\s*(?:\+|\s+or\s+more|\s+ou\s+mais)?\s*(?:years?|anos?)\b",
     re.IGNORECASE
 )
 
