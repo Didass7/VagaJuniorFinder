@@ -215,7 +215,7 @@ ZERO_EXP_INDICATOR_PATTERN = re.compile(
 ADVANCED_EXP_HARD_DISQUALIFIERS_PATTERN = re.compile(
     r"\b(?:a\s+few\s+years(?:\s+in|\s+of)?|several\s+years(?:\s+of)?|deep\s+experience|staff/principal|senior/principal|been\s+doing\s+this\s+a\s+long\s+time)\b|"
     r"\b(?:pleno[- ]s[eê]nior|mid[- ]senior|n[ií]vel\s+de\s+experi[eê]ncia\s*:\s*pleno[- ]s[eê]nior)\b|"
-    r"\b(?:between\s+|entre\s+)(?:[2-9]|1[0-2]|two|three|four|five|dois|duas|tr[eê]s|quatro|cinco)\s*(?:and|e|to|-|a)\s*(?:[3-9]|1[0-2]|three|four|five|six|seven|eight|nine|ten|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez)\s*(?:years?|anos?)\b|"
+    r"\b(?:between\s+|entre\s+)?(?:[2-9]|1[0-2]|two|three|four|five|dois|duas|tr[eê]s|quatro|cinco)\s*(?:and|e|to|-|a)\s*(?:[3-9]|1[0-2]|three|four|five|six|seven|eight|nine|ten|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez)\s*(?:years?|anos?)\b|"
     r"\b(?:experi[eê]ncia\s+(?:profissional\s+|relevante\s+|comprovada\s+|pr[eé]via\s+)?)?(?:pelo\s+menos|no\s+m[ií]nimo|m[ií]nimo\s+de|m[ií]nima\s+de|mais\s+de|superior\s+a|acima\s+de|at\s+least|minimum\s+of|minimum|more\s+than|over)\s*(?:2|dois|duas|two|[3-9]|1[0-2]|three|four|five|six|seven|eight|nine|ten|tr[eê]s|quatro|cinco)\s*(?:years?|anos?)(?:\s+(?:de\s+|of\s+)?experi[eê]ncia(?:\s+profissional)?)?\b|"
     r"\b(?:experi[eê]ncia\s+profissional\s+m[ií]nima\s+de\s+(?:2|dois|duas|two|[3-9]|1[0-2]|three|four|five|tr[eê]s|quatro|cinco)\s+(?:anos|years))\b|"
     r"\b(?:[2-9]|1[0-2]|dois|duas|two|three|four|five|tr[eê]s|quatro|cinco)\+?\s*(?:years?|anos?)\s*(?:of\s+|de\s+)?experi(?:ence|[eê]ncia)(?:\s+profissional)?\b|"
