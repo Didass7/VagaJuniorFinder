@@ -4,8 +4,8 @@ import time
 import logging
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Any
-from config import CandidateProfile, config
-from scraper import Job
+from core.config import CandidateProfile, config
+from scrapers import Job
 
 logger = logging.getLogger(__name__)
 
@@ -131,23 +131,23 @@ class AIEvaluator:
                 logger.info("⏳ Both AI engines (Gemini/Groq) in rate-limit cooldown. Using Stage 1 Heuristic Scoring for this batch.")
                 return {}
 
-        # 1. Prefer Gemini if ready
-        if gemini_ready:
-            res = self._evaluate_batch_with_gemini(batch, profile)
-            if res:
-                return res
-            if self._groq_client and time.time() >= self._groq_cooldown_until:
-                res_g = self._evaluate_batch_with_groq(batch, profile)
-                if res_g:
-                    return res_g
-
-        # 2. Otherwise use Groq
-        elif groq_ready:
+        # 1. Prefer Groq if ready
+        if groq_ready:
             res = self._evaluate_batch_with_groq(batch, profile)
             if res:
                 return res
             if self._gemini_client and time.time() >= self._gemini_cooldown_until:
-                res_m = self._evaluate_batch_with_gemini(batch, profile)
+                res_g = self._evaluate_batch_with_gemini(batch, profile)
+                if res_g:
+                    return res_g
+
+        # 2. Otherwise use Gemini
+        elif gemini_ready:
+            res = self._evaluate_batch_with_gemini(batch, profile)
+            if res:
+                return res
+            if self._groq_client and time.time() >= self._groq_cooldown_until:
+                res_m = self._evaluate_batch_with_groq(batch, profile)
                 if res_m:
                     return res_m
 
@@ -309,8 +309,8 @@ class AIEvaluator:
                 for b in eval_blocks:
                     try:
                         evals_list.append(json.loads(b))
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.warning(f"Failed to parse fallback eval block: {e}")
                 if evals_list:
                     data = {"evaluations": evals_list}
                 else:

@@ -41,7 +41,7 @@ class ITJobsScraper(BaseScraper):
                                 location_elem = parent.find("span", class_="location") or parent.find("div", class_="location")
                                 if location_elem:
                                     location = location_elem.get_text(separator=' ', strip=True)
-                            if self.is_seen_func and self.is_seen_func(title, company):
+                            if self.is_seen_func and self.is_seen_func(title, company, link=full_link):
                                 continue
                             cards.append({
                                 "title": title, "link": full_link,

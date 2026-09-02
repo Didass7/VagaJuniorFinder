@@ -8,7 +8,7 @@ from typing import List, Dict, Set, Optional, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 from bs4 import BeautifulSoup
-from config import config
+from core.config import config
 from .base import BaseScraper, Job, get_random_headers, clean_job_description, is_valid_job_offer
 
 logger = logging.getLogger("Scraper")
@@ -295,7 +295,7 @@ class LinkedInScraper(BaseScraper):
         pub_date = card_info["pub_date"]
 
         # If previously seen, we can generate a fast descriptive stub without hitting LinkedIn API
-        if self.is_seen_func and self.is_seen_func(title, company):
+        if self.is_seen_func and self.is_seen_func(title, company, link=full_link):
             desc = f"{title} na empresa {company} ({location}). Oferta de emprego registada no LinkedIn."
             work_mode = "Remoto" if any(r in f"{title} {location}".lower() for r in ["remoto", "remote", "teletrabalho"]) else "Presencial / Híbrido"
             return Job(
@@ -372,7 +372,8 @@ class LinkedInScraper(BaseScraper):
                                     desc = f"{title} - {clean_job_description(clean_text)}"
                                     break
                         except Exception:
-                            pass
+                            import logging
+                            logging.warning('Exception swallowed')
 
                     if not desc or len(desc) < 80:
                         markup = (

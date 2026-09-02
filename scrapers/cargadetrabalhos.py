@@ -5,7 +5,7 @@ from typing import List, Dict, Set, Optional, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 from bs4 import BeautifulSoup
-from config import config
+from core.config import config
 from .base import BaseScraper, Job, get_random_headers, is_valid_job_offer
 
 logger = logging.getLogger("Scraper")
@@ -40,7 +40,7 @@ class CargaDeTrabalhosScraper(BaseScraper):
                     if not title or not is_valid_job_offer(link, title):
                         continue
                     
-                    if self.is_seen_func and self.is_seen_func(title, "Empresa via Carga de Trabalhos"):
+                    if self.is_seen_func and self.is_seen_func(title, "Empresa via Carga de Trabalhos", link=link):
                         continue
 
                     text = art.get_text(separator=" ", strip=True)
@@ -100,7 +100,8 @@ class CargaDeTrabalhosScraper(BaseScraper):
                     if main_div:
                         text = f"{title} - " + main_div.get_text(separator=" ", strip=True)
         except Exception:
-            pass
+            import logging
+            logging.warning('Exception swallowed')
 
         return Job(
             title=title, company=company, location="Portugal",

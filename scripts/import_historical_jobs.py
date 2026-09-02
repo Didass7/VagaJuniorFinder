@@ -15,11 +15,11 @@ if PROJECT_ROOT not in sys.path:
 
 from typing import Dict, Any, List, Optional
 from bs4 import BeautifulSoup
-from config import config, load_config
-from scraper import Job, clean_job_description, get_random_headers
-from matcher import JobMatcher, ScoredJob
-from ai_evaluator import AIEvaluator, AIEvaluationResult
-from notion_store import NotionStore
+from core.config import config, load_config
+from scrapers import Job, clean_job_description, get_random_headers
+from core.matcher import JobMatcher, ScoredJob
+from core.ai_evaluator import AIEvaluator, AIEvaluationResult
+from integrations.notion_store import NotionStore
 
 if sys.stdout.encoding != 'utf-8':
     try:

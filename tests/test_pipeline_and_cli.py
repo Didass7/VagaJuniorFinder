@@ -2,13 +2,14 @@ import unittest
 import tempfile
 import os
 import sys
+import datetime
 import subprocess
 from unittest.mock import patch, MagicMock
 
 from scrapers.base import Job
 from scrapers.pipeline import JobIngestionPipeline
-from seen_store import SeenStore
-from matcher import ScoredJob
+from core.seen_store import SeenStore
+from core.matcher import ScoredJob
 import main
 import run_all
 
@@ -24,7 +25,7 @@ class TestPipelineAndCLI(unittest.TestCase):
         job_good = Job(
             title="Junior Data Scientist", company="GoodTech", location="Lisboa",
             work_mode="Remoto", link="https://example.com/good1",
-            description="Python and SQL", source="GoodPortal", pub_date="2026-08-26"
+            description="Python and SQL", source="GoodPortal", pub_date=datetime.date.today().isoformat()
         )
         pipeline.linkedin_scraper.fetch = MagicMock(return_value=[job_good])
 
@@ -53,7 +54,7 @@ class TestPipelineAndCLI(unittest.TestCase):
         job_good = Job(
             title="Junior AI Engineer", company="AILab", location="Porto",
             work_mode="Híbrido", link="https://example.com/ai-job",
-            description="PyTorch and LLMs", source="AIPortal", pub_date="2026-08-26"
+            description="PyTorch and LLMs", source="AIPortal", pub_date=datetime.date.today().isoformat()
         )
         
         # Scraper 1 times out
@@ -78,12 +79,12 @@ class TestPipelineAndCLI(unittest.TestCase):
         job_duplicate_1 = Job(
             title="Junior Python Dev", company="NovaTech", location="Lisboa",
             work_mode="Remoto", link="https://example.com/dup",
-            description="Python development", source="PortalA", pub_date="2026-08-26"
+            description="Python development", source="PortalA", pub_date=datetime.date.today().isoformat()
         )
         job_duplicate_2 = Job(
             title="Junior Python Dev", company="NovaTech", location="Lisboa",
             work_mode="Remoto", link="https://example.com/dup",
-            description="Python development", source="PortalB", pub_date="2026-08-26"
+            description="Python development", source="PortalB", pub_date=datetime.date.today().isoformat()
         )
 
         pipeline.linkedin_scraper.fetch = MagicMock(return_value=[job_duplicate_1])
@@ -106,7 +107,7 @@ class TestPipelineAndCLI(unittest.TestCase):
                 title="Junior Machine Learning Specialist", company="TestAI",
                 location="Lisboa", work_mode="Remoto", link="https://example.com/test-ml",
                 description="Python, PyTorch, Scikit-learn with over 100 characters of description for testing.",
-                source="Test", pub_date="2026-08-26"
+                source="Test", pub_date=datetime.date.today().isoformat()
             )
 
             scored = ScoredJob(

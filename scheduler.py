@@ -6,7 +6,8 @@ import sys
 import logging
 import schedule
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+from core.logger import setup_logging
+setup_logging()
 logger = logging.getLogger("Scheduler")
 
 TARGET_TIME = "21:00"

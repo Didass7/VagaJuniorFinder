@@ -1,0 +1,11 @@
+[app]
+enable_ai_evaluation = true
+ai_model_name = "gemini-3.5-flash-lite"
+groq_model_name = "openai/gpt-oss-120b"
+enable_notion_sync = true
+
+[scoring]
+top_match_threshold = 75.0
+promising_match_threshold = 55.0
+min_blended_score = 50.0
+ai_batch_size = 4

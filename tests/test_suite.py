@@ -4,8 +4,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 import datetime
 import tempfile
 import unittest
-from config import config, CandidateProfile
-from scraper import (
+from core.config import config, CandidateProfile
+from scrapers import (
     Job, is_valid_job_offer,
     LinkedInScraper, ITJobsScraper, IndeedScraper, LandingJobsScraper, RemotiveScraper,
     ArbeitnowScraper, RemoteOKScraper, CargaDeTrabalhosScraper,
@@ -13,8 +13,8 @@ from scraper import (
     JobspressoScraper, EuraxessScraper,
     IEFPScraper, JobIngestionPipeline
 )
-from matcher import JobMatcher
-from seen_store import SeenStore
+from core.matcher import JobMatcher
+from core.seen_store import SeenStore
 
 
 class TestScraperModule(unittest.TestCase):
@@ -67,7 +67,7 @@ class TestScraperModule(unittest.TestCase):
 
     def test_scrapers_instantiation(self):
         """Verifies that all 15 active scrapers can be instantiated without errors."""
-        from scraper import SapoScraper, TeamlyzerScraper
+        from scrapers import SapoScraper, TeamlyzerScraper
         scrapers = [
             LinkedInScraper(), ITJobsScraper(), IndeedScraper(), SapoScraper(), TeamlyzerScraper(),
             LandingJobsScraper(), RemotiveScraper(), ArbeitnowScraper(),
@@ -194,7 +194,7 @@ class TestMatcherModule(unittest.TestCase):
             link="https://pt.linkedin.com/jobs/view/data-engineer-aws-at-volkswagen-group-digital-solutions-portugal-4432266264",
             description="University Degree / Master for graduates in Computer Science, Informatics, or related fields. +5 years of hands-on experience as a Data Engineer or Software Engineer working on big-data environments. Strong skills in Python, SQL, AWS.",
             source="LinkedIn",
-            pub_date="2026-08-14"
+            pub_date=datetime.date.today().isoformat()
         )
         scored_jobs = self.matcher.process_jobs([job])
         self.assertEqual(len(scored_jobs), 0)
@@ -224,7 +224,7 @@ class TestMatcherModule(unittest.TestCase):
             link="https://jobicy.com/jobs/145940-genai-engineer",
             description="Location Preference: 100% remote in Mexico, Brasil, Peru, Chile working EST Time Zone OR onsite in Washington, D.C. Python, LLMs, GenAI.",
             source="Jobicy",
-            pub_date="2026-08-16"
+            pub_date=datetime.date.today().isoformat()
         )
         scored_jobs = self.matcher.process_jobs([job])
         self.assertEqual(len(scored_jobs), 0)
@@ -329,7 +329,7 @@ class TestMatcherModule(unittest.TestCase):
             link="https://pt.linkedin.com/jobs/view/ai-engineer-at-adentis-portugal-4442023763",
             description="Requisitos: • Mais de 5 anos de experiência profissional com Machine Learning • Mais de 5 anos de experiência profissional com Generative AI • Mais de 5 anos de experiência profissional com Python.",
             source="LinkedIn",
-            pub_date="2026-08-14"
+            pub_date=datetime.date.today().isoformat()
         )
         scored_jobs = self.matcher.process_jobs([job])
         self.assertEqual(len(scored_jobs), 0)
@@ -344,7 +344,7 @@ class TestMatcherModule(unittest.TestCase):
             link="https://himalayas.app/companies/toloka-ai/jobs/record-your-daily-routine-get-paid-ai-training-8754786082",
             description="This is a project-based opportunity on an AI training platform — not a job. We're looking for people to record point-of-view videos of everyday household activities.",
             source="Himalayas",
-            pub_date="2026-08-16"
+            pub_date=datetime.date.today().isoformat()
         )
         scored_jobs = self.matcher.process_jobs([job])
         self.assertEqual(len(scored_jobs), 0)
@@ -359,7 +359,7 @@ class TestMatcherModule(unittest.TestCase):
             link="https://jobicy.com/jobs/150846-software-engineer-3",
             description="Sticker Mule is building commerce tools. We use Go, TypeScript, React, Expo, GraphQL, Postgres. You are an exceptional full-stack software engineer. Salary: $150,000–$250,000 USD, $20,000 signing bonus.",
             source="Jobicy",
-            pub_date="2026-08-16"
+            pub_date=datetime.date.today().isoformat()
         )
         scored_jobs = self.matcher.process_jobs([job])
         self.assertEqual(len(scored_jobs), 0)
@@ -367,9 +367,9 @@ class TestMatcherModule(unittest.TestCase):
     def test_support_sysadmin_dba_disqualification(self):
         """Verifies that Cloud Support Analyst, Sysadmin, and Database Engineer roles are strictly disqualified."""
         jobs = [
-            Job(title="Cloud Support Analyst", company="Doxis", location="Lisboa", work_mode="Presencial", link="https://example.com/1", description="Suporte técnico cloud", source="ITJobs", pub_date="2026-08-17"),
-            Job(title="Administradores de sistemas - ai driven", company="Olisipo", location="Portugal", work_mode="Remoto", link="https://example.com/2", description="Administração de sistemas e redes", source="Teamlyzer", pub_date="2026-08-15"),
-            Job(title="Database Engineer", company="Ruby Labs", location="Remoto", work_mode="Remoto", link="https://example.com/3", description="Database DBA maintenance", source="Jobicy", pub_date="2026-08-17")
+            Job(title="Cloud Support Analyst", company="Doxis", location="Lisboa", work_mode="Presencial", link="https://example.com/1", description="Suporte técnico cloud para clientes empresariais com configuração e suporte diário de sistemas de informação e redes.", source="ITJobs", pub_date=datetime.date.today().isoformat()),
+            Job(title="Administradores de sistemas - ai driven", company="Olisipo", location="Portugal", work_mode="Remoto", link="https://example.com/2", description="Administração de sistemas e redes com gestão de infraestruturas, servidores e suporte a utilizadores com ferramentas diversas.", source="Teamlyzer", pub_date=datetime.date.today().isoformat()),
+            Job(title="Database Engineer", company="Ruby Labs", location="Remoto", work_mode="Remoto", link="https://example.com/3", description="Database DBA maintenance and administration of relational databases, performance tuning and queries optimization.", source="Jobicy", pub_date=datetime.date.today().isoformat())
         ]
         scored_jobs = self.matcher.process_jobs(jobs)
         self.assertEqual(len(scored_jobs), 0)
@@ -384,14 +384,14 @@ class TestMatcherModule(unittest.TestCase):
             link="https://www.arbeitnow.com/jobs/companies/energized-company-gmbh/praktikant-ai-engineer-munich-370373",
             description="Du kommunizierst verhandlungssicher auf Deutsch in Wort und Schrift (mindestens C1). We build AI agents with Python.",
             source="Arbeitnow",
-            pub_date="2026-08-17"
+            pub_date=datetime.date.today().isoformat()
         )
         scored_jobs = self.matcher.process_jobs([job])
         self.assertEqual(len(scored_jobs), 0)
 
     def test_cross_portal_deduplication_keys(self):
         """Verifies that jobs posted across different portals with company suffix differences produce matching dedup keys and are filtered."""
-        from scraper import get_job_dedup_key
+        from scrapers import get_job_dedup_key
         
         # Test Neotalent
         key1 = get_job_dedup_key("Data Analyst", "Neotalent Conclusion")
@@ -423,7 +423,7 @@ class TestMatcherModule(unittest.TestCase):
             link="https://example.com/cyber1",
             description="Sonae procura Junior Cybersecurity Analyst para monitorização de alertas SIEM, análise de vulnerabilidades, redes e firewalls Fortinet com Linux e Wireshark.",
             source="LinkedIn",
-            pub_date="2026-08-18"
+            pub_date=datetime.date.today().isoformat()
         )
         scored = matcher_rafael.evaluate_job(job_cyber)
         self.assertGreaterEqual(scored.score, 60.0)
@@ -436,7 +436,7 @@ class TestMatcherModule(unittest.TestCase):
             link="https://example.com/sysadmin1",
             description="Procura-se Administrador de Sistemas e Redes Júnior para configuração e manutenção de servidores Windows Server e Linux, redes e firewalls.",
             source="ITJobs",
-            pub_date="2026-08-18"
+            pub_date=datetime.date.today().isoformat()
         )
         scored_sys = matcher_rafael.evaluate_job(job_sysadmin)
         self.assertGreaterEqual(scored_sys.score, 55.0)
@@ -466,7 +466,7 @@ class TestMatcherModule(unittest.TestCase):
             link="https://www.net-empregos.com/15792256/generative-ai-video-specialist/",
             description="Procuramos um Generative AI Video Specialist para criar prompts avançados de vídeo com IA usando ferramentas como Google Veo, Runway, Kling AI, Adobe After Effects e Premiere Pro com mais de 120 caracteres.",
             source="Net-Empregos",
-            pub_date="2026-08-06"
+            pub_date=datetime.date.today().isoformat()
         )
         scored_jobs = self.matcher.process_jobs([job])
         self.assertEqual(len(scored_jobs), 0)
@@ -487,6 +487,23 @@ class TestMatcherModule(unittest.TestCase):
         scored_jobs = self.matcher.process_jobs([job])
         self.assertEqual(len(scored_jobs), 1)
         self.assertGreater(scored_jobs[0].score, 50.0)
+
+    def test_job_older_than_14_days_disqualified(self):
+        """Verifies that jobs older than 14 days are strictly disqualified."""
+        past_date = (datetime.date.today() - datetime.timedelta(days=15)).isoformat()
+        job = Job(
+            title="Junior Data Scientist",
+            company="Empresa Teste",
+            location="Lisboa, Portugal",
+            work_mode="Híbrido",
+            link="https://example.com/oldjob",
+            description="Procura-se Junior Data Scientist com conhecimentos em Python e SQL para análise de dados e machine learning com mais de cem caracteres.",
+            source="LinkedIn",
+            pub_date=past_date
+        )
+        scored = self.matcher.evaluate_job(job)
+        self.assertEqual(scored.score, 0.0)
+        self.assertEqual(scored.seniority_status, "Vaga Antiga (> 14 dias)")
 
 
 class TestSeenStoreModule(unittest.TestCase):
@@ -529,9 +546,9 @@ class TestSeenStoreModule(unittest.TestCase):
 
 
 
-from ai_evaluator import AIEvaluator
-from notion_store import NotionStore
-from scraper import clean_job_description
+from core.ai_evaluator import AIEvaluator
+from integrations.notion_store import NotionStore
+from scrapers import clean_job_description
 
 class TestRobustnessImprovements(unittest.TestCase):
     """Unit tests for robust JSON parsing, text truncation, and HTML cleaning."""
@@ -644,7 +661,7 @@ class TestRobustnessImprovements(unittest.TestCase):
         self.assertEqual(res[dummy_job.job_id].fit_score, 90)
 
     def test_company_extractor_caching(self):
-        from company_extractor import extract_company_from_link, _COMPANY_CACHE
+        from integrations.company_extractor import extract_company_from_link, _COMPANY_CACHE
         test_url = "https://www.linkedin.com/jobs/view/data-scientist-at-super-ai-labs-12345678"
         comp = extract_company_from_link(test_url)
         self.assertEqual(comp, "Super Ai Labs")
@@ -652,7 +669,7 @@ class TestRobustnessImprovements(unittest.TestCase):
         self.assertEqual(_COMPANY_CACHE[test_url], "Super Ai Labs")
 
     def test_clean_analysis_text_emojis_and_prefixes(self):
-        from matcher import clean_analysis_text
+        from core.matcher import clean_analysis_text
         dirty_samples = [
             ("✅ Adequada (71.0%): ✅ Adequada: Posição de Especialista em IA.", "Posição de Especialista em IA."),
             ("✅ ✅ Adequada: Alinhamento perfeito com IA Engineer.", "Alinhamento perfeito com IA Engineer."),
@@ -664,7 +681,7 @@ class TestRobustnessImprovements(unittest.TestCase):
             self.assertEqual(clean_analysis_text(dirty), expected)
 
     def test_tiago_profile_matching(self):
-        from config import load_config
+        from core.config import load_config
         cfg = load_config("tiago")
         self.assertEqual(cfg.candidate.name, "Tiago Alves")
         self.assertEqual(cfg.notion_database_id, "3c24e649adbe806aa60edbacc063d60d")

@@ -5,7 +5,7 @@ import datetime
 from typing import List, Optional, Any
 import requests
 from bs4 import BeautifulSoup
-from config import config
+from core.config import config
 from .base import (
     BaseScraper,
     Job,
@@ -74,7 +74,7 @@ class TeamlyzerScraper(BaseScraper):
                 if not company:
                     company = company_raw
 
-                if self.is_seen_func and self.is_seen_func(title, company):
+                if self.is_seen_func and self.is_seen_func(title, company, link=link):
                     continue
 
                 # 3. Location, Regime & Salary metadata

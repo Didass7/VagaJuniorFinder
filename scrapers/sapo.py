@@ -7,7 +7,7 @@ from typing import List, Optional, Any
 from urllib.parse import quote_plus
 import requests
 from bs4 import BeautifulSoup
-from config import config
+from core.config import config
 from .base import (
     BaseScraper,
     Job,
@@ -66,7 +66,7 @@ class SapoScraper(BaseScraper):
                             or "Empresa no Sapo Emprego"
                         )
 
-                        if self.is_seen_func and self.is_seen_func(title, company):
+                        if self.is_seen_func and self.is_seen_func(title, company, link=link):
                             continue
 
                         district = item.get("job_district") or item.get("location") or "Portugal"
@@ -124,7 +124,8 @@ class SapoScraper(BaseScraper):
                     pub_date=datetime.date.today().isoformat()
                 ))
             except Exception:
-                pass
+                import logging
+                logging.warning('Exception swallowed')
 
         return jobs
 

@@ -4,7 +4,7 @@ import subprocess
 import time
 import pandas as pd
 import streamlit as st
-from config import config, load_config
+from core.config import config, load_config
 from ui.profiles import get_available_profiles
 
 AVAILABLE_PORTALS = [

@@ -1,9 +1,9 @@
 import unittest
 import datetime
-from config import CandidateProfile, config
-from scraper import Job
-from ai_evaluator import AIEvaluator, AIEvaluationResult
-from matcher import JobMatcher, ScoredJob
+from core.config import CandidateProfile, config
+from scrapers import Job
+from core.ai_evaluator import AIEvaluator, AIEvaluationResult
+from core.matcher import JobMatcher, ScoredJob
 
 class TestAIEvaluator(unittest.TestCase):
     def setUp(self):

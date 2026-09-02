@@ -2,11 +2,12 @@ import argparse
 import logging
 import sys
 import io
-from config import config
-from scraper import JobIngestionPipeline
-from matcher import JobMatcher
-from seen_store import SeenStore
-from notion_store import NotionStore
+from typing import Optional
+from core.config import config
+from scrapers import JobIngestionPipeline
+from core.matcher import JobMatcher
+from core.seen_store import SeenStore
+from integrations.notion_store import NotionStore
 
 # Ensure Windows terminal stdout handles UTF-8 emojis cleanly
 if sys.stdout.encoding != 'utf-8':
@@ -22,20 +23,26 @@ logging.basicConfig(
 )
 logger = logging.getLogger("VagaJuniorFinder")
 
-def run_pipeline(dry_run: bool = False):
+def run_pipeline(
+    dry_run: bool = False,
+    pipeline: Optional[JobIngestionPipeline] = None,
+    seen_store: Optional[SeenStore] = None,
+    matcher: Optional[JobMatcher] = None,
+    notion_store: Optional[NotionStore] = None
+):
     logger.info("==================================================")
     logger.info("🚀 VagaJuniorFinder Pipeline Started")
     logger.info(f"Target Candidate: {config.candidate.name} ({config.candidate.email})")
     logger.info("==================================================")
 
     # ── Step 1: Scrape ── Fetch jobs from all portals (with early SeenStore check)
-    seen = SeenStore(filepath=config.cache_file)
-    pipeline = JobIngestionPipeline(
+    seen = seen_store if seen_store is not None else SeenStore(filepath=config.cache_file)
+    pipe = pipeline if pipeline is not None else JobIngestionPipeline(
         itjobs_api_key=config.itjobs_api_key,
         seen_store=seen,
         search_queries=config.candidate.search_queries
     )
-    raw_jobs = pipeline.run()
+    raw_jobs = pipe.run()
 
     if not raw_jobs:
         logger.warning("⚠️ No jobs found across any sources today.")
@@ -51,8 +58,8 @@ def run_pipeline(dry_run: bool = False):
         return
 
     # ── Step 3: Filter & Score ── Heuristic pre-filter + AI evaluation
-    matcher = JobMatcher(profile=config.candidate)
-    scored_jobs = matcher.process_jobs(new_jobs)
+    match_engine = matcher if matcher is not None else JobMatcher(profile=config.candidate)
+    scored_jobs = match_engine.process_jobs(new_jobs)
 
     logger.info(f"✅ Evaluated: {len(scored_jobs)} qualified jobs out of {len(new_jobs)} new jobs.")
 
@@ -65,9 +72,9 @@ def run_pipeline(dry_run: bool = False):
         try:
             # ── Step 4: Sync to Notion ── Send qualified new jobs to Notion database
             if config.enable_notion_sync:
-                notion_store = NotionStore()
-                successful_job_ids = notion_store.sync_jobs(scored_jobs)
-                synced_new = getattr(notion_store, 'last_synced_count', len(successful_job_ids))
+                notion = notion_store if notion_store is not None else NotionStore()
+                successful_job_ids = notion.sync_jobs(scored_jobs, threshold=config.promising_match_threshold)
+                synced_new = getattr(notion, 'last_synced_count', len(successful_job_ids))
                 already_in_db = max(0, len(successful_job_ids) - synced_new)
                 logger.info(f"📝 Synced {synced_new} brand-new jobs to Notion ({already_in_db} were already in Notion database).")
             else:

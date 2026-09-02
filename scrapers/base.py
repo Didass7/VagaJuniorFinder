@@ -10,8 +10,11 @@ from typing import List, Dict, Set, Optional, Any, Callable, Tuple
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
-from bs4 import BeautifulSoup
-from config import config
+import warnings
+from bs4 import BeautifulSoup, XMLParsedAsHTMLWarning
+from core.config import config
+
+warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("Scraper")
@@ -75,7 +78,8 @@ def safe_fetch(url: str, session: Optional[requests.Session] = None, timeout: fl
             resp = cureq.get(url, impersonate="chrome120", allow_redirects=True, timeout=int(timeout))
         return resp.status_code, resp.text, resp.content
     except Exception:
-        pass
+        import logging
+        logging.warning('Exception swallowed')
         
     try:
         s = session or requests.Session()

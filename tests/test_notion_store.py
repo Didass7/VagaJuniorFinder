@@ -1,7 +1,7 @@
 import unittest
-from notion_store import NotionStore
-from matcher import ScoredJob
-from scraper import Job
+from integrations.notion_store import NotionStore
+from core.matcher import ScoredJob
+from scrapers import Job
 
 class TestNotionStore(unittest.TestCase):
     def test_notion_store_unconfigured(self):

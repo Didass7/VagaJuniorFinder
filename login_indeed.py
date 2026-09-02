@@ -4,6 +4,9 @@ import sys
 import json
 import time
 import logging
+from core import logger
+
+logger = logging.getLogger("IndeedSession")
 from typing import Optional, Dict, Any
 
 def save_indeed_session() -> bool:
@@ -15,13 +18,13 @@ def save_indeed_session() -> bool:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
 
-    print("==================================================")
-    print("🔓 Indeed Session Generator (Cloudflare Bypass)")
-    print("==================================================")
-    print("A abrir janela do navegador para pt.indeed.com...")
-    print("👉 Se aparecer a caixa 'Verificação de Segurança / Confirme que é humano',")
-    print("   clica nela na janela do navegador que se abrir.")
-    print("O script detetará automaticamente a resolução e guardará a sessão.\n")
+    logger.info("==================================================")
+    logger.info("🔓 Indeed Session Generator (Cloudflare Bypass)")
+    logger.info("==================================================")
+    logger.info("A abrir janela do navegador para pt.indeed.com...")
+    logger.info("👉 Se aparecer a caixa 'Verificação de Segurança / Confirme que é humano',")
+    logger.info("   clica nela na janela do navegador que se abrir.")
+    logger.info("O script detetará automaticamente a resolução e guardará a sessão.\n")
 
     os.makedirs("data", exist_ok=True)
     cookies_path = os.path.join("data", "indeed_cookies.json")
@@ -29,7 +32,7 @@ def save_indeed_session() -> bool:
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
-        print("❌ Playwright não está instalado. Execute: pip install playwright && playwright install chromium")
+        logger.info("❌ Playwright não está instalado. Execute: pip install playwright && playwright install chromium")
         return False
 
     user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
@@ -55,11 +58,11 @@ def save_indeed_session() -> bool:
         try:
             page.goto(url, wait_until="domcontentloaded", timeout=30000)
         except Exception as e:
-            print(f"Erro inicial ao aceder: {e}")
+            logger.info(f"Erro inicial ao aceder: {e}")
 
         start_t = time.time()
         solved = False
-        print("Aguardando verificação (máx 60 segundos)...")
+        logger.info("Aguardando verificação (máx 60 segundos)...")
 
         while time.time() - start_t < 60:
             try:
@@ -67,10 +70,10 @@ def save_indeed_session() -> bool:
                 cards = page.query_selector_all("div.job_seen_beacon, td.resultContent, div.cardOutline")
                 if len(cards) > 0 or ("Security Check" not in title and "Just a moment" not in title and "Indeed" in title):
                     solved = True
-                    print(f"\n✅ Verificação ultrapassada com sucesso! ({len(cards)} vagas detetadas na página)")
+                    logger.info(f"\n✅ Verificação ultrapassada com sucesso! ({len(cards)} vagas detetadas na página)")
                     break
             except Exception:
-                pass
+                logger.warning('Exception swallowed')
             time.sleep(1)
 
         if solved:
@@ -83,12 +86,19 @@ def save_indeed_session() -> bool:
             }
             with open(cookies_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
-            print(f"🎉 Sessão guardada com sucesso em: {cookies_path}")
-            print("Agora o IndeedScraper utilizará esta sessão automaticamente!")
+            
+            try:
+                import stat
+                os.chmod(cookies_path, stat.S_IRUSR | stat.S_IWUSR)
+            except Exception as e:
+                logger.warning(f"Could not set strict file permissions: {e}")
+
+            logger.info(f"🎉 Sessão guardada com sucesso em: {cookies_path}")
+            logger.info("Agora o IndeedScraper utilizará esta sessão automaticamente!")
             browser.close()
             return True
         else:
-            print("⚠️ Tempo limite de 60s atingido sem resolução do desafio.")
+            logger.info("⚠️ Tempo limite de 60s atingido sem resolução do desafio.")
             browser.close()
             return False
 

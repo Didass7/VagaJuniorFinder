@@ -1,10 +1,10 @@
 import unittest
 from unittest.mock import patch, MagicMock
-from scraper import Job, clean_job_description, ITJobsScraper
-from ai_evaluator import AIEvaluator
-from notion_store import NotionStore
-from config import CandidateProfile
-from matcher import ScoredJob
+from scrapers import Job, clean_job_description, ITJobsScraper
+from core.ai_evaluator import AIEvaluator
+from integrations.notion_store import NotionStore
+from core.config import CandidateProfile
+from core.matcher import ScoredJob
 
 class TestRobustnessEdgeCases(unittest.TestCase):
     def setUp(self):

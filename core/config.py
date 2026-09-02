@@ -1,6 +1,7 @@
 from __future__ import annotations
 import os
 import json
+import tomllib
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Any
 from dotenv import load_dotenv
@@ -30,18 +31,18 @@ class AppConfig:
     itjobs_api_key: str = os.getenv("ITJOBS_API_KEY", "")
     gemini_api_key: str = os.getenv("GEMINI_API_KEY", os.getenv("GOOGLE_API_KEY", ""))
     groq_api_key: str = os.getenv("GROQ_API_KEY", "")
-    groq_model_name: str = os.getenv("GROQ_MODEL_NAME", "openai/gpt-oss-120b")
-    enable_ai_evaluation: bool = os.getenv("ENABLE_AI_EVALUATION", "true").lower() == "true"
+    groq_model_name: str = "openai/gpt-oss-120b"
+    enable_ai_evaluation: bool = True
 
-    ai_model_name: str = os.getenv("AI_MODEL_NAME", "gemini-3.5-flash-lite")
+    ai_model_name: str = "gemini-3.5-flash-lite"
     
     # Notion Integration Configuration
     notion_token: str = os.getenv("NOTION_TOKEN", os.getenv("NOTION_API_KEY", ""))
     notion_database_id: str = os.getenv("NOTION_DATABASE_ID", "")
-    enable_notion_sync: bool = os.getenv("ENABLE_NOTION_SYNC", "true").lower() == "true"
+    enable_notion_sync: bool = True
     
     # Data Storage Paths
-    cache_file: str = os.getenv("CACHE_FILE", os.path.join("data", "jobs_cache.json"))
+    cache_file: str = os.path.join("data", "jobs_cache.json")
     
     # Extra Scrapers & API Configurations
     indeed_cookies: str = os.getenv("INDEED_COOKIES", "")
@@ -60,6 +61,24 @@ class AppConfig:
 def load_config(profile_name: Optional[str] = None) -> AppConfig:
     cfg = AppConfig()
     
+    # 1. Load defaults from config.toml if present
+    if os.path.exists("config.toml"):
+        with open("config.toml", "rb") as f:
+            toml_data = tomllib.load(f)
+            
+        app_cfg = toml_data.get("app", {})
+        if "enable_ai_evaluation" in app_cfg: cfg.enable_ai_evaluation = app_cfg["enable_ai_evaluation"]
+        if "ai_model_name" in app_cfg: cfg.ai_model_name = app_cfg["ai_model_name"]
+        if "groq_model_name" in app_cfg: cfg.groq_model_name = app_cfg["groq_model_name"]
+        if "enable_notion_sync" in app_cfg: cfg.enable_notion_sync = app_cfg["enable_notion_sync"]
+        
+        scoring_cfg = toml_data.get("scoring", {})
+        if "top_match_threshold" in scoring_cfg: cfg.top_match_threshold = float(scoring_cfg["top_match_threshold"])
+        if "promising_match_threshold" in scoring_cfg: cfg.promising_match_threshold = float(scoring_cfg["promising_match_threshold"])
+        if "min_blended_score" in scoring_cfg: cfg.min_blended_score = float(scoring_cfg["min_blended_score"])
+        if "ai_batch_size" in scoring_cfg: cfg.ai_batch_size = int(scoring_cfg["ai_batch_size"])
+
+    # 2. Load from Profile JSON
     active_profile = profile_name or os.getenv("ACTIVE_PROFILE", "diogo")
     profile_path = os.path.join("profiles", f"{active_profile}.json")
     
@@ -97,4 +116,18 @@ def load_config(profile_name: Optional[str] = None) -> AppConfig:
         
     return cfg
 
-config = load_config()
+_config_cache = {}
+
+def get_current_config() -> AppConfig:
+    profile = os.getenv("ACTIVE_PROFILE", "diogo").strip().lower()
+    if profile not in _config_cache:
+        _config_cache[profile] = load_config(profile)
+    return _config_cache[profile]
+
+class ConfigProxy:
+    def __getattr__(self, name):
+        return getattr(get_current_config(), name)
+    def __setattr__(self, name, value):
+        setattr(get_current_config(), name, value)
+
+config = ConfigProxy()

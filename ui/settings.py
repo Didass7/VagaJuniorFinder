@@ -1,7 +1,7 @@
 import os
 import requests
 import streamlit as st
-from config import config, load_config
+from core.config import config, load_config
 
 def render_settings():
     st.markdown(

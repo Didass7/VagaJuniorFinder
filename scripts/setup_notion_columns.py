@@ -2,7 +2,7 @@ import sys
 import io
 import requests
 import logging
-from config import config
+from core.config import config
 
 if sys.stdout.encoding != 'utf-8':
     try:

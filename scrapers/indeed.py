@@ -11,7 +11,7 @@ from typing import List, Dict, Set, Optional, Any
 from urllib.parse import quote_plus, urljoin
 import requests
 from bs4 import BeautifulSoup
-from config import config
+from core.config import config
 from .base import (
     BaseScraper,
     Job,
@@ -162,7 +162,7 @@ class IndeedScraper(BaseScraper):
                 if not is_valid_job_offer(link, title):
                     continue
 
-                if self.is_seen_func and self.is_seen_func(title, company):
+                if self.is_seen_func and self.is_seen_func(title, company, link=link):
                     continue
 
                 jobs.append(Job(
@@ -208,7 +208,8 @@ class IndeedScraper(BaseScraper):
                             driver.uc_gui_click_captcha()
                             time.sleep(random.uniform(4.0, 6.0))
                         except Exception:
-                            pass
+                            import logging
+                            logging.warning('Exception swallowed')
 
                     page_source = driver.page_source
                     parsed = self._parse_indeed_html(page_source)
@@ -223,7 +224,8 @@ class IndeedScraper(BaseScraper):
                 try:
                     driver.quit()
                 except Exception:
-                    pass
+                    import logging
+                    logging.warning('Exception swallowed')
 
         return jobs
 
@@ -239,9 +241,23 @@ class IndeedScraper(BaseScraper):
             try:
                 with open(cookies_file, "r", encoding="utf-8") as f:
                     saved_data = json.load(f)
-                    saved_cookies = saved_data.get("cookies", "")
-                    if saved_data.get("user_agent"):
-                        headers["User-Agent"] = saved_data["user_agent"]
+                
+                # TTL Expiry Check (24 hours)
+                import time
+                saved_at_str = saved_data.get("saved_at", "")
+                if saved_at_str:
+                    try:
+                        saved_time = time.strptime(saved_at_str, "%Y-%m-%d %H:%M:%S")
+                        if (time.time() - time.mktime(saved_time)) > 86400:
+                            logger.warning("[Indeed HTTP] Saved cookies expired (TTL > 24h). Discarding.")
+                            saved_data = {}
+                            os.remove(cookies_file)
+                    except Exception:
+                        pass
+                
+                saved_cookies = saved_data.get("cookies", "")
+                if saved_data.get("user_agent"):
+                    headers["User-Agent"] = saved_data["user_agent"]
             except Exception as e:
                 logger.debug(f"[Indeed HTTP] Error loading {cookies_file}: {e}")
 
@@ -299,7 +315,7 @@ class IndeedScraper(BaseScraper):
                         clean_desc = clean_job_description(f"{title} - {company} ({loc}). {snippet}")
                         if not is_valid_job_offer(link, title):
                             continue
-                        if self.is_seen_func and self.is_seen_func(title, company):
+                        if self.is_seen_func and self.is_seen_func(title, company, link=link):
                             continue
 
                         work_mode = "Presencial / Híbrido"
@@ -360,7 +376,7 @@ class IndeedScraper(BaseScraper):
                         clean_desc = clean_job_description(desc) if desc else title
                         if not is_valid_job_offer(link, title):
                             continue
-                        if self.is_seen_func and self.is_seen_func(title, company):
+                        if self.is_seen_func and self.is_seen_func(title, company, link=link):
                             continue
 
                         work_mode = "Remoto" if is_remote else "Presencial / Híbrido"

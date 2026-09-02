@@ -17,8 +17,13 @@ seen_jobs.json
 jobs_cache.json
 data/*.json
 data/*.xlsx
+data/*.db*
+data/*.migrated
 data/.*
 !data/.gitkeep
+*.db
+*.db-shm
+*.db-wal
 *.xlsx
 scratch/
 

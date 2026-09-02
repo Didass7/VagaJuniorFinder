@@ -5,7 +5,7 @@ import logging
 from typing import List, Optional
 import requests
 from bs4 import BeautifulSoup
-from config import config
+from core.config import config
 from .base import BaseScraper, Job, get_random_headers, is_valid_job_offer
 
 logger = logging.getLogger("Scraper")

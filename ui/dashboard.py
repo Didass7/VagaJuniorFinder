@@ -6,7 +6,7 @@ from datetime import datetime
 import pandas as pd
 import requests
 import streamlit as st
-from config import config, load_config
+from core.config import config, load_config
 
 NOTION_API_URL = "https://api.notion.com/v1"
 NOTION_VERSION = "2022-06-28"
@@ -52,7 +52,8 @@ def format_date_pt(val: str) -> str:
             dt = datetime.strptime(val, "%Y-%m-%d")
             return dt.strftime("%d/%m/%Y")
     except Exception:
-        pass
+        import logging
+        logging.warning('Exception swallowed')
     if len(val) >= 10 and val[4] == "-" and val[7] == "-":
         parts = val[:10].split("-")
         return f"{parts[2]}/{parts[1]}/{parts[0]}"
@@ -499,7 +500,8 @@ def render_dashboard(active_profile: str):
                                     st.toast("Erro ao atualizar o estado no Notion.")
                             has_changes = True
                     except Exception:
-                        pass
+                        import logging
+                        logging.warning('Exception swallowed')
             if has_changes:
                 st.cache_data.clear()
                 st.rerun()

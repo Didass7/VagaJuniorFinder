@@ -6,12 +6,20 @@ import time
 import logging
 from typing import List, Dict, Set, Optional, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import warnings
 import requests
-from bs4 import BeautifulSoup
-from config import config
+from bs4 import BeautifulSoup, XMLParsedAsHTMLWarning
+from core.config import config
 from .base import BaseScraper, Job, get_random_headers, is_valid_job_offer, safe_fetch
 
+warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
+
 logger = logging.getLogger("Scraper")
+
+def _parse_html(html_text: str) -> BeautifulSoup:
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
+        return BeautifulSoup(html_text, "html.parser")
 
 class NetEmpregosScraper(BaseScraper):
     """Scrapes Net-Empregos portal (Portugal's largest job board) for tech, AI, Data & IEFP roles."""
@@ -33,7 +41,7 @@ class NetEmpregosScraper(BaseScraper):
                 status_code, text, content = safe_fetch(url, session=self.session, timeout=12.0)
                 if status_code != 200 or not text:
                     break
-                soup = BeautifulSoup(text, "html.parser")
+                soup = _parse_html(text)
                 links = soup.find_all("a", href=re.compile(r"/\d+/[^/]+/"))
                 if not links:
                     break
@@ -59,7 +67,7 @@ class NetEmpregosScraper(BaseScraper):
             time.sleep(random.uniform(0.05, 0.15))
             status_code, text, content = safe_fetch(link, session=self.session, timeout=10.0)
             if status_code == 200 and text:
-                det_soup = BeautifulSoup(text, "html.parser")
+                det_soup = _parse_html(text)
                 main_box = (
                     det_soup.find("div", class_="oferta-detalhe") or
                     det_soup.find("div", class_="content") or
@@ -87,7 +95,8 @@ class NetEmpregosScraper(BaseScraper):
                 if not company or "empresa via" in company.lower() or company.strip().lower() in ["detalhe da oferta:", "detalhe da oferta", "empresa"]:
                     company = "Empresa Confidencial"
         except Exception:
-            pass
+            import logging
+            logging.warning('Exception swallowed')
 
         if not company or "empresa via" in company.lower():
             company = "Empresa Confidencial"
@@ -129,7 +138,7 @@ class NetEmpregosScraper(BaseScraper):
                             seen_links.add(link)
 
                             raw_summary = entry.get("summary", "") or entry.get("description", "")
-                            soup = BeautifulSoup(raw_summary, "html.parser")
+                            soup = _parse_html(raw_summary)
                             desc = soup.get_text(separator=" ", strip=True)
 
                             # Quick tech relevance check on title + RSS summary

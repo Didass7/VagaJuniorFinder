@@ -71,7 +71,7 @@ class IEFPScraper(BaseScraper):
                 if not title or len(title) < 4:
                     continue
 
-                if self.is_seen_func and self.is_seen_func(title, "Empresa via IEFP"):
+                if self.is_seen_func and self.is_seen_func(title, "Empresa via IEFP", link=link):
                     continue
 
                 seen_links.add(link)

@@ -1,7 +1,7 @@
 import unittest
-from ai_evaluator import AIEvaluator, AIEvaluationResult
-from config import CandidateProfile, config
-from scraper import Job
+from core.ai_evaluator import AIEvaluator, AIEvaluationResult
+from core.config import CandidateProfile, config
+from scrapers import Job
 
 class TestGroqEvaluator(unittest.TestCase):
     def setUp(self):

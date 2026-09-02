@@ -45,7 +45,7 @@ O sistema recolhe em simultâneo mais de **2.300 ofertas de 15 fontes distintas*
   - Inserção automática das vagas com propriedades ricas: *Score*, *Empresa*, *Cargo*, *Modalidade*, *Localização*, *Link*, *Análise IA* e *Tecnologias Identificadas*.
 
 - **Automação Contínua sem Custos (GitHub Actions)**:
-  - Execução automática agendada 2x por dia (**08:00 e 20:00 UTC / 09:00 e 21:00 em Portugal Continental**) com persistência de cache na branch `data`.
+  - Execução automática agendada 2x por dia (**07:17 e 19:17 UTC / 08:17 e 20:17 em Portugal Continental**) com persistência de cache na branch `data`.
 
 ---
 
@@ -90,11 +90,11 @@ VagaJuniorFinder/
 │   ├── diogo.json            # Perfil: Diogo Oliveira (AI & Data)
 │   ├── rafael.json           # Perfil: Rafael (Cibersegurança & Redes)
 │   └── tiago.json            # Perfil: Tiago Alves (Software & Backend)
-├── tests/                    # Suite de testes unitários automatizados (50 testes)
+├── tests/                    # Suite de testes unitários automatizados (56 testes)
 │   └── test_suite.py
 └── .github/
     └── workflows/
-        └── daily_job_search.yml  # Automação no GitHub Actions (08:00 e 20:00 UTC)
+        └── daily_job_search.yml  # Automação no GitHub Actions (07:17 e 19:17 UTC)
 ```
 
 ---

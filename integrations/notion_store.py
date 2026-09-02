@@ -2,10 +2,11 @@ import logging
 import time
 import datetime
 import requests
+from tenacity import retry, stop_after_attempt, wait_exponential
 from typing import List, Set, Optional, Dict, Any
-from config import config
-from matcher import ScoredJob, clean_analysis_text
-from company_extractor import extract_company_from_link
+from core.config import config
+from core.matcher import ScoredJob, clean_analysis_text
+from integrations.company_extractor import extract_company_from_link
 
 logger = logging.getLogger("NotionStore")
 
@@ -14,6 +15,17 @@ NOTION_VERSION = "2022-06-28"
 
 class NotionStore:
     """Manages job storage and candidacy tracking inside a Notion Database via Notion API."""
+
+
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
+    def _request(self, method: str, url: str, **kwargs):
+        """Unified retry wrapper for Notion API requests."""
+        resp = self._session.request(method, url, timeout=15, **kwargs)
+        if resp.status_code in (429, 500, 502, 503, 504):
+            import logging
+            logging.getLogger("NotionStore").warning(f"Notion API {resp.status_code} for {url}. Retrying via tenacity...")
+            resp.raise_for_status()
+        return resp
 
     def __init__(self, token: Optional[str] = None, database_id: Optional[str] = None):
         self.token = token if token is not None else config.notion_token
@@ -42,21 +54,15 @@ class NotionStore:
             return self._db_schema
 
         url = f"{NOTION_API_URL}/databases/{self.database_id}"
-        max_retries = 3
-        for attempt in range(1, max_retries + 1):
-            try:
-                resp = self._session.get(url, timeout=15)
-                if resp.status_code == 200:
-                    self._db_schema = resp.json().get("properties", {})
-                    return self._db_schema
-                else:
-                    logger.warning(f"⚠️ Could not fetch Notion database schema ({resp.status_code}): {resp.text}")
-            except Exception as e:
-                if attempt < max_retries:
-                    logger.warning(f"⚠️ Connection error fetching Notion schema (attempt {attempt}/{max_retries}): {e}. Retrying in {attempt * 2}s...")
-                    time.sleep(attempt * 2)
-                else:
-                    logger.error(f"Exception fetching Notion database schema: {e}")
+        try:
+            resp = self._request("GET", url)
+            if resp.status_code == 200:
+                self._db_schema = resp.json().get("properties", {})
+                return self._db_schema
+            else:
+                logger.warning(f"⚠️ Could not fetch Notion database schema ({resp.status_code}): {resp.text}")
+        except Exception as e:
+            logger.error(f"Exception fetching Notion database schema: {e}")
         
         return {}
 
@@ -77,58 +83,48 @@ class NotionStore:
             if start_cursor:
                 payload["start_cursor"] = start_cursor
 
-            success = False
-            for attempt in range(1, 4):
-                try:
-                    resp = self._session.post(url, json=payload, timeout=15)
-                    if resp.status_code != 200:
-                        logger.warning(f"⚠️ Notion API query returned status {resp.status_code}: {resp.text}")
-                        break
-
-                    data = resp.json()
-                    results = data.get("results", [])
-                    
-                    for page in results:
-                        props = page.get("properties", {})
-                        page_title = ""
-                        page_company = ""
-
-                        for prop_name, prop_data in props.items():
-                            p_type = prop_data.get("type")
-                            if p_type == "url" and prop_data.get("url"):
-                                existing_urls.add(prop_data.get("url"))
-                            elif p_type == "title":
-                                title_list = prop_data.get("title", [])
-                                if title_list:
-                                    page_title = title_list[0].get("text", {}).get("content", "")
-                            elif prop_name.lower() in ["empresa", "company"]:
-                                if p_type == "rich_text":
-                                    rt_list = prop_data.get("rich_text", [])
-                                    if rt_list:
-                                        page_company = rt_list[0].get("text", {}).get("content", "")
-                                elif p_type == "select" and prop_data.get("select"):
-                                    page_company = prop_data.get("select", {}).get("name", "")
-
-                        if page_title and page_company:
-                            try:
-                                from scraper import get_job_dedup_key
-                                key = get_job_dedup_key(page_title, page_company)
-                                if key:
-                                    existing_keys.add(key)
-                            except Exception:
-                                pass
-
-                    has_more = data.get("has_more", False)
-                    start_cursor = data.get("next_cursor")
-                    success = True
+            try:
+                resp = self._request("POST", url, json=payload)
+                if resp.status_code != 200:
+                    logger.warning(f"⚠️ Notion API query returned status {resp.status_code}: {resp.text}")
                     break
-                except Exception as e:
-                    if attempt < 3:
-                        time.sleep(attempt * 2)
-                    else:
-                        logger.error(f"Error querying Notion Database: {e}")
 
-            if not success:
+                data = resp.json()
+                results = data.get("results", [])
+                
+                for page in results:
+                    props = page.get("properties", {})
+                    page_title = ""
+                    page_company = ""
+
+                    for prop_name, prop_data in props.items():
+                        p_type = prop_data.get("type")
+                        if p_type == "url" and prop_data.get("url"):
+                            existing_urls.add(prop_data.get("url"))
+                        elif p_type == "title":
+                            title_list = prop_data.get("title", [])
+                            if title_list:
+                                page_title = title_list[0].get("text", {}).get("content", "")
+                        elif prop_name.lower() in ["empresa", "company"]:
+                            if p_type == "rich_text":
+                                rt_list = prop_data.get("rich_text", [])
+                                if rt_list:
+                                    page_company = rt_list[0].get("text", {}).get("content", "")
+
+                    if page_title and page_company:
+                        try:
+                            from scrapers import get_job_dedup_key
+                            key = get_job_dedup_key(page_title, page_company)
+                            if key:
+                                existing_keys.add(key)
+                        except Exception as e:
+                            import logging
+                            logging.warning(f"Swallowed exception: {e}")
+
+                has_more = data.get("has_more", False)
+                start_cursor = data.get("next_cursor")
+            except Exception as e:
+                logger.error(f"Error querying Notion Database: {e}")
                 break
 
         return existing_urls, existing_keys
@@ -138,24 +134,27 @@ class NotionStore:
         urls, _ = self.get_existing_records()
         return urls
 
-    def sync_jobs(self, scored_jobs: List[ScoredJob]) -> Set[str]:
+    def sync_jobs(self, scored_jobs: List[ScoredJob], threshold: Optional[float] = None) -> Set[str]:
         """Syncs new scored jobs to Notion Database. Returns set of successfully synced job IDs."""
         if not self.is_configured:
             logger.info("ℹ️ Notion token or database ID not configured. Skipping Notion sync.")
             return {sj.job.job_id for sj in scored_jobs}
+
+        if threshold is None:
+            threshold = getattr(config, "promising_match_threshold", 55.0)
 
         existing_urls, existing_keys = self.get_existing_records()
         synced_count = 0
         successful_job_ids: Set[str] = set()
 
         for sj in scored_jobs:
-            if sj.score < getattr(config, "promising_match_threshold", 55.0):
+            if sj.score < threshold:
                 successful_job_ids.add(sj.job.job_id)
                 continue
 
             job = sj.job
             try:
-                from scraper import get_job_dedup_key
+                from scrapers import get_job_dedup_key
                 dedup_key = get_job_dedup_key(job.title, job.company)
             except Exception:
                 dedup_key = ""
@@ -343,35 +342,16 @@ class NotionStore:
             "children": children
         }
 
-        max_retries = 3
-        for attempt in range(1, max_retries + 1):
-            try:
-                resp = self._session.post(url, json=payload, timeout=15)
-                if resp.status_code in [200, 201]:
-                    return True
-                elif resp.status_code == 429 or resp.status_code >= 500:
-                    # Rate limit or server error — retry with backoff
-                    if attempt < max_retries:
-                        wait = attempt * 3
-                        logger.warning(f"⚠️ Notion API {resp.status_code} for '{job.title}' (attempt {attempt}/{max_retries}). Retrying in {wait}s...")
-                        time.sleep(wait)
-                        continue
-                    else:
-                        logger.error(f"❌ Notion API {resp.status_code} for '{job.title}' after {max_retries} attempts: {resp.text[:200]}")
-                        return False
-                else:
-                    # 400 Bad Request or other client error — log details and don't retry
-                    logger.error(f"❌ Notion API {resp.status_code} for '{job.title}': {resp.text[:300]}")
-                    return False
-            except Exception as e:
-                if attempt < max_retries:
-                    logger.warning(f"⚠️ Connection error creating Notion page for '{job.title}' (attempt {attempt}/{max_retries}): {e}. Retrying in {attempt * 2}s...")
-                    time.sleep(attempt * 2)
-                else:
-                    logger.error(f"Exception creating Notion page for '{job.title}': {e}")
-                    return False
-
-        return False
+        try:
+            resp = self._request("POST", url, json=payload)
+            if resp.status_code in [200, 201]:
+                return True
+            else:
+                logger.error(f"❌ Notion API {resp.status_code} for '{job.title}': {resp.text[:300]}")
+                return False
+        except Exception as e:
+            logger.error(f"Exception creating Notion page for '{job.title}': {e}")
+            return False
 
     def _sanitize_select_name(self, name: str) -> str:
         """Sanitizes select option strings for Notion API (replaces commas and trims length)."""
