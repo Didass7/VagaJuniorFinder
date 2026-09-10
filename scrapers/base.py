@@ -65,10 +65,69 @@ def get_session(pool_size: int = 40) -> requests.Session:
     session.headers.update(get_random_headers())
     return session
 
+def decode_response_content(content: bytes, headers: Optional[Any] = None) -> str:
+    """
+    Decodes raw HTTP response bytes into clean Unicode text.
+    Handles UTF-8, Windows-1252, and ISO-8859-1, inspecting both Content-Type headers
+    and HTML <meta> charset declarations to prevent Unicode replacement characters (\ufffd).
+    """
+    if not content:
+        return ""
+
+    declared_charset = None
+
+    # 1. Check Content-Type header
+    if headers:
+        ct = ""
+        if hasattr(headers, "get"):
+            ct = headers.get("content-type") or headers.get("Content-Type") or ""
+        elif isinstance(headers, dict):
+            ct = headers.get("content-type") or headers.get("Content-Type") or ""
+        if "charset=" in ct.lower():
+            match = re.search(r"charset=([a-zA-Z0-9_\-]+)", ct, re.IGNORECASE)
+            if match:
+                declared_charset = match.group(1).strip().strip("'\"").lower()
+
+    # 2. Check HTML meta tag in first 2048 bytes
+    if not declared_charset:
+        prefix = content[:2048].lower()
+        match = re.search(rb'charset=["\']?([a-zA-Z0-9_\-]+)', prefix)
+        if match:
+            try:
+                declared_charset = match.group(1).decode("ascii", errors="ignore").strip().strip("'\"").lower()
+            except Exception:
+                pass
+
+    # Normalize ISO-8859-1 / latin1 to windows-1252 (windows-1252 is a superset containing smart quotes, dashes, etc.)
+    if declared_charset in ("iso-8859-1", "latin1", "latin-1"):
+        declared_charset = "windows-1252"
+
+    candidates = []
+    if declared_charset:
+        candidates.append(declared_charset)
+    if "utf-8" not in candidates:
+        candidates.append("utf-8")
+    if "windows-1252" not in candidates:
+        candidates.append("windows-1252")
+    if "iso-8859-1" not in candidates:
+        candidates.append("iso-8859-1")
+
+    for enc in candidates:
+        try:
+            text = content.decode(enc)
+            if enc.lower() == "utf-8" and "\ufffd" in text:
+                continue
+            return text
+        except (UnicodeDecodeError, LookupError):
+            continue
+
+    return content.decode("utf-8", errors="replace")
+
+
 def safe_fetch(url: str, session: Optional[requests.Session] = None, timeout: float = 12.0, headers: Optional[Dict[str, str]] = None) -> Tuple[int, str, bytes]:
     """
     Robust HTTP fetcher using curl_cffi Chrome impersonation (bypasses Cloudflare 403 & WAF on GitHub Actions runners)
-    with automatic fallback to requests.Session.
+    with automatic fallback to requests.Session. Correctly decodes response encoding to avoid \ufffd corruption.
     """
     try:
         from curl_cffi import requests as cureq
@@ -76,7 +135,8 @@ def safe_fetch(url: str, session: Optional[requests.Session] = None, timeout: fl
             resp = cureq.get(url, headers=headers, impersonate="chrome120", allow_redirects=True, timeout=int(timeout))
         else:
             resp = cureq.get(url, impersonate="chrome120", allow_redirects=True, timeout=int(timeout))
-        return resp.status_code, resp.text, resp.content
+        text = decode_response_content(resp.content, getattr(resp, "headers", None))
+        return resp.status_code, text, resp.content
     except Exception:
         import logging
         logging.warning('Exception swallowed')
@@ -85,7 +145,8 @@ def safe_fetch(url: str, session: Optional[requests.Session] = None, timeout: fl
         s = session or requests.Session()
         h = headers or get_random_headers()
         resp = s.get(url, headers=h, allow_redirects=True, timeout=(4.0, timeout))
-        return resp.status_code, resp.text, resp.content
+        text = decode_response_content(resp.content, getattr(resp, "headers", None))
+        return resp.status_code, text, resp.content
     except Exception:
         return 0, "", b""
 

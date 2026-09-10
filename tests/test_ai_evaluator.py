@@ -104,6 +104,44 @@ class TestAIEvaluator(unittest.TestCase):
         self.assertIn("gemini-3.5-flash-lite", evaluator._invalid_gemini_models)
         self.assertEqual(evaluator._gemini_cooldown_until, 0.0)
 
+    def test_gemini_preferred_over_groq_when_both_available(self):
+        """Verify that Gemini is called first when both providers are available, and falls back to Groq if Gemini fails."""
+        from unittest.mock import MagicMock, patch
+        evaluator = AIEvaluator(groq_api_key="mock_groq", gemini_api_key="mock_gemini")
+
+        sample_job = Job(
+            title="Junior Data Engineer",
+            company="DataCorp",
+            location="Porto, Portugal",
+            work_mode="Híbrido",
+            description="Vaga para Júnior SQL e Python.",
+            link="https://example.com/job3",
+            source="Test",
+            pub_date=datetime.date.today().isoformat()
+        )
+
+        # 1. When Gemini succeeds, Groq is not called
+        mock_gemini_result = {
+            sample_job.job_id: AIEvaluationResult(is_suitable=True, fit_score=88.0, seniority_detected="Júnior", reasoning="Match")
+        }
+        with patch.object(evaluator, '_evaluate_batch_with_gemini', return_value=mock_gemini_result) as mock_gem, \
+             patch.object(evaluator, '_evaluate_batch_with_groq', return_value={}) as mock_groq:
+            res = evaluator._process_single_batch([sample_job], self.profile)
+            self.assertEqual(res, mock_gemini_result)
+            mock_gem.assert_called_once()
+            mock_groq.assert_not_called()
+
+        # 2. When Gemini fails (returns empty), falls back to Groq
+        mock_groq_result = {
+            sample_job.job_id: AIEvaluationResult(is_suitable=True, fit_score=80.0, seniority_detected="Júnior", reasoning="Groq Match")
+        }
+        with patch.object(evaluator, '_evaluate_batch_with_gemini', return_value={}) as mock_gem, \
+             patch.object(evaluator, '_evaluate_batch_with_groq', return_value=mock_groq_result) as mock_groq:
+            res = evaluator._process_single_batch([sample_job], self.profile)
+            self.assertEqual(res, mock_groq_result)
+            mock_gem.assert_called_once()
+            mock_groq.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

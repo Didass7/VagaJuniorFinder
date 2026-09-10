@@ -131,23 +131,23 @@ class AIEvaluator:
                 logger.info("⏳ Both AI engines (Gemini/Groq) in rate-limit cooldown. Using Stage 1 Heuristic Scoring for this batch.")
                 return {}
 
-        # 1. Prefer Groq if ready
-        if groq_ready:
-            res = self._evaluate_batch_with_groq(batch, profile)
-            if res:
-                return res
-            if self._gemini_client and time.time() >= self._gemini_cooldown_until:
-                res_g = self._evaluate_batch_with_gemini(batch, profile)
-                if res_g:
-                    return res_g
-
-        # 2. Otherwise use Gemini
-        elif gemini_ready:
+        # 1. Prefer Gemini if ready (matches active_provider and configured ai_model_name)
+        if gemini_ready:
             res = self._evaluate_batch_with_gemini(batch, profile)
             if res:
                 return res
             if self._groq_client and time.time() >= self._groq_cooldown_until:
-                res_m = self._evaluate_batch_with_groq(batch, profile)
+                res_g = self._evaluate_batch_with_groq(batch, profile)
+                if res_g:
+                    return res_g
+
+        # 2. Otherwise use Groq
+        elif groq_ready:
+            res = self._evaluate_batch_with_groq(batch, profile)
+            if res:
+                return res
+            if self._gemini_client and time.time() >= self._gemini_cooldown_until:
+                res_m = self._evaluate_batch_with_gemini(batch, profile)
                 if res_m:
                     return res_m
 
@@ -181,10 +181,10 @@ class AIEvaluator:
         groq_candidates = [
             m for m in dict.fromkeys([
                 self.groq_model_name,
-                "openai/gpt-oss-120b",
                 "openai/gpt-oss-20b",
-                "gemma2-9b-it",
-                "deepseek-r1-distill-llama-70b",
+                "qwen/qwen3.8-27b",
+                "qwen/qwen3.6-27b",
+                "openai/gpt-oss-120b",
             ]) if m not in self._invalid_groq_models
         ]
 
@@ -243,6 +243,8 @@ class AIEvaluator:
                 "gemini-3.6-flash",
                 "gemini-3.5-flash",
                 "gemini-3.7-flash",
+                "gemini-2.5-flash-lite",
+                "gemini-2.5-flash",
             ]) if m not in self._invalid_gemini_models
         ]
 

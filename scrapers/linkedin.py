@@ -295,7 +295,7 @@ class LinkedInScraper(BaseScraper):
         pub_date = card_info["pub_date"]
 
         # If previously seen, we can generate a fast descriptive stub without hitting LinkedIn API
-        if self.is_seen_func and self.is_seen_func(title, company, link=full_link):
+        if self.is_seen_func and self.is_seen_func(title, company, link=clean_link):
             desc = f"{title} na empresa {company} ({location}). Oferta de emprego registada no LinkedIn."
             work_mode = "Remoto" if any(r in f"{title} {location}".lower() for r in ["remoto", "remote", "teletrabalho"]) else "Presencial / Híbrido"
             return Job(
