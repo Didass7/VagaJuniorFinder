@@ -297,7 +297,12 @@ def reevaluate_notion_jobs_for_profile(profile_name: str):
 
         # 2. Re-evaluate with Matcher & AI
         scored_jobs = matcher.process_jobs([job], include_disqualified=True)
-        
+
+        # AI enabled but gave no verdict (rate limit): don't disqualify on that basis — preserve existing score
+        if scored_jobs and scored_jobs[0].ai_pending:
+            logger.info(f"  ↳ ⏳ No AI verdict (rate limit). Preserving existing page score without modification.")
+            continue
+
         # A job is qualified ONLY if it passed Stage 1 (>= 55%) and was approved by AI Stage 2 (or score >= 50% if AI is disabled)
         is_qualified = False
         if scored_jobs and scored_jobs[0].score >= 50.0:

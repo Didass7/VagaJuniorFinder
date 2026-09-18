@@ -25,6 +25,9 @@ class ScoredJob:
     seniority_status: str
     match_reason: str = ""
     ai_evaluated: bool = False
+    # True when AI was enabled but could not evaluate this job (rate limit / parse failure);
+    # the job must not be synced nor marked as seen, so the next run evaluates it again.
+    ai_pending: bool = False
     ai_reasoning: str = ""
     ai_pros: List[str] = field(default_factory=lambda: [])
     ai_cons: List[str] = field(default_factory=lambda: [])

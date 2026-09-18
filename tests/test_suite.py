@@ -117,7 +117,12 @@ class TestMatcherModule(unittest.TestCase):
     """Unit tests for candidate profile matching and scoring logic."""
 
     def setUp(self):
-        self.matcher = JobMatcher(profile=config.candidate, enable_ai=False)
+        # Fixed AI & Data test profile, independent of the real profiles/ (which change over time)
+        import json
+        fixture = os.path.join(os.path.dirname(__file__), "fixtures", "ai_data_profile.json")
+        with open(fixture, "r", encoding="utf-8") as f:
+            profile = CandidateProfile(**json.load(f)["candidate"])
+        self.matcher = JobMatcher(profile=profile, enable_ai=False)
 
     def test_junior_ai_job_scoring(self):
         job = Job(
@@ -440,6 +445,49 @@ class TestMatcherModule(unittest.TestCase):
         )
         scored_sys = matcher_rafael.evaluate_job(job_sysadmin)
         self.assertGreaterEqual(scored_sys.score, 55.0)
+
+    def test_internal_international_titles_not_treated_as_intern(self):
+        """Verifies 'Internal'/'International' in a title don't count as 'Intern', while real junior markers still do."""
+        import json
+        with open("profiles/rafael.json", "r", encoding="utf-8") as f:
+            rafael_prof = CandidateProfile(**json.load(f)["candidate"])
+        matcher_rafael = JobMatcher(profile=rafael_prof, enable_ai=False)
+        desc = "Empresa procura Network Engineer para projetos de redes, firewalls Fortinet, VPN IPsec e Linux. Trabalho em equipa multidisciplinar com clientes. " * 2
+
+        def score(title):
+            return matcher_rafael.evaluate_job(Job(
+                title=title, company="NetCorp", location="Lisboa, Portugal", work_mode="Híbrido",
+                link=f"https://example.com/{title}", description=desc, source="LinkedIn",
+                pub_date=datetime.date.today().isoformat()
+            ))
+
+        for title in ["Network Engineer - International Projects", "Network Engineer (Internal IT)"]:
+            scored = score(title)
+            self.assertLessEqual(scored.score, 65.0, title)
+            self.assertNotEqual(scored.seniority_status, "Junior / Entry Level", title)
+
+        for title in ["Network Engineer Intern", "Engenheiro de Redes Júnior", "Estagiário de Redes", "Jr. Network Engineer"]:
+            self.assertEqual(score(title).seniority_status, "Junior / Entry Level", title)
+
+    def test_profile_junior_boosters_mark_title_as_junior(self):
+        """A profile's junior_boosters count as junior markers in the title (word-bounded), on top of the built-in ones."""
+        desc = "Empresa procura Network Engineer para projetos de redes, firewalls Fortinet, VPN IPsec e Linux. Trabalho em equipa multidisciplinar com clientes. " * 2
+
+        def status(boosters, title):
+            profile = CandidateProfile(target_titles=["Network Engineer"], tech_stack=["fortinet"], junior_boosters=boosters, locations=["portugal"])
+            matcher = JobMatcher(profile=profile, enable_ai=False)
+            return matcher.evaluate_job(Job(
+                title=title, company="NetCorp", location="Lisboa, Portugal", work_mode="Híbrido",
+                link=f"https://example.com/{title}", description=desc, source="LinkedIn",
+                pub_date=datetime.date.today().isoformat()
+            ))
+
+        self.assertNotEqual(status([], "Graduate Network Engineer").seniority_status, "Junior / Entry Level")
+        with_booster = status(["graduate"], "Graduate Network Engineer")
+        self.assertEqual(with_booster.seniority_status, "Junior / Entry Level")
+        self.assertGreater(with_booster.score, 65.0)
+        # Word-bounded: an 'intern' booster must not match 'Internal'
+        self.assertNotEqual(status(["intern"], "Network Engineer (Internal IT)").seniority_status, "Junior / Entry Level")
 
     def test_teaching_formador_disqualification(self):
         """Verifies that Professor/Formador/Teaching roles are strictly disqualified."""

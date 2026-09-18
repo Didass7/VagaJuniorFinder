@@ -1,6 +1,7 @@
 import os
 import re
 import glob
+import html
 import hashlib
 from datetime import datetime
 import pandas as pd
@@ -21,6 +22,15 @@ STATUS_CONFIG = {
 
 STATUS_OPTIONS = ["Por Candidatar", "Candidatado", "Entrevista", "Rejeitado", "Desqualificada"]
 STATUS_DISPLAY_OPTIONS = ["🔴 Por Candidatar", "🟢 Candidatado", "🔵 Entrevista", "⚪ Rejeitado", "🟠 Desqualificada"]
+
+def esc(value) -> str:
+    """HTML-escapes scraped / Notion values before interpolating them into unsafe_allow_html markup."""
+    return html.escape("" if value is None else str(value), quote=True)
+
+def safe_href(url) -> str:
+    """Escaped link that only allows http(s) URLs (blocks javascript: and similar schemes)."""
+    url = "" if url is None else str(url).strip()
+    return esc(url) if url.lower().startswith(("http://", "https://")) else "#"
 
 def status_to_display(s: str) -> str:
     return STATUS_CONFIG.get(s, {}).get("display", f"⚪ {s}" if s else "🔴 Por Candidatar")
@@ -314,7 +324,7 @@ def render_dashboard(active_profile: str):
             f"""
             <div style="margin-bottom: 4px;">
                 <h1 style="font-size: 24px; font-weight: 800; margin: 0; color: #F8FAFC; letter-spacing: -0.5px;">Feed de Oportunidades</h1>
-                <div style="font-size: 13px; color: #94A3B8; margin-top: 2px;">Vagas qualificadas com inteligência artificial para <b style="color: #E2E8F0;">{active_profile}</b></div>
+                <div style="font-size: 13px; color: #94A3B8; margin-top: 2px;">Vagas qualificadas com inteligência artificial para <b style="color: #E2E8F0;">{esc(active_profile)}</b></div>
             </div>
             """,
             unsafe_allow_html=True
@@ -519,7 +529,7 @@ def render_dashboard(active_profile: str):
                 score_gradient = "linear-gradient(135deg, #475569, #64748B)"
                 score_label = "OK"
 
-            company_initial = row['company'][:2].upper() if row['company'] else "EM"
+            company_initial = esc(row['company'][:2].upper()) if row['company'] else "EM"
             avatar_bg = get_avatar_gradient(row['company'])
 
             tech_chips = extract_tech_chips(f"{row['title']} {row.get('ai_reasoning', '')}")
@@ -543,11 +553,11 @@ def render_dashboard(active_profile: str):
                     st.markdown(
                         f"""
                         <div style="line-height: 1.3; overflow: hidden; padding-right: 6px;">
-                            <a href="{row['link']}" target="_blank" style="text-decoration: none; color: #F8FAFC; font-weight: 700; font-size: 13.5px; letter-spacing: -0.2px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; display: block;">
-                                {row['title']} <span style="font-size: 11px; color: #64748B; font-weight: normal;">↗</span>
+                            <a href="{safe_href(row['link'])}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; color: #F8FAFC; font-weight: 700; font-size: 13.5px; letter-spacing: -0.2px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; display: block;">
+                                {esc(row['title'])} <span style="font-size: 11px; color: #64748B; font-weight: normal;">↗</span>
                             </a>
                             <div style="color: #94A3B8; font-size: 11px; margin-top: 1px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">
-                                <b style="color: #E2E8F0;">{row['company']}</b> &nbsp;•&nbsp; {row['work_mode']} &nbsp;•&nbsp; {row['source']} &nbsp;•&nbsp; {row['seniority']}
+                                <b style="color: #E2E8F0;">{esc(row['company'])}</b> &nbsp;•&nbsp; {esc(row['work_mode'])} &nbsp;•&nbsp; {esc(row['source'])} &nbsp;•&nbsp; {esc(row['seniority'])}
                             </div>
                         </div>
                         """,
@@ -580,7 +590,7 @@ def render_dashboard(active_profile: str):
                         bg_c = st_cfg.get("bg", "rgba(55, 65, 81, 0.2)")
                         br_c = st_cfg.get("border", "rgba(255, 255, 255, 0.1)")
                         tx_c = st_cfg.get("text", "#E5E7EB")
-                        disp_st = status_to_display(row['status'])
+                        disp_st = esc(status_to_display(row['status']))
                         st.markdown(
                             f'<div style="background: {bg_c}; border: 1px solid {br_c}; color: {tx_c}; padding: 4px 8px; border-radius: 5px; font-size: 11px; font-weight: 600; text-align: center;">{disp_st}</div>',
                             unsafe_allow_html=True
@@ -590,7 +600,7 @@ def render_dashboard(active_profile: str):
 
                 # Row 2: Subtle AI note & Tech chips in one compact line
                 if row.get("ai_reasoning") or tech_html or iefp_badge_html:
-                    ai_text = f"<span style='color: #A5B4FC; font-weight: 600;'>Avaliação:</span> <i>{row['ai_reasoning']}</i>" if row.get("ai_reasoning") else ""
+                    ai_text = f"<span style='color: #A5B4FC; font-weight: 600;'>Avaliação:</span> <i>{esc(row['ai_reasoning'])}</i>" if row.get("ai_reasoning") else ""
                     chips_html = f"<div style='display: flex; gap: 4px; flex-shrink: 0; align-items: center;'>{iefp_badge_html}{tech_html}</div>" if (iefp_badge_html or tech_html) else ""
                     st.markdown(
                         f"<div style='display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; padding-top: 4px; border-top: 1px solid rgba(255, 255, 255, 0.05); font-size: 11px; color: #94A3B8;'><div style='overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;'>{ai_text}</div>{chips_html}</div>",

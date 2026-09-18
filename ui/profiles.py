@@ -2,6 +2,7 @@ import os
 import json
 import glob
 import streamlit as st
+from core.config import default_profile_name
 
 PROFILES_DIR = "profiles"
 
@@ -32,6 +33,14 @@ def save_profile_data(profile_name: str, data: dict) -> bool:
         st.error(f"Erro ao guardar perfil: {e}")
         return False
 
+def merge_profile_form(data: dict, candidate_fields: dict, notion_id: str) -> dict:
+    """Applies the form's fields on top of the stored profile, keeping fields the form doesn't edit
+    (e.g. preferred_locations, preferred_location_bonus, per-profile thresholds)."""
+    updated = dict(data)
+    updated["candidate"] = {**data.get("candidate", {}), **candidate_fields}
+    updated["notion_database_id"] = notion_id
+    return updated
+
 def render_profiles():
     st.markdown(
         """
@@ -51,7 +60,7 @@ def render_profiles():
     with col_sel:
         selected_profile = st.selectbox(
             "Selecionar Perfil",
-            options=profiles if profiles else ["diogo"],
+            options=profiles if profiles else [default_profile_name()],
             index=0 if profiles else 0,
             key="profile_select_box"
         )
@@ -66,6 +75,7 @@ def render_profiles():
                 if new_name and f"{new_name}.json" not in [os.path.basename(p) for p in glob.glob(os.path.join(PROFILES_DIR, "*.json"))]:
                     if clone_from != "Em Branco":
                         base_data = load_profile_data(clone_from)
+                        base_data.pop("enabled", None)  # A clone of a paused profile starts active
                     else:
                         base_data = {
                             "candidate": {
@@ -169,8 +179,9 @@ def render_profiles():
             def parse_csv(text: str) -> list[str]:
                 return [x.strip() for x in text.split(",") if x.strip()]
 
-            updated_data = {
-                "candidate": {
+            updated_data = merge_profile_form(
+                data,
+                {
                     "name": name.strip(),
                     "email": email.strip(),
                     "degree": degree.strip(),
@@ -182,8 +193,8 @@ def render_profiles():
                     "junior_boosters": parse_lines(junior_boosters_text),
                     "locations": parse_lines(locations_text)
                 },
-                "notion_database_id": notion_id.strip()
-            }
+                notion_id.strip()
+            )
 
             if save_profile_data(selected_profile, updated_data):
                 st.success(f"Perfil '{selected_profile}' guardado com sucesso.")

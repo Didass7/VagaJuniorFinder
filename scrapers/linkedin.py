@@ -388,7 +388,9 @@ class LinkedInScraper(BaseScraper):
                 logger.debug(f"LinkedIn direct page fallback failed for {clean_link}: {page_err}")
 
         # Fallback 3: Clean structured description
+        fetch_failed = False
         if not desc or len(desc) < 80:
+            fetch_failed = True
             desc = f"{title} na empresa {company} ({location}). Oportunidade de emprego publicada no LinkedIn Jobs Portugal com foco em tecnologia e engenharia informática."
 
         work_mode = "Remoto" if any(r in f"{title} {location} {desc}".lower() for r in ["remoto", "remote", "teletrabalho"]) else "Presencial / Híbrido"
@@ -396,7 +398,7 @@ class LinkedInScraper(BaseScraper):
         return Job(
             title=title, company=company, location=location,
             work_mode=work_mode, link=clean_link, description=desc,
-            source="LinkedIn", pub_date=pub_date
+            source="LinkedIn", pub_date=pub_date, fetch_failed=fetch_failed
         )
 
     def fetch(self) -> List[Job]:

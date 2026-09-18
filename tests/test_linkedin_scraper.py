@@ -54,6 +54,27 @@ class TestLinkedInAndEncoding(unittest.TestCase):
         self.assertEqual(job.title, "Junior AI Engineer")
         self.assertEqual(job.company, "AI Labs")
         self.assertIn("LinkedIn Jobs Portugal", job.description)
+        # Detail couldn't be loaded: flagged so the pipeline retries it instead of marking it seen
+        self.assertTrue(job.fetch_failed)
+
+    def test_linkedin_fetch_detail_success_not_flagged(self):
+        """Verifies that a job whose description loads is not flagged as fetch_failed."""
+        scraper = LinkedInScraper(is_seen_func=lambda t, c, link="": False)
+        card_info = {
+            "title": "Junior Network Engineer",
+            "clean_link": "https://www.linkedin.com/jobs/view/1122334455",
+            "company": "NetCorp",
+            "location": "Lisboa, Portugal",
+            "pub_date": "2026-09-10"
+        }
+        html = '<div class="show-more-less-html__markup">' + ("Configuração de firewalls Fortinet e redes IPsec. " * 5) + '</div>'
+        session_mock = MagicMock()
+        session_mock.get.return_value = MagicMock(status_code=200, text=html)
+        scraper.session = session_mock
+
+        job = scraper._fetch_detail_job(card_info)
+        self.assertFalse(job.fetch_failed)
+        self.assertIn("Fortinet", job.description)
 
     def test_decode_response_content_windows_1252_meta_tag(self):
         """Verifies that HTML declaring ISO-8859-1 is decoded cleanly as Windows-1252 without replacement characters."""

@@ -87,8 +87,8 @@ VagaJuniorFinder/
 ├── .env.example              # Template de variáveis de ambiente
 ├── README.md                 # Documentação do projeto
 ├── profiles/                 # Perfis de candidatos em formato JSON
-│   ├── diogo.json            # Perfil: Diogo Oliveira (AI & Data)
-│   ├── rafael.json           # Perfil: Rafael (Cibersegurança & Redes)
+│   ├── diogo.json            # Perfil: Diogo Oliveira (AI & Data) — em pausa
+│   ├── rafael.json           # Perfil: Rafael Cruz (NetDevOps, Cibersegurança & Redes)
 │   └── tiago.json            # Perfil: Tiago Alves (Software & Backend)
 ├── tests/                    # Suite de testes unitários automatizados (56 testes)
 │   └── test_suite.py
@@ -164,18 +164,20 @@ python main.py --dry-run
 
 ### 3. Execução de um Perfil Específico
 ```bash
-# Executa com o perfil ativo por omissão (diogo)
+# Executa com o perfil por omissão (o primeiro perfil ativo em profiles/ por ordem alfabética)
 python main.py
 
-# Executa com outro perfil específico (ex: rafael)
-$env:ACTIVE_PROFILE="rafael"; python main.py
+# Executa com outro perfil específico (ex: tiago)
+$env:ACTIVE_PROFILE="tiago"; python main.py
 ```
 
 ### 4. Execução de Todos os Perfis em Lote (`run_all.py`)
-Percorre sequencialmente todos os perfis configurados na pasta `profiles/`:
+Percorre sequencialmente todos os perfis ativos da pasta `profiles/`:
 ```bash
 python run_all.py
 ```
+
+Para pôr um perfil em pausa sem o apagar (ex: o candidato já arranjou emprego), acrescenta `"enabled": false` no topo do JSON do perfil. Para o reativar, muda para `true` ou remove a linha.
 
 ### 5. Executar a Suite de Testes Unitários
 ```bash
@@ -200,6 +202,6 @@ O projeto inclui o workflow [`.github/workflows/daily_job_search.yml`](.github/w
 ---
 
 ## 👤 Perfis Suportados
-- **Diogo Oliveira** (`diogo.json`): Junior AI Engineer, Junior Data Scientist, Machine Learning Engineer, RAG/LLM Developer, Python Backend.
-- **Rafael** (`rafael.json`): Junior Cybersecurity Analyst, Administrador de Sistemas & Redes Júnior, SOC Analyst, IT Support Specialist.
+- **Diogo Oliveira** (`diogo.json`) — *em pausa* (`"enabled": false`): Junior AI Engineer, Junior Data Scientist, Machine Learning Engineer, RAG/LLM Developer, Python Backend.
+- **Rafael Cruz** (`rafael.json`): NetDevOps / Network Automation Engineer, SecDevOps Engineer, Junior Cybersecurity / SOC Analyst, Junior Network Engineer.
 - **Tiago Alves** (`tiago.json`): Junior Software Engineer, Full Stack Developer, Junior Backend Developer.

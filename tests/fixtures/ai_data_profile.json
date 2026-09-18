@@ -1,8 +1,7 @@
 {
-  "enabled": false,
   "candidate": {
-    "name": "Diogo Oliveira",
-    "email": "diogon.oliveira1@gmail.com",
+    "name": "Candidato de Teste (AI & Data)",
+    "email": "teste@example.com",
     "degree": "Licenciatura em Engenharia Informática (IPCB-ESTCB | Média 15/20)",
     "iefp_eligible": true,
     "languages": [
@@ -121,6 +120,5 @@
       "hybrid",
       "híbrido"
     ]
-  },
-  "notion_database_id": ""
+  }
 }

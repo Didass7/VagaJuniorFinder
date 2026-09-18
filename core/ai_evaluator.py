@@ -1,4 +1,5 @@
 import json
+import math
 import re
 import time
 import logging
@@ -8,6 +9,12 @@ from core.config import CandidateProfile, config
 from scrapers import Job
 
 logger = logging.getLogger(__name__)
+
+# Provider cooldown after all candidate models fail; batches wait it out instead of skipping AI.
+PROVIDER_COOLDOWN_SECONDS = 60.0
+# Stop calling the AI for the rest of a run after this many consecutive batches get no verdict
+# (e.g. daily quota exhausted); the remaining jobs stay pending and are retried next run.
+MAX_CONSECUTIVE_FAILED_BATCHES = 3
 
 def clean_analysis_text(text: str) -> str:
     """Removes all emojis and repetitive prefix markers (e.g. 'Adequada (71%): Adequada:') returning clean natural text."""
@@ -99,12 +106,17 @@ class AIEvaluator:
         results: Dict[str, AIEvaluationResult] = {}
         total_batches = (len(jobs) + batch_size - 1) // batch_size
         logger.info(f"🤖 Starting AI batch evaluation: {len(jobs)} jobs across {total_batches} batches via {self.active_provider}...")
-        
+        consecutive_failed = 0
+
         # Split jobs into chunks of batch_size
         for batch_num, i in enumerate(range(0, len(jobs), batch_size), 1):
+            if consecutive_failed >= MAX_CONSECUTIVE_FAILED_BATCHES:
+                logger.warning(f"⛔ AI gave no verdict for {consecutive_failed} consecutive batches. Stopping AI evaluation; {len(jobs) - i} remaining jobs left pending for the next run.")
+                break
             chunk = jobs[i : i + batch_size]
             chunk_results = self._process_single_batch(chunk, profile)
             results.update(chunk_results)
+            consecutive_failed = 0 if chunk_results else consecutive_failed + 1
             logger.info(f"🤖 Evaluated batch {batch_num}/{total_batches} ({len(chunk_results)}/{len(chunk)} jobs processed).")
 
         return results
@@ -121,14 +133,14 @@ class AIEvaluator:
                 self._gemini_cooldown_until - now if self._gemini_client else 9999,
                 self._groq_cooldown_until - now if self._groq_client else 9999
             )
-            if 0 < min_cooldown <= 5.0:
-                logger.info(f"⏳ Pausing {int(min_cooldown + 1)}s for AI rate-limit reset...")
+            if 0 < min_cooldown <= PROVIDER_COOLDOWN_SECONDS:
+                logger.info(f"⏳ Both AI engines (Gemini/Groq) in rate-limit cooldown. Pausing {int(min_cooldown + 1)}s for reset...")
                 time.sleep(min_cooldown + 1.0)
                 now = time.time()
                 gemini_ready = self._gemini_client is not None and now >= self._gemini_cooldown_until
                 groq_ready = self._groq_client is not None and now >= self._groq_cooldown_until
             else:
-                logger.info("⏳ Both AI engines (Gemini/Groq) in rate-limit cooldown. Using Stage 1 Heuristic Scoring for this batch.")
+                logger.info("⏳ Both AI engines (Gemini/Groq) unavailable. Leaving this batch pending.")
                 return {}
 
         # 1. Prefer Gemini if ready (matches active_provider and configured ai_model_name)
@@ -230,8 +242,8 @@ class AIEvaluator:
                     logger.warning(f"Groq model '{model}' issue ({e}). Trying next Groq model...")
                     continue
 
-        logger.warning("⏳ All Groq candidate models exhausted / rate limited. Setting Groq cooldown for 60s...")
-        self._groq_cooldown_until = time.time() + 60.0
+        logger.warning(f"⏳ All Groq candidate models exhausted / rate limited. Setting Groq cooldown for {PROVIDER_COOLDOWN_SECONDS:.0f}s...")
+        self._groq_cooldown_until = time.time() + PROVIDER_COOLDOWN_SECONDS
         return {}
 
     def _evaluate_batch_with_gemini(self, batch: List[Job], profile: CandidateProfile) -> Dict[str, AIEvaluationResult]:
@@ -284,8 +296,8 @@ class AIEvaluator:
                     logger.warning(f"⚠️ Gemini model '{model}' issue ({e}). Trying next candidate...")
                     continue
 
-        logger.warning("⏳ All Gemini candidate models exhausted / rate limited. Setting Gemini cooldown for 60s...")
-        self._gemini_cooldown_until = time.time() + 60.0
+        logger.warning(f"⏳ All Gemini candidate models exhausted / rate limited. Setting Gemini cooldown for {PROVIDER_COOLDOWN_SECONDS:.0f}s...")
+        self._gemini_cooldown_until = time.time() + PROVIDER_COOLDOWN_SECONDS
         return {}
 
     def _parse_batch_json_response(self, raw_json: str, batch: List[Job]) -> Dict[str, AIEvaluationResult]:
@@ -319,36 +331,64 @@ class AIEvaluator:
                     logger.error(f"Failed to parse batch AI JSON response: {e1}")
                     return results
 
-        try:
-            evals = data.get("evaluations", []) if isinstance(data, dict) else data
-            
-            if not isinstance(evals, list):
-                evals = []
+        evals = data.get("evaluations", []) if isinstance(data, dict) else data
+        if not isinstance(evals, list):
+            evals = []
 
-            for item in evals:
-                if not isinstance(item, dict):
+        # Each item is parsed on its own so one malformed evaluation doesn't drop the rest of the batch
+        for item in evals:
+            if not isinstance(item, dict):
+                continue
+            try:
+                idx = int(item.get("job_index"))
+                if not 0 <= idx < len(batch):
                     continue
-                idx = item.get("job_index")
-                if idx is not None and 0 <= idx < len(batch):
-                    target_job = batch[idx]
-                    raw_reason = clean_analysis_text(str(item.get("reasoning", "")))
-                    words = raw_reason.split()
-                    if len(words) > 25:
-                        raw_reason = " ".join(words[:24]) + "..."
+                target_job = batch[idx]
+                raw_reason = clean_analysis_text(str(item.get("reasoning", "")))
+                words = raw_reason.split()
+                if len(words) > 25:
+                    raw_reason = " ".join(words[:24]) + "..."
 
-                    results[target_job.job_id] = AIEvaluationResult(
-                        is_suitable=bool(item.get("is_suitable", False)),
-                        fit_score=float(item.get("fit_score", 0.0)),
-                        seniority_detected=str(item.get("seniority_detected", "Desconhecido")),
-                        reasoning=raw_reason,
-                        pros=list(item.get("pros", [])),
-                        cons=list(item.get("cons", []))
-                    )
-
-        except Exception as e:
-            logger.error(f"Failed processing AI evaluations data: {e}")
+                results[target_job.job_id] = AIEvaluationResult(
+                    is_suitable=self._parse_bool(item.get("is_suitable", False)),
+                    fit_score=self._parse_score(item.get("fit_score", 0.0)),
+                    seniority_detected=str(item.get("seniority_detected", "Desconhecido")),
+                    reasoning=raw_reason,
+                    pros=self._parse_list(item.get("pros")),
+                    cons=self._parse_list(item.get("cons"))
+                )
+            except (TypeError, ValueError) as e:
+                logger.warning(f"Skipping malformed AI evaluation item {item!r}: {e}")
 
         return results
+
+    @staticmethod
+    def _parse_score(value: Any) -> float:
+        """Accepts 85, 85.0, "85", "85%" or "85,5"; raises ValueError for anything else."""
+        if isinstance(value, bool):
+            raise ValueError(f"invalid fit_score {value!r}")
+        if isinstance(value, (int, float)):
+            score = float(value)
+        else:
+            score = float(str(value).strip().rstrip("%").strip().replace(",", "."))
+        if not math.isfinite(score):
+            raise ValueError(f"invalid fit_score {value!r}")
+        return score
+
+    @staticmethod
+    def _parse_bool(value: Any) -> bool:
+        """LLMs sometimes return booleans as strings; bool("false") would be True."""
+        if isinstance(value, str):
+            return value.strip().lower() in ("true", "sim", "yes", "1")
+        return bool(value)
+
+    @staticmethod
+    def _parse_list(value: Any) -> List[str]:
+        if value is None:
+            return []
+        if isinstance(value, str):
+            return [value]
+        return [str(v) for v in value] if isinstance(value, list) else [str(value)]
 
     def _build_batch_prompt(self, batch: List[Job], profile: CandidateProfile) -> str:
         tech_stack_str = ", ".join(profile.tech_stack)
@@ -381,6 +421,9 @@ class AIEvaluator:
         pref_locs = getattr(profile, 'preferred_locations', [])
         pref_locs_str = ", ".join(pref_locs[:10]) if pref_locs else ""
         pref_loc_line = f"- Localizações de Máxima Preferência (Bónus Extra): {pref_locs_str}\n" if pref_locs_str else ""
+        # Location bonus rules only apply to profiles that define preferred locations
+        pref_loc_rule = f" Se a vaga for nas zonas de preferência do candidato ({pref_locs_str}), atribui um bónus de +10% a +15% no `fit_score`." if pref_locs_str else ""
+        max_score_note = "ou até 100% se tiver localização preferencial ou IEFP" if pref_locs_str else "ou até 100% se for elegível para IEFP"
 
         return f"""
 És um especialista em recrutamento técnico e matching de perfis de Engenharia / TI.
@@ -411,8 +454,8 @@ REGRAS DE AVALIAÇÃO PARA CADA VAGA:
    - REJEIÇÃO OBRIGATÓRIA DE ÁREAS TOTALMENTE INCOMPATÍVEIS: Se a vaga exigir primariamente funções ou stacks totalmente não relacionadas com o perfil do candidato e NÃO tiver sobreposição real com as suas competências, DEVES OBRIGATORIAMENTE REJEITÁ-LA (`is_suitable: false`, `fit_score: 0`, `reasoning: "Função ou stack tecnológica incompatível com o perfil do candidato"`). NUNCA inventes tecnologias que não constem do anúncio!
    - Se a vaga tiver sobreposição real com a área ou tecnologias do candidato, atribui pontuação de 65% a 95%.
 4. Línguas Suportadas: O candidato domina: {languages_str}. Se a vaga exigir expressamente idiomas NÃO falados pelo candidato (ex: {unsupported_languages_str}, "in Wort und Schrift", termos como Praktikant/Werkstudent/(m/w/d) sem opção 100% em inglês), deves OBRIGATORIAMENTE REJEITÁ-LA (`is_suitable: false`, `fit_score: 0`, `reasoning: "Exige idioma não falado pelo candidato"`).
-5. Localização/Residência: O candidato reside em Portugal. Se a vaga for presencial noutro país ou tiver restrição geográfica remota exclusiva para residentes noutros países/regiões (ex: EUA, Reino Unido, LATAM, Brasil, México, Peru, Chile, Canadá, Índia, APAC, fuso horário EST/PST sem opção para Portugal/Europa), deves OBRIGATORIAMENTE REJEITÁ-LA (`is_suitable: false`, `fit_score: 0`, `reasoning: "Vaga remota com restrição geográfica a outros países"`). Se a vaga for nas zonas de preferência do candidato (ex: Alentejo, Évora, Borba, etc.), atribui um bónus de +10% a +15% no `fit_score`.
-6. Atribui uma pontuação de adequação (`fit_score`) de 0 a 100%. Vagas adequadas para júnior devem ter pontuação entre 60% e 95% (ou até 100% se tiver localização preferencial/Alentejo ou IEFP).
+5. Localização/Residência: O candidato reside em Portugal. Se a vaga for presencial noutro país ou tiver restrição geográfica remota exclusiva para residentes noutros países/regiões (ex: EUA, Reino Unido, LATAM, Brasil, México, Peru, Chile, Canadá, Índia, APAC, fuso horário EST/PST sem opção para Portugal/Europa), deves OBRIGATORIAMENTE REJEITÁ-LA (`is_suitable: false`, `fit_score: 0`, `reasoning: "Vaga remota com restrição geográfica a outros países"`).{pref_loc_rule}
+6. Atribui uma pontuação de adequação (`fit_score`) de 0 a 100%. Vagas adequadas para júnior devem ter pontuação entre 60% e 95% ({max_score_note}).
 7. Justificação (reasoning):
 
    - Escreve uma frase direta, concisa e profissional em Português (10 a 20 palavras).

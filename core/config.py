@@ -1,6 +1,8 @@
 from __future__ import annotations
 import os
+import glob
 import json
+import functools
 import tomllib
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Any
@@ -58,6 +60,24 @@ class AppConfig:
     min_blended_score: float = 50.0
     ai_batch_size: int = 4
 
+def is_profile_enabled(profile_path: str) -> bool:
+    """False only when the profile JSON sets "enabled": false (paused, e.g. the candidate got a job)."""
+    try:
+        with open(profile_path, "r", encoding="utf-8") as f:
+            return json.load(f).get("enabled", True) is not False
+    except Exception:
+        return True  # Unreadable profiles aren't skipped silently; main.py reports the problem
+
+@functools.lru_cache(maxsize=1)
+def _first_profile_on_disk() -> str:
+    profile_files = sorted(glob.glob(os.path.join("profiles", "*.json")))
+    candidates = [p for p in profile_files if is_profile_enabled(p)] or profile_files
+    return os.path.splitext(os.path.basename(candidates[0]))[0] if candidates else "default"
+
+def default_profile_name() -> str:
+    """ACTIVE_PROFILE if set, otherwise the first enabled profile in profiles/ (alphabetical)."""
+    return os.getenv("ACTIVE_PROFILE", "").strip().lower() or _first_profile_on_disk()
+
 def load_config(profile_name: Optional[str] = None) -> AppConfig:
     cfg = AppConfig()
     
@@ -78,13 +98,17 @@ def load_config(profile_name: Optional[str] = None) -> AppConfig:
         if "min_blended_score" in scoring_cfg: cfg.min_blended_score = float(scoring_cfg["min_blended_score"])
         if "ai_batch_size" in scoring_cfg: cfg.ai_batch_size = int(scoring_cfg["ai_batch_size"])
 
+    # Environment overrides config.toml (e.g. ENABLE_NOTION_SYNC=false for a local test run)
+    env_notion_sync = os.getenv("ENABLE_NOTION_SYNC", "").strip().lower()
+    if env_notion_sync:
+        cfg.enable_notion_sync = env_notion_sync in ("1", "true", "yes", "on")
+
     # 2. Load from Profile JSON
-    active_profile = profile_name or os.getenv("ACTIVE_PROFILE", "diogo")
+    active_profile = profile_name or default_profile_name()
     profile_path = os.path.join("profiles", f"{active_profile}.json")
     
     # Make cache file specific to the profile (respect explicit CACHE_FILE env var if set)
-    if not os.getenv("CACHE_FILE"):
-        cfg.cache_file = os.path.join("data", f"jobs_cache_{active_profile}.json")
+    cfg.cache_file = os.getenv("CACHE_FILE") or os.path.join("data", f"jobs_cache_{active_profile}.json")
     os.makedirs(os.path.dirname(cfg.cache_file) or "data", exist_ok=True)
     
     if os.path.exists(profile_path):
@@ -119,7 +143,7 @@ def load_config(profile_name: Optional[str] = None) -> AppConfig:
 _config_cache = {}
 
 def get_current_config() -> AppConfig:
-    profile = os.getenv("ACTIVE_PROFILE", "diogo").strip().lower()
+    profile = default_profile_name()
     if profile not in _config_cache:
         _config_cache[profile] = load_config(profile)
     return _config_cache[profile]

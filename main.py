@@ -19,7 +19,8 @@ if sys.stdout.encoding != 'utf-8':
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)]
+    handlers=[logging.StreamHandler(sys.stdout)],
+    force=True  # Replace any handler an imported module may have installed
 )
 logger = logging.getLogger("VagaJuniorFinder")
 
@@ -61,7 +62,8 @@ def run_pipeline(
     match_engine = matcher if matcher is not None else JobMatcher(profile=config.candidate)
     scored_jobs = match_engine.process_jobs(new_jobs)
 
-    logger.info(f"✅ Evaluated: {len(scored_jobs)} qualified jobs out of {len(new_jobs)} new jobs.")
+    qualified_count = sum(1 for sj in scored_jobs if not sj.ai_pending)
+    logger.info(f"✅ Evaluated: {qualified_count} qualified jobs out of {len(new_jobs)} new jobs.")
 
     if dry_run:
         logger.info("ℹ️ Dry-run mode active. Skipping Notion sync and seen-store update.")
@@ -79,19 +81,26 @@ def run_pipeline(
                 logger.info(f"📝 Synced {synced_new} brand-new jobs to Notion ({already_in_db} were already in Notion database).")
             else:
                 logger.info("ℹ️ Notion sync disabled.")
-                successful_job_ids = {sj.job.job_id for sj in scored_jobs}
+                successful_job_ids = {sj.job.job_id for sj in scored_jobs if not sj.ai_pending}
 
-            # Mark as seen ONLY jobs that were filtered out OR successfully synced
+            # Mark as seen ONLY jobs that were filtered out OR successfully synced.
+            # Jobs whose details failed to load are never marked, so a transient block doesn't discard them.
             scored_job_ids = {sj.job.job_id for sj in scored_jobs}
-            jobs_to_mark = [j.job_id for j in new_jobs if j.job_id not in scored_job_ids or j.job_id in successful_job_ids]
+            jobs_to_mark = [j.job_id for j in new_jobs if not j.fetch_failed and (j.job_id not in scored_job_ids or j.job_id in successful_job_ids)]
         except Exception as e:
             logger.error(f"❌ Error during Notion sync: {e}")
             # On sync failure, still mark disqualified jobs as seen to avoid re-processing
             scored_job_ids = {sj.job.job_id for sj in scored_jobs}
-            jobs_to_mark = [j.job_id for j in new_jobs if j.job_id not in scored_job_ids]
+            jobs_to_mark = [j.job_id for j in new_jobs if not j.fetch_failed and j.job_id not in scored_job_ids]
         finally:
             seen.mark_seen(jobs_to_mark)
             seen.save()
+            retry_count = len(new_jobs) - len(jobs_to_mark)
+            if retry_count:
+                fetch_failed = sum(1 for j in new_jobs if j.fetch_failed)
+                ai_pending = sum(1 for sj in scored_jobs if sj.ai_pending)
+                not_synced = retry_count - fetch_failed - ai_pending
+                logger.info(f"🔁 {retry_count} jobs left unseen for retry next run ({fetch_failed} failed to load, {ai_pending} without AI verdict, {not_synced} not synced to Notion).")
 
     logger.info("==================================================")
     logger.info("✅ VagaJuniorFinder Pipeline Finished Successfully")

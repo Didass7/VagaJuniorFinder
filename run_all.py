@@ -2,6 +2,12 @@ import os
 import glob
 import subprocess
 import sys
+from core.config import is_profile_enabled
+
+# Hard cap per profile. A scraper thread that never returns keeps main.py alive even after the
+# scraping deadline (Python joins worker threads at exit), which would starve the remaining
+# profiles until the 6h GitHub Actions limit. Normal runs take ~30 min per profile.
+PROFILE_TIMEOUT_SECONDS = 90 * 60
 
 def main():
     # Resolve project root from this script's location (not CWD)
@@ -13,12 +19,16 @@ def main():
         print(f"Directory '{profiles_dir}' not found!")
         return
         
-    profile_files = sorted(glob.glob(os.path.join(profiles_dir, "*.json")))
-    
+    all_profile_files = sorted(glob.glob(os.path.join(profiles_dir, "*.json")))
+    profile_files = [p for p in all_profile_files if is_profile_enabled(p)]
+    paused = [os.path.splitext(os.path.basename(p))[0] for p in all_profile_files if p not in profile_files]
+    if paused:
+        print(f"Skipping paused profiles (\"enabled\": false): {', '.join(paused)}")
+
     if not profile_files:
-        print("No profiles found in the profiles directory.")
+        print("No active profiles found in the profiles directory.")
         return
-        
+
     print(f"Found {len(profile_files)} profiles to process.")
         
     failed_profiles = []
@@ -37,7 +47,10 @@ def main():
         
         try:
             # Run main.py using the current python executable, forwarding CLI arguments
-            subprocess.run([sys.executable, main_script, *sys.argv[1:]], env=env, cwd=project_root, check=True)
+            subprocess.run([sys.executable, main_script, *sys.argv[1:]], env=env, cwd=project_root, check=True, timeout=PROFILE_TIMEOUT_SECONDS)
+        except subprocess.TimeoutExpired:
+            print(f"\n[ ERROR ] Pipeline for {profile_name} exceeded {PROFILE_TIMEOUT_SECONDS // 60} min and was killed.")
+            failed_profiles.append(profile_name)
         except subprocess.CalledProcessError as e:
             print(f"\n[ ERROR ] Error running pipeline for {profile_name}: {e}")
             failed_profiles.append(profile_name)

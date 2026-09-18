@@ -138,7 +138,7 @@ class NotionStore:
         """Syncs new scored jobs to Notion Database. Returns set of successfully synced job IDs."""
         if not self.is_configured:
             logger.info("ℹ️ Notion token or database ID not configured. Skipping Notion sync.")
-            return {sj.job.job_id for sj in scored_jobs}
+            return {sj.job.job_id for sj in scored_jobs if not sj.ai_pending}
 
         if threshold is None:
             threshold = getattr(config, "promising_match_threshold", 55.0)
@@ -148,6 +148,10 @@ class NotionStore:
         successful_job_ids: Set[str] = set()
 
         for sj in scored_jobs:
+            # No AI verdict yet: don't sync and don't report as handled, so it is retried next run
+            if sj.ai_pending:
+                continue
+
             if sj.score < threshold:
                 successful_job_ids.add(sj.job.job_id)
                 continue

@@ -8,7 +8,7 @@ from core.config import CandidateProfile, config
 from core.ai_evaluator import AIEvaluator
 from core.matcher.scoring import ScoredJob, clean_analysis_text, calculate_score
 from core.matcher.filtering import check_hard_disqualifiers
-from core.matcher.rules import COMPANY_HISTORY_PATTERN, PORTUGAL_LOCATIONS
+from core.matcher.rules import COMPANY_HISTORY_PATTERN, PORTUGAL_LOCATIONS, EXPLICIT_JUNIOR_TITLE_PATTERN, build_strict_pattern
 
 logger = logging.getLogger("Matcher")
 
@@ -30,6 +30,9 @@ class JobMatcher:
             self.ai_evaluator = ai_evaluator
         else:
             self.ai_evaluator = AIEvaluator()
+
+        # Profile-specific junior title markers, on top of the built-in EXPLICIT_JUNIOR_TITLE_PATTERN
+        self.junior_booster_patterns = [build_strict_pattern(b) for b in (profile.junior_boosters or []) if b.strip()]
 
         self.promising_threshold = promising_threshold if promising_threshold is not None else getattr(config, "promising_match_threshold", 55.0)
         self.min_blended_score = min_blended_score if min_blended_score is not None else getattr(config, "min_blended_score", 50.0)
@@ -59,7 +62,7 @@ class JobMatcher:
         if disqualified:
             return disqualified
 
-        is_explicit_junior = any(j_term in title_lower for j_term in ["junior", "jr", "estágio", "estagio", "trainee", "graduate program", "entry level", "intern"])
+        is_explicit_junior = bool(EXPLICIT_JUNIOR_TITLE_PATTERN.search(title_lower)) or any(p.search(title_lower) for p in self.junior_booster_patterns)
         is_explicit_zero_to_one = any(b in text for b in ["recém-licenciado", "recem licenciado", "recém licenciado", "0-1", "recent graduate", "fresh graduate", "recém-graduado", "recem-graduado", "0 a 1 ano", "0 to 1 year"])
         has_verified_junior_indicator = is_explicit_junior or job.iefp_mentioned or is_explicit_zero_to_one
 
@@ -111,6 +114,7 @@ class JobMatcher:
             final_scored_jobs: List[ScoredJob] = []
             ai_accepted = 0
             ai_rejected = 0
+            ai_pending = 0
 
             for sj in heuristic_candidates:
                 ai_res = ai_results.get(sj.job.job_id)
@@ -158,25 +162,15 @@ class JobMatcher:
                     final_scored_jobs.append(sj)
                     ai_accepted += 1
                 else:
-                    text_c = f"{sj.job.title} {sj.job.description}".lower()
-                    if "iefp" in text_c or "ativar.pt" in text_c:
-                        sj.seniority_status = "Elegível IEFP"
-                    elif "estágio" in text_c or "estagio" in text_c or "trainee" in text_c:
-                        sj.seniority_status = "Estágio"
-                    elif "recém-licenciado" in text_c or "recem-licenciado" in text_c or "0-1" in text_c:
-                        sj.seniority_status = "Recém-Licenciado"
-                    else:
-                        sj.seniority_status = "Júnior Potencial"
-                        
-                    if "[TRUNCADO]" in sj.job.title:
-                        sj.seniority_status = "Requer Verificação (Truncado)"
-                        sj.score = min(sj.score, 50.0)
-
-                    if not sj.ai_reasoning:
-                        sj.ai_reasoning = f"Avaliação Heurística: Vaga adequada para perfil Júnior ({', '.join(sj.matched_skills[:3]) if sj.matched_skills else 'Target Role'})"
+                    # AI is enabled but gave no verdict (rate limit / malformed response): never let the
+                    # job through on heuristics alone. Returned as pending so it is neither synced nor seen.
+                    sj.ai_pending = True
+                    sj.seniority_status = "Avaliação IA Pendente"
+                    sj.ai_reasoning = "Avaliação IA indisponível nesta execução; será reavaliada na próxima."
                     final_scored_jobs.append(sj)
+                    ai_pending += 1
 
-            logger.info(f"🤖 Stage 2 AI Summary: {ai_accepted} accepted, {ai_rejected} rejected as non-junior/unsuitable.")
+            logger.info(f"🤖 Stage 2 AI Summary: {ai_accepted} accepted, {ai_rejected} rejected as non-junior/unsuitable, {ai_pending} pending (no AI verdict, retried next run).")
             if include_disqualified:
                 final_scored_jobs.extend(disqualified_jobs)
             final_scored_jobs.sort(key=lambda x: x.score, reverse=True)

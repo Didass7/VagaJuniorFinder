@@ -16,7 +16,7 @@ from core.config import config
 
 warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+# No logging.basicConfig here: entry points (main.py, scripts, scheduler) configure logging themselves
 logger = logging.getLogger("Scraper")
 
 # Suppress noisy internal urllib3 retry warnings
@@ -315,6 +315,9 @@ class Job:
     iefp_mentioned: bool = False
     job_id: str = ""
     fetched_at: str = ""
+    # True when the full description could not be fetched (e.g. portal rate-limit); such jobs
+    # are not marked as seen so the next run retries them instead of discarding them.
+    fetch_failed: bool = False
 
     def __post_init__(self):
         self.company = clean_company_name(self.company)

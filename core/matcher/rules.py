@@ -46,6 +46,12 @@ PHD_REQUIREMENT_PATTERN = re.compile(
     re.IGNORECASE
 )
 
+# Explicit junior / entry-level markers in job titles (word-bounded so 'Internal'/'International' don't count as 'Intern')
+EXPLICIT_JUNIOR_TITLE_PATTERN = re.compile(
+    r"\b(?:j[uú]nior|jr|trainee|intern(?:s|ship)?|est[aá]gi\w*|entry[\s-]level|graduate\s+program)\b",
+    re.IGNORECASE
+)
+
 # Mandatory Non-English/Portuguese Language Requirements Pattern
 MANDATORY_OTHER_LANGUAGES_PATTERN = re.compile(
     r"\b(?:native|fluent|fluently|fluency|fluency\s+in|fluent\s+in|proficiency\s+in|proficient\s+in|spoken|speaking|must\s+speak|knowledge\s+of)\s*(?:(?:in\s+)?(?:both\s+)?(?:english\s+(?:and|&|/|or)\s+|inglês\s+(?:e|ou)\s+|ingles\s+(?:e|ou)\s+))?(?:german|deutsch|french|français|francais|spanish|español|espanhol|dutch|nederlands|italian|italiano)\b|"

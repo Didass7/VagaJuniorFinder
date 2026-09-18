@@ -2,7 +2,7 @@ import os
 import sys
 import html
 import streamlit as st
-from core.config import config, load_config
+from core.config import config, load_config, default_profile_name
 from ui.dashboard import render_dashboard
 from ui.runner import render_runner
 from ui.profiles import render_profiles, get_available_profiles, load_profile_data
@@ -54,7 +54,8 @@ def get_last_selected_profile(available_profiles: list[str]) -> str:
                     return saved
         except Exception:
             pass
-    return "diogo" if "diogo" in available_profiles else (available_profiles[0] if available_profiles else "diogo")
+    default_profile = default_profile_name()
+    return default_profile if default_profile in available_profiles else (available_profiles[0] if available_profiles else default_profile)
 
 def save_last_selected_profile(profile_name: str):
     if not profile_name:
@@ -95,7 +96,7 @@ def main():
 
         selected_profile = st.selectbox(
             "Candidato Ativo",
-            options=profiles if profiles else ["diogo"],
+            options=profiles if profiles else [default_profile_name()],
             index=default_idx,
             key="sidebar_active_profile"
         )

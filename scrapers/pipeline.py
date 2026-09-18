@@ -1,7 +1,7 @@
 from __future__ import annotations
 import logging
 from typing import List, Dict, Optional, Any
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FuturesTimeoutError
 import requests
 from .base import Job, get_session
 from .linkedin import LinkedInScraper
@@ -21,6 +21,10 @@ from .sapo import SapoScraper
 from .teamlyzer import TeamlyzerScraper
 
 logger = logging.getLogger("Scraper")
+
+# Overall deadline for the scraping phase. Generous on purpose: LinkedIn alone runs ~570 searches per
+# profile. Scrapers still running at the deadline are abandoned so the jobs already collected get scored.
+SCRAPERS_DEADLINE_SECONDS = 45 * 60
 
 class JobIngestionPipeline:
     """Aggregates all structured job portal scrapers concurrently and deduplicates jobs."""
@@ -74,27 +78,33 @@ class JobIngestionPipeline:
         scraper_results: Dict[str, int] = {}
         failed_scrapers: List[str] = []
 
-        with ThreadPoolExecutor(max_workers=len(scrapers)) as executor:
-            future_to_scraper = {executor.submit(func): name for name, func in scrapers}
-            for future in as_completed(future_to_scraper):
+        # Not a `with` block: its exit would wait for a hung scraper, defeating the deadline
+        executor = ThreadPoolExecutor(max_workers=len(scrapers))
+        future_to_scraper = {executor.submit(func): name for name, func in scrapers}
+        try:
+            for future in as_completed(future_to_scraper, timeout=SCRAPERS_DEADLINE_SECONDS):
                 scraper_name = future_to_scraper[future]
                 try:
-                    res = future.result(timeout=240.0)
+                    res = future.result()
                     all_jobs.extend(res)
                     scraper_results[scraper_name] = len(res)
-                except TimeoutError:
-                    logger.error(f"[{scraper_name}] ⏰ Timed out after 240s — scraper hung or blocked. Skipping.")
-                    scraper_results[scraper_name] = -1
-                    failed_scrapers.append(scraper_name)
                 except Exception as e:
                     logger.error(f"[{scraper_name}] Execution error during concurrent fetch: {e}")
                     scraper_results[scraper_name] = -1
                     failed_scrapers.append(scraper_name)
+        except FuturesTimeoutError:
+            for future, scraper_name in future_to_scraper.items():
+                if not future.done():
+                    logger.error(f"[{scraper_name}] ⏰ Still running after {SCRAPERS_DEADLINE_SECONDS // 60} min — scraper hung or blocked. Skipping its results.")
+                    scraper_results[scraper_name] = -1
+                    failed_scrapers.append(scraper_name)
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
 
         # Report per-scraper health
         for name, count in scraper_results.items():
             if count == -1:
-                logger.warning(f"⚠️ [{name}] FAILED — threw an exception during fetch.")
+                logger.warning(f"⚠️ [{name}] FAILED — threw an exception or exceeded the deadline during fetch.")
             elif count == 0:
                 logger.info(f"ℹ️ [{name}] returned 0 jobs for current queries/filters.")
 
